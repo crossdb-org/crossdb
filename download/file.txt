@@ -1,7 +1,0 @@
-crossdb.h
-cross-cli.exe
-cross-cli
-crossdb.dll
-python connector
-examples
-webgui
