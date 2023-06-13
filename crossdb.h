@@ -1,3 +1,22 @@
+/*
+ * Copyright 2022-2023 CrossDB.ORG. All rights reserved.
+ *
+ *   https://crossdb.org
+ *   https://github.com/crossdb-org/crossdb
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #ifndef __CROSS_DB_H__
 #define __CROSS_DB_H__
 
@@ -141,31 +160,31 @@ typedef struct cross_field_t {
 
 /* DB DDL flags
  */
-// DB Storage mode, default is CROSS_DB_ONDISK
-#define	CROSS_DB_ONDISK 		(0<<0)	// DB is on persistent disk, survive with power cycle
-#define	CROSS_DB_RAMDISK		(1<<0)	// DB is on ramdisk/tmpfs/ramfs, survive with process restart, lose after power cycle
-#define	CROSS_DB_INMEM 			(2<<0)	// DB is in memory, survie when process is runnig, lose after process terminates
+// DB Storage mode, default is CROSS_ONDISK
+#define	CROSS_ONDISK 			(0<<0)	// DB is on persistent disk, survive with power cycle
+#define	CROSS_RAMDISK			(1<<0)	// DB is on ramdisk/tmpfs/ramfs, survive with process restart, lose after power cycle
+#define	CROSS_INMEM 			(2<<0)	// DB is in memory, survie when process is runnig, lose after process terminates
 
-// DB Access mode, default is CROSS_DB_EXCLUSIVE
-#define	CROSS_DB_EXCLUSIVE 		(0<<2)	// DB is used exclusively by single process
-#define	CROSS_DB_SHARED 		(1<<2)	// DB is shared by multiple processes
+// DB Access mode, default is CROSS_EXCLUSIVE
+#define	CROSS_EXCLUSIVE 		(0<<2)	// DB is used exclusively by single process
+#define	CROSS_SHARED 			(1<<2)	// DB is shared by multiple processes
 
-// DB Lock mode, default is CROSS_DB_AUTOLOCK
-#define	CROSS_DB_AUTOLOCK 		(0<<3)	// DB will do lock automatically
-//#define	CROSS_DB_NOLOCK 		(1<<3)	// TBD: User is responsible for call locking APIs
+// DB Lock mode, default is CROSS_AUTOLOCK
+#define	CROSS_AUTOLOCK 			(0<<3)	// DB will do lock automatically
+//#define	CROSS_NOLOCK 		(1<<3)	// TBD: User is responsible for call locking APIs
 
-#define	CROSS_DB_OPEN			(1<<4)	// don't create if not exist
+#define	CROSS_OPEN				(1<<4)	// don't create if not exist
 
 // Index Type
-#define	CROSS_DB_HASH			(0<<8)	// hash index
-#define	CROSS_DB_RBTREE			(1<<8)	// rbtree index
+#define	CROSS_HASH				(0<<8)	// hash index
+#define	CROSS_RBTREE			(1<<8)	// rbtree index
 // Unique index
-#define	CROSS_DB_UNIQUE			(1<<11)	// unique index
+#define	CROSS_UNIQUE			(1<<11)	// unique index
 
 
 /* DB DML flags
  */
-#define	CROSS_DB_REUSE			(1<<16)	// reuse handle
+#define	CROSS_REUSE				(1<<16)	// reuse handle
 
 
 /******************************************************************************

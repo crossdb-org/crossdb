@@ -205,7 +205,7 @@ int main ()
 
 	// Reuse cursor to get routes where nexthop=10.1.2.254
 	route.nexthop	= IP4ADDR(10,1,2,254);
-	count = cross_dbQueryRows (hRtTbl, &hCursor, "nexthop", &route, CROSS_DB_REUSE);
+	count = cross_dbQueryRows (hRtTbl, &hCursor, "nexthop", &route, CROSS_REUSE);
 	EXPECT (count, 2, "  Query nexthop=10.1.2.254 routes");
 	while (CROSS_OK == cross_cursorGetNextRow (hCursor, &route, 0)) {
 		DUMP_ROUTE ("    route: ", route);
@@ -213,7 +213,7 @@ int main ()
 
 	// Reuse cursor to get routes where nexthop!=10.1.2.254
 	route.nexthop	= IP4ADDR(10,1,2,254);
-	count = cross_dbQueryRows (hRtTbl, &hCursor, "nexthop!=", &route, CROSS_DB_REUSE);
+	count = cross_dbQueryRows (hRtTbl, &hCursor, "nexthop!=", &route, CROSS_REUSE);
 	EXPECT (count, 1, "  Query nexthop!=10.1.2.254 routes");
 	while (CROSS_OK == cross_cursorGetNextRow (hCursor, &route, 0)) {
 		DUMP_ROUTE ("    route: ", route);
