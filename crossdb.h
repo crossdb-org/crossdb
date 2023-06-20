@@ -39,6 +39,7 @@ typedef enum {
 	CROSS_E_PARAM 		= -2,
 	CROSS_E_NOTFOUND 	= -4,
 	CROSS_E_EXISTS 		= -5,
+	CROSS_E_MEMORY		= -20,
 } cross_ret;
 
 const char *cross_errMsg (cross_ret ret);
@@ -275,7 +276,17 @@ cross_ret cross_dbTransBegin (cross_db_h hDb, uint32_t flags);
 cross_ret cross_dbTransCommit (cross_db_h hDb, uint32_t flags);
 
 // Rollback Transaction
+
 cross_ret cross_dbTransRollback (cross_db_h hDb, uint32_t flags);
+
+
+/******************************************************************************
+	CrossDB Misc APIs
+******************************************************************************/
+
+cross_ret	cross_fieldsCreate (cross_tbl_h hTbl, cross_fields_h *phFlds, const char *FldsStr, uint32_t flags);
+
+void	cross_fieldsFree (cross_fields_h hFlds);
 
 #ifdef __cplusplus
 }

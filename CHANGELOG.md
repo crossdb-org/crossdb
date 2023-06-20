@@ -1,5 +1,16 @@
 # Change Log
 
+## 0.4.0 <small>(2023-06-20)</small> {#0.4.0}
+
+Features
+
+- Support FreeBSD(X64)
+- Optimize insert/update/query/delete performance
+- Add new API `cross_fieldsCreate` and `cross_fieldsFree`
+
+Bug Fixes
+
+
 ## 0.3.0 <small>(2023-06-13)</small> {#0.3.0}
 
 Features
