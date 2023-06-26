@@ -53,8 +53,8 @@ typedef int				cross_rowid;
 typedef void*			cross_db_h;
 typedef void*			cross_tbl_h;
 typedef void*			cross_cursor_h;
-typedef void*			cross_match_h;
 typedef void*			cross_fields_h;
+typedef void*			cross_match_h;
 
 
 /******************************************************************************
@@ -285,6 +285,8 @@ cross_ret cross_dbTransRollback (cross_db_h hDb, uint32_t flags);
 ******************************************************************************/
 
 cross_ret	cross_fieldsCreate (cross_tbl_h hTbl, cross_fields_h *phFlds, const char *FldsStr, uint32_t flags);
+
+cross_ret	cross_matchCreate (cross_tbl_h hTbl, cross_match_h *phMatch, const char *MatchStr, uint32_t flags);
 
 void	cross_fieldsFree (cross_fields_h hFlds);
 

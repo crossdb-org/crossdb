@@ -1,5 +1,17 @@
 # Change Log
 
+## 0.5.0 <small>(2023-06-26)</small> {#0.5.0}
+
+Features
+
+- CrossDB command line tool `crossdb-cli` is released
+- Optimize insert/update/query/delete performance
+- Add new API `cross_matchCreate` and `cross_matchFree`
+- DML APIs supports `cross_fields_h` and `cross_match_h`
+
+Bug Fixes
+
+
 ## 0.4.0 <small>(2023-06-20)</small> {#0.4.0}
 
 Features
