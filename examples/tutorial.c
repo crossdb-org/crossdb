@@ -29,11 +29,13 @@ cross_field_t 	route_schema[] = {
 
 int main (int argc, char **argv)
 {
-	cross_db_h 		hDb;
-	cross_tbl_h 	hRtTbl;
 	cross_ret 		ret;
 	route_t 		route;	
 	cross_rowid 	count;
+	cross_db_h 		hDb = NULL;
+	cross_tbl_h 	hRtTbl = NULL;
+	cross_fields_h	hFlagsFlds = NULL;
+	cross_match_h	hNexthopMat = NULL, hNexthopNeMat = NULL;
 
 	#define CHECK(ret,str)		if (ret < 0) {	printf (str": %s\n", cross_errMsg(ret)); return -1; }
 	#define EXPECT(val,exp,str)	if (val != exp) {	printf ("%s: %d != %d\n", str, val, exp); return -1; } \
@@ -73,9 +75,6 @@ int main (int argc, char **argv)
 	// Delete all rows
 	cross_dbDeleteRows (hRtTbl, NULL, NULL, 0);
 
-
-	cross_fields_h	hFlagsFlds = NULL;
-	cross_match_h	hNexthopMat = NULL, hNexthopNeMat = NULL;
 	ret = cross_fieldsCreate (hRtTbl, &hFlagsFlds, "flags", 0);
 	CHECK (ret, "Failed to create fields: flags");
 	ret = cross_matchCreate (hRtTbl, &hNexthopMat, "nexthop", 0);

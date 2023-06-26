@@ -4,8 +4,12 @@
 	</a>
 </p>
 <p align="center">
-	<strong>High Performance Embedded Database Development Framework</strong>
+	<strong>The Fastest Embedded Database</strong>
 </p>
+
+## CrossDB CLI
+
+![img](https://crossdb.org/images/crossdb-cli.gif)
 
 ## CrossDB Model
 

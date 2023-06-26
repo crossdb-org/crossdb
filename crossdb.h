@@ -285,10 +285,10 @@ cross_ret cross_dbTransRollback (cross_db_h hDb, uint32_t flags);
 ******************************************************************************/
 
 cross_ret	cross_fieldsCreate (cross_tbl_h hTbl, cross_fields_h *phFlds, const char *FldsStr, uint32_t flags);
+void		cross_fieldsFree (cross_fields_h hFlds);
 
 cross_ret	cross_matchCreate (cross_tbl_h hTbl, cross_match_h *phMatch, const char *MatchStr, uint32_t flags);
-
-void	cross_fieldsFree (cross_fields_h hFlds);
+void		cross_matchFree (cross_match_h hMatch);
 
 #ifdef __cplusplus
 }
