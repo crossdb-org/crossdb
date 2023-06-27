@@ -4,7 +4,7 @@
 	</a>
 </p>
 <p align="center">
-	<strong>The Fastest Embedded Database</strong>
+	<strong>The Fastest Embedded Database in the world</strong>
 </p>
 
 ## CrossDB CLI
