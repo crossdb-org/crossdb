@@ -7,6 +7,12 @@
 	<strong>The Fastest Embedded Database in the world</strong>
 </p>
 
+## [CrossDB vs. SQLite3 Benchmark](https://crossdb.org/blog/benchmark/crossdb-vs-sqlite3/)
+
+<a href="https://crossdb.org/blog/benchmark/crossdb-vs-sqlite3/">
+<img src="https://crossdb.org/images/benchmark/crossdb-vs-sqlite-ramdisk-large.png">
+</a>
+
 ## CrossDB CLI
 
 ![img](https://crossdb.org/images/crossdb-cli.gif)
