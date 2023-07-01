@@ -13,6 +13,12 @@
 <img src="https://crossdb.org/images/benchmark/crossdb-vs-sqlite-ramdisk-large.png">
 </a>
 
+## [CrossDB vs. CPP STL Map Benchmark](https://crossdb.org/blog/benchmark/crossdb-vs-stlmap/)
+
+<a href="https://crossdb.org/blog/benchmark/crossdb-vs-stlmap/">
+<img src="https://crossdb.org/images/benchmark/crossdb-vs-stlmap-large.png">
+</a>
+
 ## CrossDB CLI
 
 ![img](https://crossdb.org/images/crossdb-cli.gif)
