@@ -19,6 +19,12 @@
 <img src="https://crossdb.org/images/benchmark/crossdb-vs-stlmap-large.png">
 </a>
 
+## [CrossDB vs. CPP STL Hashmap Benchmark](https://crossdb.org/blog/benchmark/crossdb-vs-stlhmap/)
+
+<a href="https://crossdb.org/blog/benchmark/crossdb-vs-stlhmap/">
+<img src="https://crossdb.org/images/benchmark/crossdb-vs-stlhmap-large.png">
+</a>
+
 ## CrossDB CLI
 
 ![img](https://crossdb.org/images/crossdb-cli.gif)
