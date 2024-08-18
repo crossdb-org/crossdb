@@ -1,6 +1,15 @@
 # Change Log
 
-## 0.5.0 <small>(2023-06-26)</small> {#0.5.0}
+## 0.6.0 <small>(2024-08-15)</small>
+
+- **Initial refactor release**
+
+- This project was redesigned and rewritten from scratch
+- Standard RDBMS model
+- New APIs which can support more languages
+
+
+## 0.5.0 <small>(2023-06-26)</small>
 
 Features
 
@@ -12,7 +21,7 @@ Features
 Bug Fixes
 
 
-## 0.4.0 <small>(2023-06-20)</small> {#0.4.0}
+## 0.4.0 <small>(2023-06-20)</small>
 
 Features
 
@@ -23,7 +32,7 @@ Features
 Bug Fixes
 
 
-## 0.3.0 <small>(2023-06-13)</small> {#0.3.0}
+## 0.3.0 <small>(2023-06-13)</small>
 
 Features
 
@@ -35,7 +44,7 @@ Bug Fixes
 - `cross_dbTblCreate` flags `CROSS_DB_RBTREE` doesn't create Primary Key Index type correctly
 
 
-## 0.2.0 <small>(2023-06-07)</small> {#0.2.0}
+## 0.2.0 <small>(2023-06-07)</small>
 
 Features
 
@@ -45,7 +54,7 @@ Features
 Bug Fixes
 
 
-## 0.1.0 <small>(2023-06-03)</small> {#0.1.0}
+## 0.1.0 <small>(2023-06-03)</small>
 
 - **Initial release**
 
