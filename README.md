@@ -9,7 +9,7 @@
 
 > **NOTE** 
 > This project was redesigned and rewritten from scratch.
-> It's still in early development stage, so please DO NOT use in your project now.
+> It's still in early development stage, so please **DO NOT** use in your project now.
 
 # Introduction
 
@@ -49,8 +49,10 @@ It's developed for high performance scenarios with main memory can hold whole DB
 
 ## Build and Install
 
+```
 make
 make install
+```
 
 ## Contribution
 In order to keep CrossDB quality and high-performance, this project does not 
