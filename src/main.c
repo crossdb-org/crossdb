@@ -18,12 +18,46 @@
 
 #include "crossdb.c"
 
+static char *s_xdb_banner_server = 
+"\n"
+"   _____                   _____  ____      _          \n"  
+"  / ____|                 |  __ \\|  _ \\   _| |_    CrossDB %s\n"
+" | |     _ __ ___  ___ ___| |  | | |_) | |_   _|   Port: %d \n"
+" | |    | '__/ _ \\/ __/ __| |  | |  _ <    |_|      \n"
+" | |____| | | (_) \\__ \\__ \\ |__| | |_) |          \n"
+"  \\_____|_|  \\___/|___/___/_____/|____/            https://crossdb.org\n\n";
+
+XDB_STATIC int
+xdb_start_server (const char *host, uint16_t port, const char *datadir, const char *options)
+{
+	printf (s_xdb_banner_server, xdb_version(), port);
+	
+	if (NULL == datadir) {
+		datadir = "/var/lib/crossdb";
+	}
+	xdb_mkdir (datadir);
+	
+	xdb_conn_t *pConn = xdb_open (NULL);
+	
+	xdb_mkdir (datadir);
+	
+	xdb_pexec (pConn, "OPEN DATADIR '%s'", datadir);
+	
+	xdb_pexec (pConn, "SET DATADIR='%s'", datadir);
+	
+	xdb_pexec (pConn, "CREATE SERVER crossdb PORT=%d", port);
+	
+	while (1) {
+		sleep (1000);
+	}	
+}
+
 int main (int argc, char **argv)
 {
 	char		*db = NULL;
 	char		ch;
 	bool		bServer = false, bNeedPasswd = false;
-	#ifdef XDB_ENABLE_SERVER
+	#if (XDB_ENABLE_SERVER == 1)
 	char		*datadir = NULL, *host = NULL, *user = NULL, *password = NULL;
 	int			port = 0;
 	#endif
@@ -34,7 +68,7 @@ int main (int argc, char **argv)
 		case '?':
 			printf ("Usage: xdb-cli [OPTIONS] [[path]/db_name]\n");
             printf ("  -?                        Show this help\n");
-		#ifdef XDB_ENABLE_SERVER
+		#if (XDB_ENABLE_SERVER == 1)
             printf ("  -S                        Server: Start in server mode\n");
             printf ("  -h <ip>                   IP address to bind to or connect to\n");
             printf ("  -P <port>                 Port to listen or connect\n");
@@ -44,7 +78,7 @@ int main (int argc, char **argv)
 		#endif // XDB_ENABLE_SERVER
             printf ("  -e <sql>                  Client: Execute command and quit.\n");
 			return -1;
-	#ifdef XDB_ENABLE_SERVER
+	#if (XDB_ENABLE_SERVER == 1)
 		case 'S':
 			bServer = true;
 			if (0 == port) {
@@ -77,7 +111,7 @@ int main (int argc, char **argv)
 	}
 
 	if (bServer) {
-	#ifdef XDB_ENABLE_SERVER
+	#if (XDB_ENABLE_SERVER == 1)
 		xdb_start_server (host, port, datadir, NULL);
 	#endif
 	} else {
@@ -87,7 +121,7 @@ int main (int argc, char **argv)
 		if ((argc > 1) && (*argv[argc-1] != '-') && (argc > 2 ? (*argv[argc-2] != '-') : 1)) {
 			db = argv[argc-1];
 		}
-	#ifdef XDB_ENABLE_SERVER
+	#if (XDB_ENABLE_SERVER == 1)
 		xdb_conn_t *pConn = xdb_connect (host, user, password, db, port);
 	#else
 		xdb_conn_t *pConn = xdb_open (db);

@@ -75,7 +75,7 @@ typedef struct xdb_conn_t {
 	char				*pNxtSql;
 	char				sql_buf[4096];
 
-#ifdef XDB_ENABLE_SERVER
+#if (XDB_ENABLE_SERVER == 1)
 	xdb_server_t		*pServer;
 #endif
 	xdb_rowset_t		row_set;

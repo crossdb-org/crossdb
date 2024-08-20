@@ -313,3 +313,19 @@ xdb_dump_create_table (xdb_tblm_t *pTblm, char buf[], xdb_size size, uint32_t fl
 
 	return len;
 }
+
+XDB_STATIC int 
+xdb_flush_table (xdb_tblm_t *pTblm, uint32_t flags)
+{
+	xdb_stg_sync (&pTblm->stg_mgr,    0, 0, false); 
+
+	int count = XDB_OBJM_MAX(pTblm->idx_objm);
+	for (int i = 0; i < count; ++i) {
+		xdb_idxm_t *pIdxm = XDB_OBJM_GET(pTblm->idx_objm, i);
+		if (NULL != pIdxm) {
+			xdb_flush_index (pIdxm);
+		}
+	}
+
+	return 0;
+}

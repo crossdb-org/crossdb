@@ -160,7 +160,7 @@ xdb_parse_close_db (xdb_conn_t* pConn, xdb_token_t *pTkn)
 {
 	xdb_stmt_db_t *pStmt = &pConn->stmt_union.db_stmt;
 	xdb_token_type type = xdb_next_token (pTkn);
-	pStmt->stmt_type = xdb_stmt_free_DB;
+	pStmt->stmt_type = XDB_STMT_CLOSE_DB;
 
 	XDB_EXPECT (type<=XDB_TOK_STR, XDB_E_STMT, "Miss database name");
 

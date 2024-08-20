@@ -51,6 +51,7 @@ xdb_trans_addrow (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, bool bNew
 		xdb_tbltrans_init (pTblTrans);
 	}
 	pTblTrans->pTblm = pTblm;
+	pTblTrans->pDbTrans = pDbTrans;
 
 	xdb_lv2bmp_set (&pDbTrans->tbl_rows, tbl_xoid);
 
@@ -166,6 +167,7 @@ xdb_wrlock_table (xdb_conn_t *pConn, xdb_tblm_t *pTblm)
 		XDB_EXPECT (NULL != pDbTrans, XDB_E_MEMORY, "No memory");
 		xdb_dbtrans_init (pDbTrans);
 	}
+	pDbTrans->pDbm = pTblm->pDbm;
 	pConn->pDbTrans[db_xoid] = pDbTrans;
 
 	if (xdb_lv2bmp_get (&pDbTrans->tbl_wrlocks, tbl_xoid)) {
@@ -282,6 +284,7 @@ xdb_trans_tbl_commit (uint32_t tid, void *pArg)
 
 	// iterate new rows -> commit
 	xdb_bmp_iterate (&pTblTrans->new_rows, xdb_trans_newrow_commit, pTblTrans);
+
 	// iterate del rows -> delete
 	xdb_bmp_iterate (&pTblTrans->del_rows, xdb_trans_delrow_commit, pTblTrans);
 
@@ -325,7 +328,10 @@ xdb_commit (xdb_conn_t *pConn)
 	}
 	xdb_dbglog ("commit transaction %s\n", pConn->bAutoTrans ? "AUTO" : "");
 
-	// TBD: write each DB wal first
+#if (XDB_ENABLE_WAL == 1)
+	// write wal for each DB
+	xdb_lv2bmp_iterate (&pConn->dbTrans_bmp, xdb_trans_db_wal, pConn);
+#endif
 
 	// commit each DB
 	xdb_lv2bmp_iterate (&pConn->dbTrans_bmp, xdb_trans_db_commit, pConn);

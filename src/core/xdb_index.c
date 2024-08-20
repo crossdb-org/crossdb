@@ -208,3 +208,9 @@ xdb_dump_create_index ()
 	}
 }
 #endif
+
+XDB_STATIC int 
+xdb_flush_index (xdb_idxm_t *pIdxm)
+{
+	return pIdxm->pIdxOps->idx_sync (pIdxm);
+}

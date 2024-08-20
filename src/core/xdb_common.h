@@ -45,6 +45,7 @@ typedef int	xdb_rowid;
 		pConn->conn_res.row_data = (uintptr_t)pConn->conn_msg.msg;	\
 		pConn->conn_msg.len = snprintf(pConn->conn_msg.msg, sizeof(pConn->conn_msg.msg)-1, errmsgfmt);	\
 		pConn->conn_msg.len_type = (XDB_RET_MSG<<28) | pConn->conn_msg.len;	\
+		pConn->conn_res.data_len = pConn->conn_msg.len;
 
 #define XDB_EXPECT_BRK(expr, code, errmsgfmt...)	\
 	if (!(expr)) {	\

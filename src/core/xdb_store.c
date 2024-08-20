@@ -379,3 +379,13 @@ xdb_stg_drop (xdb_stgmgr_t *pStgMgr, char *file)
 	}
 	return XDB_OK;
 }
+
+XDB_STATIC int 
+xdb_stg_sync (xdb_stgmgr_t *pStgMgr, xdb_size offset, xdb_size size, bool bAsync)
+{
+	int rc = pStgMgr->pOps->store_sync (pStgMgr->stg_fd, size, (void*)pStgMgr->pStgHdr + offset, bAsync);	
+	if (rc < 0) {
+		return rc;
+	}
+	return XDB_OK;
+}

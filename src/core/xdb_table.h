@@ -74,4 +74,7 @@ xdb_find_field (xdb_tblm_t *pTblm, const char *fld_name, int len);
 XDB_STATIC int 
 xdb_dump_create_table (xdb_tblm_t *pTblm, char buf[], xdb_size size, uint32_t flags);
 
+XDB_STATIC int 
+xdb_flush_table (xdb_tblm_t *pTblm, uint32_t flags);
+
 #endif // __XDB_TBL_H__

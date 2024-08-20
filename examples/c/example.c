@@ -159,6 +159,7 @@ int main (int argc, char **argv)
 		xdb_free_result (pRes);
 	}
 
+	// Embedded shell
 	xdb_exec (pConn, "SHELL");
 
 error:

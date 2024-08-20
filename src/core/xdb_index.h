@@ -26,6 +26,7 @@ typedef struct {
 	int (*idx_create) (struct xdb_idxm_t *pIdxm);
 	int (*idx_close) (struct xdb_idxm_t* pIdxm);
 	int (*idx_drop) (struct xdb_idxm_t* pIdxm);
+	int (*idx_sync) (struct xdb_idxm_t* pIdxm);
 } xdb_idx_ops;
 
 typedef struct xdb_idxm_t {

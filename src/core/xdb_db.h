@@ -21,26 +21,36 @@
 
 typedef struct xdb_dbm_t {
 	xdb_obj_t		obj;
-	struct xdb_dbHdr_t		*pDb;
 	char			db_path[XDB_PATH_LEN+1];
 	xdb_objm_t		db_objm;
 	xdb_stgmgr_t	stg_mgr;
 	bool			bMemory;
 	bool			bSysDb;
 	xdb_lockmode_t	lock_mode;
+	bool			db_dirty;
+
+#ifdef XDB_EANBLE_WAL
+	xdb_walm_t 			wal_mgmt1;
+	xdb_walm_t 			wal_mgmt2;
+	xdb_walm_t 			*pWalm;
+	xdb_walm_t 			*pWalmBak;
+	xdb_walrow_t		*pWalRow;
+#endif
+
+	xdb_rwlock_t	wal_lock;
 } xdb_dbm_t;
 
 typedef struct xdb_dbobj_t {
 	uint64_t	val[8];
 } xdb_dbobj_t;
 
-typedef struct xdb_dbHdr_t {
+typedef struct xdb_db_t {
 	xdb_stghdr_t	blk_hdr;
 	uint64_t		lsn;
 	uint8_t			lock_mode; // xdb_lockmode_t
 	uint8_t			rsvd[7];
 	xdb_dbobj_t 	dbobj[];
-} xdb_dbHdr_t;
+} xdb_db_t;
 
 XDB_STATIC xdb_dbm_t* 
 xdb_find_db (const char *name);

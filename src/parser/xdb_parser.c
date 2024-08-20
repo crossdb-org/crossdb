@@ -54,6 +54,9 @@ error:
 #include "xdb_parser_idx.c"
 #include "xdb_parser_tbl.c"
 #include "xdb_parser_dml.c"
+#if (XDB_ENABLE_SERVER == 1)
+#include "xdb_parser_svr.c"
+#endif
 
 XDB_STATIC xdb_stmt_t* 
 xdb_parse_use (xdb_conn_t* pConn, xdb_token_t *pTkn)
@@ -103,7 +106,7 @@ xdb_parse_create (xdb_conn_t* pConn, xdb_token_t *pTkn)
 		case 'S':
 		case 's':
 			if (!strcasecmp (pTkn->token, "SERVER")) {
-			#ifdef XDB_ENABLE_SERVER
+			#if (XDB_ENABLE_SERVER == 1)
 				return xdb_parse_create_server (pConn, pTkn);
 			#endif
 			}
@@ -293,7 +296,7 @@ xdb_parse_drop (xdb_conn_t* pConn, xdb_token_t *pTkn)
 		case 'S':
 		case 's':
 			if (!strcasecmp (pTkn->token, "SERVER")) {
-				#ifdef XDB_EANBLE_SERVER
+				#if (XDB_ENABLE_SERVER == 1)
 				return xdb_parse_drop_server (pConn, pTkn);
 				#endif
 			}

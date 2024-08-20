@@ -135,17 +135,17 @@ xdb_create_db (xdb_stmt_db_t *pStmt)
 	pDbm->bMemory = pStmt->bMemory;
 
 	xdb_stghdr_t stg_hdr = {.stg_magic = 0xE7FCFDFB, .blk_flags=1, .blk_size = sizeof(xdb_dbobj_t), 
-							.ctl_off = 0, .blk_off = XDB_OFFSET(xdb_dbHdr_t, dbobj)};
+							.ctl_off = 0, .blk_off = XDB_OFFSET(xdb_db_t, dbobj)};
 	pDbm->stg_mgr.pOps = pDbm->bMemory ? &s_xdb_store_mem_ops : &s_xdb_store_file_ops;
 	pDbm->stg_mgr.pStgHdr	= &stg_hdr;
 	int rc = xdb_stg_open (&pDbm->stg_mgr, path, NULL, NULL);
 	pDbm->lock_mode = pStmt->lock_mode;
 
-	xdb_dbHdr_t *pDbHdr = (xdb_dbHdr_t*)pDbm->stg_mgr.pStgHdr;
+	xdb_db_t *pDb = (xdb_db_t*)pDbm->stg_mgr.pStgHdr;
 	if (XDB_OK == rc) {
-		pDbHdr->lock_mode = pStmt->lock_mode;
+		pDb->lock_mode = pStmt->lock_mode;
 	} else if (0 == pDbm->lock_mode) {
-		pDbm->lock_mode = pDbHdr->lock_mode;
+		pDbm->lock_mode = pDb->lock_mode;
 	}
 
 	XDB_EXPECT (strlen(real_db_name) < sizeof (pDbm->db_path), XDB_E_PARAM, "Too long path");
@@ -298,5 +298,42 @@ xdb_gen_db_schema (xdb_dbm_t *pDbm)
 		sprintf (file, "%s/xdb.xql", pDbm->db_path);
 		xdb_dump_db_schema (pDbm, file);
 	}
+	return 0;
+}
+
+XDB_STATIC int 
+xdb_flush_db (xdb_dbm_t *pDbm, uint32_t flags)
+{
+#if (XDB_ENABLE_WAL == 1)
+	// Switch wal if has commit, then flush tables, afterward backup wal can be recycled
+	bool bSwitch = xdb_wal_switch (pDbm);
+#endif
+
+	// flush tables
+	int count = XDB_OBJM_MAX(pDbm->db_objm);
+	for (int i = 0; i < count; ++i) {
+		xdb_tblm_t *pTblm = XDB_OBJM_GET(pDbm->db_objm, i);
+		if (NULL != pTblm) {
+			xdb_flush_table (pTblm, flags);
+		}
+	}
+
+#if (XDB_ENABLE_WAL == 1)
+	// flush backup wal if switched
+	if (bSwitch) {
+		xdb_wal_wrlock (pDbm);
+		__xdb_wal_flush (pDbm->pWalmBak, false);
+		if (pDbm->pWalm->pWal->commit_size > sizeof (xdb_wal_t)) {
+			// Mark for next round flush
+			pDbm->db_dirty = true;
+		}
+		xdb_wal_wrunlock (pDbm);
+
+		// fsync may take long time, so do it out of wal lock
+		xdb_stg_sync (pDbm->pWalm,    0, 0, false);
+		xdb_stg_sync (pDbm->pWalmBak, 0, 0, false);
+	}
+#endif
+
 	return 0;
 }

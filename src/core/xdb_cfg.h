@@ -36,4 +36,9 @@
 
 #define XDB_PATH_LEN		256
 
+
+#ifndef XDB_ENABLE_SERVER
+#define XDB_ENABLE_SERVER 0
+#endif
+
 #endif // __CROSS_CFG_H__

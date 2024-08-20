@@ -25,6 +25,9 @@
 #include "xdb_time.c"
 #include "xdb_dynbuf.c"
 #include "xdb_thread.c"
+#if (XDB_ENABLE_SERVER == 1)
+#include "xdb_sock.c"
+#endif
 
 #if 0
 XDB_STATIC void 
@@ -57,7 +60,7 @@ xdb_hexdump (const void *addr, int len)
 	sigaction(SIGPIPE, &(struct sigaction){{SIG_IGN}}, NULL)
 	signal(SIGPIPE,SIG_IGN);
 */
-#ifdef XDB_ENABLE_SERVER
+#if (XDB_ENABLE_SERVER == 1)
 XDB_STATIC int 
 xdb_signal_block (int signum)
 {

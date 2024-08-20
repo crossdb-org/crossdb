@@ -422,6 +422,11 @@ xdb_hash_create (xdb_idxm_t *pIdxm)
 	return XDB_OK;
 }
 
+XDB_STATIC int 
+xdb_hash_sync (xdb_idxm_t *pIdxm)
+{
+	return 0;
+}
 
 static xdb_idx_ops s_xdb_hash_ops = {
 	.idx_add 	= xdb_hash_add,
@@ -429,5 +434,6 @@ static xdb_idx_ops s_xdb_hash_ops = {
 	.idx_query 	= xdb_hash_query,
 	.idx_create = xdb_hash_create,
 	.idx_drop 	= xdb_hash_drop,
-	.idx_close 	= xdb_hash_close
+	.idx_close 	= xdb_hash_close,
+	.idx_sync	= xdb_hash_sync
 };

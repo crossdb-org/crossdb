@@ -49,7 +49,7 @@ typedef struct xdb_objm_t {
 static inline void* 
 xdb_objm_getbyid (xdb_objm_t *pObjm, int xoid)
 {
-	return pObjm->ppObjPool[xoid];
+	return xoid < pObjm->obj_max ? pObjm->ppObjPool[xoid] : NULL;
 }
 
 XDB_STATIC void* 

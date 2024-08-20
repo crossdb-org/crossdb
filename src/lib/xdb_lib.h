@@ -107,13 +107,13 @@ typedef uint64_t				xdb_size;
 	#define XDB_FDFMT			"p"
 #endif
 
-#ifndef XDB_ENABLE_SERVER
+#if (XDB_ENABLE_SERVER==0)
 #define xdb_sock_close(fd)
 #endif
 
 #include "../3rd/wyhash.h"
 static inline uint64_t 
-xdb_wyhash(const void *key, int len)
+xdb_wyhash(const void *key, size_t len)
 {
 	static const uint64_t secret[] = {0xa0761d6478bd642fLL,0xe7037ed1a0b428dbLL,0x8ebc6af09c88c6e3LL,0x589965cc75374cc3LL};
 	return wyhash (key, len, 0x9E3779B97F4A7C16LL, secret);
@@ -124,7 +124,7 @@ xdb_strcasehash(const char *key, int len);
 
 //XDB_STATIC void xdb_hexdump (const void *addr, int len);
 
-#ifdef XDB_ENABLE_SERVER
+#if (XDB_ENABLE_SERVER == 1)
 XDB_STATIC int 
 xdb_signal_block (int signum);
 #endif

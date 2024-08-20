@@ -33,9 +33,15 @@
 #include "core/xdb_table.h"
 #include "core/xdb_index.h"
 #include "core/xdb_trans.h"
+#if (XDB_ENABLE_SERVER == 1)
+#include "server/xdb_server.h"
+#endif
 #include "core/xdb_conn.h"
 #include "admin/xdb_shell.h"
 #include "admin/xdb_backup.h"
+#if (XDB_ENABLE_WAL == 1)
+#include "core/xdb_wal.h"
+#endif
 
 #include "parser/xdb_parser.c"
 #include "core/xdb_store.c"
@@ -47,8 +53,15 @@
 #include "core/xdb_table.c"
 #include "core/xdb_trans.c"
 #include "core/xdb_conn.c"
+#if (XDB_ENABLE_SERVER == 1)
+#include "server/xdb_client.c"
+#include "server/xdb_server.c"
+#endif
 #include "core/xdb_sql.c"
-#ifdef XDB_ENABLE_JNI
+#if (XDB_ENABLE_WAL == 1)
+#include "core/xdb_wal.c"
+#endif
+#if (XDB_ENABLE_JNI == 1)
 #include "jni/xdb_jni.c"
 #endif
 #include "admin/xdb_shell.c"
@@ -83,7 +96,7 @@ int
 xdb_init ()
 {
 	if (!s_xdb_bInit) {
-#ifdef XDB_ENABLE_SERVER
+#if (XDB_ENABLE_SERVER == 1)
 		xdb_sock_init ();
 #endif
 		s_xdb_bInit = true;

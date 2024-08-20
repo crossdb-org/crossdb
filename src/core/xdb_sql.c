@@ -92,13 +92,13 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 				rc = xdb_drop_db (pStmtDb->pConn, pStmtDb->pDbm);
 			}
 			break;
-		case xdb_stmt_free_DB:
+		case XDB_STMT_CLOSE_DB:
 			{
 				xdb_stmt_db_t *pStmtDb = (xdb_stmt_db_t*)pStmt;
 				rc = xdb_close_db (pStmtDb->pConn, pStmtDb->pDbm);
 			}
 			break;
-		#ifdef XDB_EANBLE_SERVER
+		#if (XDB_ENABLE_SERVER == 1)
 		case XDB_STMT_CREATE_SVR:
 			rc = xdb_create_server ((xdb_stmt_svr_t*)pStmt);
 			break;
@@ -234,14 +234,14 @@ xdb_exec2 (xdb_conn_t *pConn, const char *sql, int len)
 		len = strlen (sql);
 	}
 
-#ifdef XDB_EANBLE_SERVER
+#if (XDB_ENABLE_SERVER == 1)
 	bool bLocal = true;
 	if (xdb_unlikely (pConn->conn_client)) {
 		// source | dump | shell | help
 		bLocal = xdb_is_local_stmt (sql);
 	}
 	if (xdb_unlikely (!bLocal)) {
-		pRes = xdb_exec_client ();
+		pRes = xdb_exec_client (pConn, sql, len);
 	} else 
 #endif
 	{
@@ -300,7 +300,7 @@ xdb_next_result (xdb_conn_t *pConn)
 	xdb_res_t	*pRes;
 
 	if (xdb_unlikely (pConn->conn_client)) {
-	#ifdef XDB_ENABLE_SERVER
+	#if (XDB_ENABLE_SERVER == 1)
 		if (pConn->status & XDB_STATUS_MORE_RESULTS) {
 			pRes = xdb_fetch_res_sock (pConn);
 		} else {
@@ -414,7 +414,7 @@ xdb_exec_out (xdb_conn_t *pConn, const char *sql, int len)
 	ts = xdb_timestamp_us() - ts;
 	do {
 		switch (pConn->res_format) {
-		#ifdef XDB_ENABLE_SERVER
+		#if (XDB_ENABLE_SERVER == 1)
 		case XDB_FMT_NATIVELE:
 		case XDB_FMT_NATIVEBE:
 			xdb_native_out (pConn, pRes);

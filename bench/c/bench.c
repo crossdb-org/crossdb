@@ -11,7 +11,7 @@ static void ts_beg() { s_last_ts = timestamp_us (); }
 static void ts_end (int count) 
 {
 	s_last_ts = timestamp_us() - s_last_ts; 
-	printf ("Use time %uns, QPS %d\n", (uint32_t)s_last_ts, (int)((uint64_t)count*1000000/s_last_ts)); 
+	printf ("Use time %uus, QPS %d\n", (uint32_t)s_last_ts, (int)((uint64_t)count*1000000/s_last_ts)); 
 }
 
 int main (int argc, char **argv)
@@ -107,8 +107,8 @@ int main (int argc, char **argv)
 			pRow = xdb_fetch_row (pRes);
 			if (NULL != pRow) {
 				count++;
-				xdb_free_result (pRes);
 			}
+			xdb_free_result (pRes);
 		}
 		ts_end(LKUP_COUNT);
 		if (count != LKUP_COUNT) {

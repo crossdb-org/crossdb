@@ -20,12 +20,14 @@
 #define __XDB_TRANS_H__
 
 typedef struct {
+	struct xdb_dbTrans_t *pDbTrans;
 	xdb_tblm_t *pTblm;
 	xdb_bmp_t	new_rows;
 	xdb_bmp_t	del_rows;
 } xdb_tblTrans_t;
 
-typedef struct {
+typedef struct xdb_dbTrans_t {
+	xdb_dbm_t		*pDbm;
 	xdb_lv2bmp_t	tbl_wrlocks;
 	xdb_lv2bmp_t	tbl_rdlocks;
 	xdb_lv2bmp_t	tbl_rows;
