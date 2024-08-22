@@ -128,7 +128,7 @@ typedef struct {
 	uint64_t	affected_rows;	// 3*8 INSERT/UPDATE/DELETE
 	uint64_t	insert_id;		// 4*8 INSERT
 	uint64_t	col_meta;		// 5*8 xdb_meta_t, <ptr:ptr off: 0 following is meta>
-	uint64_t	row_data;		// 6*8 xdb_rowlist_t, ptr: base ptr or error str or infomation xdb_msg_t
+	uint64_t	row_data;		// 6*8 xdb_rowlist_t, ptr: base ptr or error str or information xdb_msg_t
 	uint64_t	data_len;		// 7*8
 } xdb_res_t;
 
