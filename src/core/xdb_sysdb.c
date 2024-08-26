@@ -27,7 +27,7 @@ xdb_sysdb_add_db (xdb_dbm_t *pDbm)
 	xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "INSERT INTO databases (database,engine) VALUES('%s','%s')", 
 		XDB_OBJ_NAME(pDbm), pDbm->bMemory?"MEMORY":"MMAP");
 	if (pRes->errcode != XDB_E_NOTFOUND) {
-		XDB_CHECK(pRes, printf("Can't add to system table database %s\n", XDB_OBJ_NAME(pDbm)));
+		XDB_RESCHK(pRes, xdb_errlog("Can't add to system table database %s\n", XDB_OBJ_NAME(pDbm)));
 	}
 }
 
@@ -39,7 +39,7 @@ xdb_sysdb_del_db (xdb_dbm_t *pDbm)
 	}
 	xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "DELETE FROM databases WHERE database='%s'", XDB_OBJ_NAME(pDbm));
 	if (pRes->errcode != XDB_E_NOTFOUND) {
-		XDB_CHECK(pRes, printf("Can't del from system table database %s\n", XDB_OBJ_NAME(pDbm)));
+		XDB_RESCHK(pRes, xdb_errlog("Can't del from system table database %s\n", XDB_OBJ_NAME(pDbm)));
 	}
 }
 
@@ -54,7 +54,7 @@ xdb_sysdb_add_col (xdb_tblm_t *pTblm)
 		xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "INSERT INTO columns (database,table,column,type,len) VALUES('%s','%s','%s','%s',%d)", 
 			XDB_OBJ_NAME(pTblm->pDbm), XDB_OBJ_NAME(pTblm), XDB_OBJ_NAME(pFld), xdb_type2str (pFld->fld_type), pFld->fld_len);
 		if (pRes->errcode != XDB_E_NOTFOUND) {
-			XDB_CHECK(pRes, printf("Can't add to system table column %s %s %s\n", 
+			XDB_RESCHK(pRes, xdb_errlog("Can't add to system table column %s %s %s\n", 
 				XDB_OBJ_NAME(pTblm->pDbm), XDB_OBJ_NAME(pTblm), XDB_OBJ_NAME(pFld)));
 		}
 	}
@@ -85,7 +85,7 @@ xdb_sysdb_upd_tbl_schema (xdb_tblm_t *pTblm)
 	xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "UPDATE tables SET schema='%s' WHERE database='%s' AND table='%s'", 
 		buf, XDB_OBJ_NAME(pTblm->pDbm), XDB_OBJ_NAME(pTblm));
 	if (pRes->errcode != XDB_E_NOTFOUND) {
-		XDB_CHECK(pRes, printf("Can't update system table table schema %s\n", XDB_OBJ_NAME(pTblm->pDbm)));
+		XDB_RESCHK(pRes, xdb_errlog("Can't update system table table schema %s\n", XDB_OBJ_NAME(pTblm->pDbm)));
 	}
 }
 
@@ -101,7 +101,7 @@ xdb_sysdb_add_idx (xdb_idxm_t *pIdxm)
 	xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "INSERT INTO indexes (database,table,idx_key,type,col_list) VALUES('%s','%s','%s','%s','%s')",
 			XDB_OBJ_NAME(pTblm->pDbm), XDB_OBJ_NAME(pTblm), XDB_OBJ_NAME(pIdxm), "HASH", collist);
 	if (pRes->errcode != XDB_E_NOTFOUND) {
-		XDB_CHECK (pRes, printf("Can't add system table index '%s','%s','%s','%s','%s')\n", XDB_OBJ_NAME(pTblm->pDbm), XDB_OBJ_NAME(pTblm), XDB_OBJ_NAME(pIdxm), "HASH", collist));
+		XDB_RESCHK (pRes, xdb_errlog("Can't add system table index '%s','%s','%s','%s','%s')\n", XDB_OBJ_NAME(pTblm->pDbm), XDB_OBJ_NAME(pTblm), XDB_OBJ_NAME(pIdxm), "HASH", collist));
 	}
 	xdb_sysdb_upd_tbl_schema (pTblm);
 }
@@ -115,7 +115,7 @@ xdb_sysdb_del_idx (xdb_idxm_t *pIdxm)
 	xdb_tblm_t *pTblm = pIdxm->pTblm;
 	xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "DELETE FROM indexes WHERE database='%s' AND table='%s' AND idx_key='%s'",
 			XDB_OBJ_NAME(pTblm->pDbm), XDB_OBJ_NAME(pTblm), XDB_OBJ_NAME(pIdxm));
-	XDB_CHECK (pRes);
+	XDB_RESCHK (pRes);
 	xdb_sysdb_upd_tbl_schema (pTblm);
 }
 
@@ -144,7 +144,7 @@ xdb_sysdb_del_col (xdb_tblm_t *pTblm)
 		xdb_field_t *pFld = &pTblm->pFields[i];
 		xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "DELETE FROM columns WHERE database='%s' AND table='%s' AND column='%s'", 
 			XDB_OBJ_NAME(pTblm->pDbm), XDB_OBJ_NAME(pTblm), XDB_OBJ_NAME(pFld));
-		XDB_CHECK(pRes);
+		XDB_RESCHK(pRes);
 	}
 }
 
@@ -158,7 +158,7 @@ xdb_sysdb_add_tbl (xdb_tblm_t *pTblm, bool bAddTbl, bool bAddCol, bool bAddIdx)
 		xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "INSERT INTO tables (database,table,engine) VALUES('%s','%s','%s')", 
 			XDB_OBJ_NAME(pTblm->pDbm), XDB_OBJ_NAME(pTblm), pTblm->bMemory?"MEMORY":"MMAP");
 		if (pRes->errcode != XDB_E_NOTFOUND) {
-			XDB_CHECK(pRes, printf("Can't add system table table %s\n", XDB_OBJ_NAME(pTblm)));
+			XDB_RESCHK(pRes, xdb_errlog("Can't add system table table %s\n", XDB_OBJ_NAME(pTblm)));
 		}
 	}
 	if (bAddCol) {
@@ -178,7 +178,7 @@ xdb_sysdb_del_tbl (xdb_tblm_t *pTblm)
 	}
 	xdb_sysdb_del_col (pTblm);
 	xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "DELETE FROM tables WHERE database='%s' AND table='%s'", XDB_OBJ_NAME(pTblm->pDbm), XDB_OBJ_NAME(pTblm));
-	XDB_CHECK(pRes);
+	XDB_RESCHK(pRes);
 }
 
 XDB_STATIC int 
@@ -195,22 +195,22 @@ xdb_sysdb_init ()
 	s_xdb_sysdb_pConn = pConn;
 
 	xdb_res_t *pRes = xdb_exec (pConn, "CREATE DATABASE IF NOT EXISTS system ENGINE=MEMORY");
-	XDB_CHECK(pRes, printf ("Can't create system database\n"));
+	XDB_RESCHK(pRes, xdb_errlog ("Can't create system database\n"));
 
 	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS columns (database CHAR(64), table CHAR(64), column CHAR(64), type CHAR(8), len INT, PRIMARY KEY (database,table,column))");
 	// will update tables which doesn't exist yet
 	if (pRes->errcode != XDB_E_NOTFOUND) {
-		XDB_CHECK(pRes, printf ("Can't create system table columns\n"));
+		XDB_RESCHK(pRes, xdb_errlog ("Can't create system table columns\n"));
 	}
 
 	// will update indexes which doesn't exist yet
 	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS tables (database CHAR(64), table CHAR(64), engine CHAR(8), primary_key CHAR(255), total_rows INT, data_path CHAR(255), schema CHAR(16384), PRIMARY KEY (database,table))");
 	if (pRes->errcode != XDB_E_NOTFOUND) {
-		XDB_CHECK(pRes, printf ("Can't create system table tables\n"));
+		XDB_RESCHK(pRes, xdb_errlog ("Can't create system table tables\n"));
 	}
 
 	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS indexes (database CHAR(64), table CHAR(64), idx_key CHAR(64), type CHAR(8), col_list CHAR(255), PRIMARY KEY (database,table,idx_key))");
-	XDB_CHECK(pRes, printf ("Can't create system table indexes\n"));
+	XDB_RESCHK(pRes, xdb_errlog ("Can't create system table indexes\n"));
 
 	xdb_tblm_t *pTblm = xdb_find_table (s_xdb_sysdb_pConn->pCurDbm, "columns");
 	if (NULL != pTblm) {
@@ -222,7 +222,7 @@ xdb_sysdb_init ()
 	}
 
 	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS databases (database CHAR(64), engine CHAR(8), data_path CHAR(255), PRIMARY KEY (database))");
-	XDB_CHECK(pRes, printf ("Can't create system table databases\n"));
+	XDB_RESCHK(pRes, xdb_errlog ("Can't create system table databases\n"));
 
 	xdb_sysdb_add_db (pConn->pCurDbm);
 

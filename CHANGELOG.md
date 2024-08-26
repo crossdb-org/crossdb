@@ -1,5 +1,31 @@
 # Change Log
 
+## 0.7.0 <small>(2024-08-26)</small>
+
+**Features**
+
+- `UPDATE` SET clause supports simple expression, ex: `SET val=val+5` `SET val=a-b`
+- `UPDATE` SET supports prepared statement
+- `INSERT` supports prepared statement
+- New APIs: `xdb_bexec`, `xdb_vbexec`, `xdb_stmt_bexec`, `xdb_stmt_vexec`, `xdb_clear_bindings`
+
+**Improvements**
+
+- `INSERT` parser avoids malloc
+- `UPDATE` only updates affected indexes
+- Optimize `INSERT` `UPDATE` `DELETE` auto-commit performance for `IMDB` 
+
+**Test**
+
+- Improve benchmark test
+- Add `SQLite` benchmark test
+
+**Bug Fixes**
+
+- Fix hash index infinite loop issue
+- Fix bench test time unit `ns` to `us`
+
+
 ## 0.6.0 <small>(2024-08-15)</small>
 
 - **Initial refactor release**

@@ -64,6 +64,7 @@ xdb_parse_use (xdb_conn_t* pConn, xdb_token_t *pTkn)
 	xdb_token_type	type = xdb_next_token (pTkn);
 	xdb_stmt_db_t *pStmt = &pConn->stmt_union.db_stmt;;
 	pStmt->stmt_type = XDB_STMT_USE_DB;
+	pStmt->pSql = NULL;
 
 	XDB_EXPECT (XDB_TOK_ID == type, XDB_E_NOTFOUND, "Use DB miss database name");
 
@@ -152,6 +153,7 @@ xdb_parse_set (xdb_conn_t* pConn, xdb_token_t *pTkn)
 {
 	xdb_stmt_set_t *pStmt = &pConn->stmt_union.set_stmt;
 	pStmt->stmt_type = XDB_STMT_SET;
+	pStmt->pSql = NULL;
 	xdb_token_type	type;
 
 	do {
@@ -164,7 +166,7 @@ xdb_parse_set (xdb_conn_t* pConn, xdb_token_t *pTkn)
 		type = xdb_next_token (pTkn);
 		XDB_EXPECT (XDB_TOK_STR>=type, XDB_E_STMT, "Expect STRING");
 
-		//printf ("var: %s\n", var);
+		//xdb_print ("var: %s\n", var);
 		if (!strcasecmp (var, "DATADIR")) {
 			pStmt->datadir = pTkn->token;
 		} else if (!strcasecmp (var, "FORMAT")) {
@@ -186,6 +188,7 @@ xdb_parse_source (xdb_conn_t* pConn, xdb_token_t *pTkn)
 	xdb_stmt_backup_t *pStmt = &pConn->stmt_union.backup_stmt;
 	xdb_token_type type = xdb_next_token (pTkn);
 	pStmt->stmt_type = XDB_STMT_SOURCE;
+	pStmt->pSql = NULL;
 
 	XDB_EXPECT (XDB_TOK_STR>=type, XDB_E_STMT, "Miss file name");
 
@@ -203,6 +206,7 @@ xdb_parse_shell (xdb_conn_t* pConn, xdb_token_t *pTkn)
 	xdb_stmt_t *pStmt = &pConn->stmt_union.stmt;
 
 	pStmt->stmt_type = XDB_STMT_SHELL;
+	pStmt->pSql = NULL;
 
 	return (xdb_stmt_t*)pStmt;
 }
@@ -212,6 +216,7 @@ xdb_parse_desc (xdb_conn_t* pConn, xdb_token_t *pTkn)
 {
 	xdb_stmt_tbl_t *pStmt = &pConn->stmt_union.tbl_stmt;
 	pStmt->stmt_type = XDB_STMT_DESC;
+	pStmt->pSql = NULL;
 	xdb_token_type	type = xdb_next_token (pTkn);
 
 	XDB_EXPECT (XDB_TOK_ID==type, XDB_E_STMT, "Expect ID");
@@ -231,6 +236,7 @@ xdb_parse_show (xdb_conn_t* pConn, xdb_token_t *pTkn)
 	// show databases; show tables, show index, show columns, show create table
 	xdb_stmt_select_t *pStmt = &pConn->stmt_union.select_stmt;
 	pStmt->stmt_type = XDB_STMT_INVALID;
+	pStmt->pSql = NULL;
 	xdb_token_type	type = xdb_next_token (pTkn);
 
 	XDB_EXPECT (XDB_TOK_ID==type, XDB_E_STMT, "Expect ID");
@@ -353,6 +359,7 @@ xdb_parse_lock (xdb_conn_t* pConn, xdb_token_t *pTkn)
 {
 	xdb_stmt_lock_t *pStmt = &pConn->stmt_union.lock_stmt;
 	pStmt->stmt_type = XDB_STMT_LOCK;
+	pStmt->pSql = NULL;
 	XDB_EXPECT(pConn->bInTrans, XDB_E_CONSTRAINT, "Not in transaction");
 
 	// TBD
@@ -377,6 +384,7 @@ xdb_parse_help (xdb_conn_t* pConn, xdb_token_t *pTkn)
 	xdb_stmt_t *pStmt = &pConn->stmt_union.stmt;;
 	xdb_token_type	type = xdb_next_token (pTkn);
 	pStmt->stmt_type = XDB_STMT_HELP;
+	pStmt->pSql = NULL;
 
 	if (type >= XDB_TOK_END) {
 		fprintf (pConn->conn_stdout, "  CREATE\n  DROP\n  ALTER\n  INSERT\n  SELECT\n  UPDATE\n  DELETE\n  SHOW\n");
@@ -393,8 +401,9 @@ xdb_parse_explain (xdb_conn_t* pConn, xdb_token_t *pTkn)
 
 	if (! strcasecmp (pTkn->token, "SELECT")) {
 		xdb_stmt_t *pStmt = xdb_parse_select (pConn, pTkn, false);
-		pStmt->stmt_type = XDB_STMT_EXPLAIN;
 		if (NULL != pStmt) {
+			pStmt->stmt_type = XDB_STMT_EXPLAIN;
+			pStmt->pSql = NULL;
 			return pStmt;
 		}
 		XDB_SETERR (XDB_E_STMT, "Invalid SELECT statement");
@@ -450,7 +459,7 @@ xdb_sql_parse (xdb_conn_t* pConn, char **ppSql, bool bPStmt)
 		case 'I':
 		case 'i':
 			if (! strcasecmp (token.token, "INSERT")) {
-				pStmt = xdb_parse_insert (pConn, &token);
+				pStmt = xdb_parse_insert (pConn, &token, bPStmt);
 			} else {
 				goto error;
 			}
@@ -462,6 +471,7 @@ xdb_sql_parse (xdb_conn_t* pConn, char **ppSql, bool bPStmt)
 			} else if (! strcasecmp (token.token, "COMMIT")) {
 				pStmt = &pConn->stmt_union.stmt;
 				pStmt->stmt_type = XDB_STMT_COMMIT;
+				pStmt->pSql = NULL;
 			} else if (! strcasecmp (token.token, "CLOSE")) {
 				pStmt = xdb_parse_close (pConn, &token);;
 			} else {
@@ -483,6 +493,7 @@ xdb_sql_parse (xdb_conn_t* pConn, char **ppSql, bool bPStmt)
 			if (! strcasecmp (token.token, "BEGIN")) {
 				pStmt = &pConn->stmt_union.stmt;
 				pStmt->stmt_type = XDB_STMT_BEGIN;
+				pStmt->pSql = NULL;
 			} else {
 				goto error;
 			}
@@ -492,6 +503,7 @@ xdb_sql_parse (xdb_conn_t* pConn, char **ppSql, bool bPStmt)
 			if (! strcasecmp (token.token, "ROLLBACK")) {
 				pStmt = &pConn->stmt_union.stmt;
 				pStmt->stmt_type = XDB_STMT_ROLLBACK;
+				pStmt->pSql = NULL;
 			} else {
 				goto error;
 			}
@@ -569,19 +581,26 @@ error:
 }
 
 XDB_STATIC xdb_stmt_t* 
-xdb_sql_parse2 (xdb_conn_t* pConn, const char *sql, bool bPStmt)
+xdb_sql_parse_alloc (xdb_conn_t* pConn, const char *sql, bool bPStmt)
 {
 	int len = strlen (sql);
 	while (len && isspace((int)sql[len-1])) {
 		len--;
 	}
 	char *pSql = xdb_strdup (sql, len);
+	if (xdb_unlikely (NULL == pSql)) {
+		return NULL;
+	}
 	char *pSql2 = pSql;
 	xdb_stmt_t *pStmt = xdb_sql_parse (pConn, &pSql2, bPStmt);
-	pStmt->pSql = pSql;
-	if (pSql2 != NULL) {
-		xdb_stmt_free (pStmt);
-		return NULL;
+	if (xdb_likely (NULL != pStmt)) {
+		pStmt->pSql = pSql;
+		// only support single STMT
+		if (pSql2 != NULL) {
+			// pSql is free here
+			xdb_stmt_free (pStmt);
+			return NULL;
+		}
 	}
 	return pStmt;
 }
@@ -590,28 +609,31 @@ xdb_sql_parse2 (xdb_conn_t* pConn, const char *sql, bool bPStmt)
 XDB_STATIC void 
 xdb_stmt_free (xdb_stmt_t *pStmt)
 {
-	if (NULL != pStmt) {
-		switch (pStmt->stmt_type) {
-		case XDB_STMT_INSERT:
-			{
-				xdb_stmt_insert_t* pStmtIns = (xdb_stmt_insert_t*)pStmt;
-				xdb_free (pStmtIns->row_vals);
+	if (xdb_likely (NULL == pStmt)) {
+		return;
+	}
+	switch (pStmt->stmt_type) {
+	case XDB_STMT_INSERT:
+		{
+			xdb_stmt_insert_t* pStmtIns = (xdb_stmt_insert_t*)pStmt;
+			if (pStmtIns->pRowsBuf != pStmtIns->row_buf) {
+				xdb_free (pStmtIns->pRowsBuf);
 			}
-			break;
-		case XDB_STMT_SELECT:
-			{
-				xdb_stmt_select_t* pStmtSel = (xdb_stmt_select_t*)pStmt;
-				if ((pStmtSel->meta_size) > 0 && ((void*)pStmtSel->pMeta != (void*)pStmtSel->set_flds)) {
-					xdb_free (pStmtSel->pMeta);
-				}
+		}
+		break;
+	case XDB_STMT_SELECT:
+		{
+			xdb_stmt_select_t* pStmtSel = (xdb_stmt_select_t*)pStmt;
+			if ((pStmtSel->meta_size) > 0 && ((void*)pStmtSel->pMeta != (void*)pStmtSel->set_flds)) {
+				xdb_free (pStmtSel->pMeta);
 			}
-			break;
-		default:
-			break;
 		}
-		if ((pStmt->pSql != NULL) && (pStmt->pSql != pStmt->pConn->sql_buf)) {
-			xdb_free (pStmt->pSql);
-		}
+		break;
+	default:
+		break;
+	}
+	if (xdb_unlikely ((pStmt->pSql != NULL) && (pStmt->pSql != pStmt->pConn->sql_buf))) {
+		xdb_free (pStmt->pSql);
 	}
 }
 

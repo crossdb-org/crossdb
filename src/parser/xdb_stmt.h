@@ -212,6 +212,10 @@ typedef struct {
 
 typedef enum xdb_op_t {
 	XDB_OP_EQ,
+	XDB_OP_ADD,
+	XDB_OP_SUB,
+	XDB_OP_MUL,
+	XDB_OP_DIV,
 } xdb_op_t;
 
 typedef struct xdb_str {
@@ -220,8 +224,15 @@ typedef struct xdb_str {
 	int		cap;
 } xdb_str;
 
+typedef enum {
+	XDB_TYPE_FIELD = 128,
+} xdb_type2_e;
+
 typedef struct xdb_value_t {
-	uint8_t			val_type;	// int, uint, double, string, binary, field, function | =, !=, >, <, >=, <=, AND, OR, + - * / 
+	uint8_t			val_type;	// xdb_type_t int, uint, double, string, binary, field, function | =, !=, >, <, >=, <=, AND, OR, + - * / 
+	uint8_t			fld_type;
+	uint8_t			sup_type;
+	xdb_field_t 	*pField;
 	//uint32_t		val_len;	// if table field, then is fld_id or function id
 	union {
 		double		fval;
@@ -242,7 +253,9 @@ typedef struct xdb_filter_t {
 
 typedef struct {
 	xdb_field_t		*pField;
-	xdb_value_t		val;
+	xdb_op_t		set_op;
+	xdb_value_t		res_val;
+	xdb_value_t		set_val[2];
 } xdb_setfld_t;
 
 typedef enum {
@@ -270,8 +283,11 @@ typedef struct {
 	uint16_t		order_count;
 	uint16_t		bind_count;
 	uint16_t		idx_flt_cnt;
+	uint16_t		set_bind_count;
+	uint16_t		set_count;
 
-	xdb_filter_t	*pBind[XDB_MAX_MATCH_COL];
+	// bind value
+	xdb_value_t	*pBind[XDB_MAX_MATCH_COL];
 
 	xdb_field_t		*pSelFlds[XDB_MAX_COLUMN];
 
@@ -306,8 +322,8 @@ typedef struct {
 	xdb_res_t		*pRes;
 	xdb_size		res_size;
 
-	uint16_t		set_count;
 	xdb_setfld_t	set_flds[XDB_MAX_COLUMN];
+	
 } xdb_stmt_select_t;
 
 typedef struct {
@@ -339,12 +355,18 @@ typedef struct {
 
 	char 	 			*tbl_name;
 	struct xdb_tblm_t	*pTblm;
-	uint16_t		fld_count;
 	uint16_t		fld_list[XDB_MAX_COLUMN];
-	uint16_t		row_count;
 	uint32_t		row_offset[XDB_MAX_COLUMN];
 	uint32_t		buf_len;
-	void			*row_vals;
+	void			*pRowsBuf;
+	uint32_t		row_buf[1024]; // 4K
+
+	uint16_t		fld_count;
+	uint16_t		row_count;
+	uint16_t		bind_count;
+
+	xdb_field_t		*pBind[XDB_MAX_COLUMN];
+	void			*pBindRow[XDB_MAX_COLUMN];
 } xdb_stmt_insert_t;
 
 typedef struct {

@@ -244,7 +244,7 @@ xdb_row_isequal2 (void *pRowL, void *pRowR, xdb_field_t **ppFields, int count)
 }
 
 XDB_STATIC int 
-xdb_row_cmp (const void * __restrict pRowL, const void * __restrict pRowR, const xdb_field_t **ppFields, int *pCount)
+xdb_row_cmp (const void *pRowL, const void *pRowR, const xdb_field_t **ppFields, int *pCount)
 {
 	const xdb_field_t **ppField = ppFields;
 	int count = *pCount;
@@ -404,13 +404,129 @@ xdb_row_and_match (void *pRow, xdb_filter_t **pFilterList, int count)
 }
 
 XDB_STATIC void 
+xdb_row_getval (void *pRow, xdb_value_t *pVal)
+{
+	void *pFldPtr = pRow + pVal->pField->fld_off;
+	switch (pVal->pField->fld_type) {
+	case XDB_TYPE_INT:
+		pVal->ival = *(int32_t*)pFldPtr;
+		pVal->sup_type = XDB_TYPE_BIGINT;
+		break;
+	case XDB_TYPE_TINYINT:
+		pVal->ival = *(int8_t*)pFldPtr;
+		pVal->sup_type = XDB_TYPE_BIGINT;
+		break;
+	case XDB_TYPE_SMALLINT:
+		pVal->ival = *(int16_t*)pFldPtr;
+		pVal->sup_type = XDB_TYPE_BIGINT;
+		break;
+	case XDB_TYPE_BIGINT:
+		pVal->ival = *(int64_t*)pFldPtr;
+		pVal->sup_type = XDB_TYPE_BIGINT;
+		break;
+	case XDB_TYPE_FLOAT:
+		pVal->fval = *(float*)pFldPtr;
+		pVal->sup_type = XDB_TYPE_DOUBLE;
+		break;
+	case XDB_TYPE_DOUBLE:
+		pVal->fval = *(double*)pFldPtr;
+		pVal->sup_type = XDB_TYPE_DOUBLE;
+		break;
+	case XDB_TYPE_CHAR:
+		pVal->str.ptr = (char*)pFldPtr;
+		pVal->str.len = *(uint16_t*)(pFldPtr - 2);
+		pVal->sup_type = XDB_TYPE_CHAR;
+		break;
+	}
+}
+
+XDB_STATIC void 
+xdb_convert_val (xdb_value_t *pVal, xdb_type_t type)
+{
+	switch (type) {
+	case XDB_TYPE_BIGINT:
+		pVal->ival = (uint64_t)pVal->fval;
+		break;
+	case XDB_TYPE_DOUBLE:
+		pVal->fval = (double)pVal->ival;
+		break;
+	default:
+		break;
+	}
+}
+
+XDB_STATIC void 
 xdb_row_copy (void *pRow, xdb_setfld_t set_flds[], int count)
 {
 	for (int i = 0; i < count; ++i) {
 		xdb_setfld_t 	*pSetFld 	= &set_flds[i];
 		xdb_field_t		*pField = pSetFld->pField;
-		xdb_value_t		*pVal	= &pSetFld->val;
+		xdb_value_t		*pVal	= &pSetFld->set_val[0];
 		void			*pFldPtr= pRow + pField->fld_off;
+		xdb_value_t 	*pResVal; 
+
+		if (xdb_unlikely ((pSetFld->set_op != XDB_OP_EQ) || (XDB_TYPE_FIELD == pVal->val_type))) {
+			if (xdb_likely (XDB_TYPE_FIELD == pVal->val_type)) {
+				xdb_row_getval (pRow, pVal);
+			}
+			if (xdb_likely (pSetFld->set_op != XDB_OP_EQ)) {
+				xdb_value_t		*pVal2	= &pSetFld->set_val[1];
+				pResVal = &pSetFld->res_val; 
+				if (xdb_unlikely (XDB_TYPE_FIELD == pVal2->val_type)) {
+					xdb_row_getval (pRow, pVal2);
+				}
+				if (xdb_unlikely (pVal->sup_type != pVal2->sup_type)) {
+					xdb_convert_val (pVal2, pVal->sup_type);
+				}
+				pResVal->sup_type = pVal->sup_type;
+				switch (pSetFld->set_op) {
+				case XDB_OP_ADD:
+					if (XDB_TYPE_BIGINT == pVal->sup_type) {
+						pResVal->ival = pVal->ival + pVal2->ival;
+					} else {
+						pResVal->fval = pVal->fval + pVal2->fval;
+					}
+					break;
+				case XDB_OP_SUB:
+					if (XDB_TYPE_BIGINT == pVal->sup_type) {
+						pResVal->ival = pVal->ival - pVal2->ival;
+					} else {
+						pResVal->fval = pVal->fval - pVal2->fval;
+					}
+					break;
+				case XDB_OP_MUL:
+					if (XDB_TYPE_BIGINT == pVal->sup_type) {
+						pResVal->ival = pVal->ival * pVal2->ival;
+					} else {
+						pResVal->fval = pVal->fval * pVal2->fval;
+					}
+					break;
+				case XDB_OP_DIV:
+					if (XDB_TYPE_BIGINT == pVal->sup_type) {
+						if (xdb_likely (pVal2->ival != 0)) {
+							pResVal->ival = pVal->ival / pVal2->ival;
+						} else {
+							pResVal->ival = 0;						
+						}
+					} else {
+						if (xdb_likely (pVal2->fval != 0)) {
+							pResVal->fval = pVal->fval / pVal2->fval;
+						} else {
+							pResVal->fval = 0;						
+						}
+					}
+					break;
+				default:
+					break;
+				}
+				pVal = pResVal;
+			}
+		}
+
+		if (xdb_unlikely (pField->sup_type != pVal->sup_type)) {
+			xdb_convert_val (pVal, pField->sup_type);
+		}
+
 		switch (pField->fld_type) {
 		case XDB_TYPE_INT:
 			*(int32_t*)(pFldPtr) = pVal->ival;
@@ -509,6 +625,42 @@ xdb_val_hash (xdb_value_t *pValues[], int count)
 	return hashsum;
 }
 
+#if 0
+XDB_STATIC xdb_ret
+xdb_row_setval (xdb_conn_t *pConn, xdb_field_t *pFld, void *pRow, const char *val, int len)
+{
+	switch (pFld->fld_type) {
+	case XDB_TYPE_INT:
+		*(int32_t*)(pRow+pFld->fld_off) = atoi (val);
+		break;
+	case XDB_TYPE_BIGINT:
+		*(int64_t*)(pRow+pFld->fld_off) = atoll (val);
+		break;
+	case XDB_TYPE_TINYINT:
+		*(int8_t*)(pRow+pFld->fld_off) = atoi (val);
+		break;
+	case XDB_TYPE_SMALLINT:
+		*(int16_t*)(pRow+pFld->fld_off) = atoi (val);
+		break;
+	case XDB_TYPE_FLOAT:
+		*(float*)(pRow+pFld->fld_off) = atof (val);
+		break;
+	case XDB_TYPE_DOUBLE:
+		*(double*)(pRow+pFld->fld_off) = atof (val);
+		break;
+	case XDB_TYPE_CHAR:
+		*(uint16_t*)(pRow+pFld->fld_off-2) = len;
+		memcpy (pRow+pFld->fld_off, val, len+1);
+		break;
+	}
+
+	return XDB_OK;
+
+error:
+	return -XDB_E_PARAM;
+}
+#endif
+
 XDB_STATIC int64_t 
 xdb_row_getInt (uint64_t meta, void *pRow, uint16_t iCol)
 {
@@ -535,41 +687,71 @@ xdb_row_getInt (uint64_t meta, void *pRow, uint16_t iCol)
 }
 
 XDB_STATIC void 
+xdb_fld_setInt (void *pAddr, xdb_type_t type, int64_t val)
+{
+	switch (type) {
+	case XDB_TYPE_INT:
+		*(int32_t*)pAddr = val;
+		break;
+	case XDB_TYPE_BIGINT:
+		*(int64_t*)pAddr = val;
+		break;
+	case XDB_TYPE_TINYINT:
+		*(int8_t*)pAddr = val;
+		break;
+	case XDB_TYPE_SMALLINT:
+		*(int16_t*)pAddr = val;
+		break;
+	default:
+		break;
+	}
+}
+
+XDB_STATIC void 
+xdb_fld_setFloat (void *pAddr, xdb_type_t type, double val)
+{
+	switch (type) {
+	case XDB_TYPE_FLOAT:
+		*(float*)pAddr = val;
+		break;
+	case XDB_TYPE_DOUBLE:
+		*(double*)pAddr = val;
+		break;
+	default:
+		break;
+	}
+}
+
+XDB_STATIC xdb_ret 
+xdb_fld_setStr (xdb_field_t * pField, void *pRow, const char *str, int len)
+{
+	if (len > pField->fld_len) {
+		return -XDB_E_PARAM;
+	}
+	void *pAddr = pRow + pField->fld_off;
+	switch (pField->fld_type) {
+	case XDB_TYPE_CHAR:
+		*(uint16_t*)(pAddr - 2) = len;
+		memcpy (pAddr, str, len + 1);
+		break;
+	default:
+		return -XDB_E_PARAM;
+	}
+	return XDB_OK;
+}
+
+XDB_STATIC void 
 xdb_row_setInt (uint64_t meta, void *pRow, uint16_t iCol, int64_t val)
 {
 	xdb_meta_t *pMeta = (xdb_meta_t*)meta;
-	if (xdb_unlikely (iCol >= pMeta->col_count)) {
-		return;
-	}
 	xdb_col_t	*pCol = ((xdb_col_t**)pMeta->col_list)[iCol];
-
-	// check NULL
-	void *pVal = pRow + pCol->col_off;
-	switch (pCol->col_type) {
-	case XDB_TYPE_INT:
-		*(int32_t*)pVal = val;
-		break;
-	case XDB_TYPE_BIGINT:
-		*(int64_t*)pVal = val;
-		break;
-	case XDB_TYPE_TINYINT:
-		*(int8_t*)pVal = val;
-		break;
-	case XDB_TYPE_SMALLINT:
-		*(int16_t*)pVal = val;
-		break;
-	}
-
-	return;
+	xdb_fld_setInt (pRow + pCol->col_off, pCol->col_type, val);
 }
 
 XDB_STATIC double 
 xdb_row_getFloat (uint64_t meta, void *pRow, uint16_t iCol)
 {
 	xdb_meta_t *pMeta = (xdb_meta_t*)meta;
-	if (xdb_unlikely (iCol >= pMeta->col_count)) {
-		return 0;
-	}
 	xdb_col_t	*pCol = ((xdb_col_t**)pMeta->col_list)[iCol];
 
 	// check NULL
@@ -587,27 +769,14 @@ xdb_row_getFloat (uint64_t meta, void *pRow, uint16_t iCol)
 }
 
 XDB_STATIC void 
-xdb_row_setFloat (uint64_t meta, void *pRow, uint16_t iCol, double dval)
+xdb_row_setFloat (uint64_t meta, void *pRow, uint16_t iCol, double val)
 {
 	xdb_meta_t *pMeta = (xdb_meta_t*)meta;
-	if (xdb_unlikely (iCol >= pMeta->col_count)) {
-		return;
-	}
 	xdb_col_t	*pCol = ((xdb_col_t**)pMeta->col_list)[iCol];
 
-	// check NULL
-	void *pVal = pRow + pCol->col_off;
-	switch (pCol->col_type) {
-	case XDB_TYPE_FLOAT:
-		*(float*)pVal = dval;
-		break;
-	case XDB_TYPE_DOUBLE:
-		*(double*)pVal = dval;
-		break;
-	}
-
-	return;
+	xdb_fld_setFloat (pRow + pCol->col_off, pCol->col_type, val);
 }
+
 
 #if 0
 XDB_STATIC const char*
@@ -1039,12 +1208,12 @@ xdb_sql_filter (xdb_stmt_select_t *pStmt)
 					case XDB_TYPE_BIGINT:
 					case XDB_TYPE_TINYINT:
 					case XDB_TYPE_SMALLINT:
-						//printf ("%s %d %d %f\n", pCol[i]->col_name, ival_col[i], agg_count[i], (double)ival_col[i]/agg_count[i]);
+						//xdb_print ("%s %d %d %f\n", pCol[i]->col_name, ival_col[i], agg_count[i], (double)ival_col[i]/agg_count[i]);
 						xdb_row_setFloat ((uintptr_t)pStmt->pMeta, pRow, i, (float)ival_col[i]/agg_count[i]);
 						break;
 					case XDB_TYPE_FLOAT:
 					case XDB_TYPE_DOUBLE:
-						//printf ("%s %f %d %f\n", pCol[i]->col_name, fval_col[i], agg_count[i], fval_col[i]/agg_count[i]);
+						//xdb_print ("%s %f %d %f\n", pCol[i]->col_name, fval_col[i], agg_count[i], fval_col[i]/agg_count[i]);
 						xdb_row_setFloat ((uintptr_t)pStmt->pMeta, pRow, i, fval_col[i]/agg_count[i]);
 						break;
 					}					
@@ -1055,12 +1224,12 @@ xdb_sql_filter (xdb_stmt_select_t *pStmt)
 					case XDB_TYPE_BIGINT:
 					case XDB_TYPE_TINYINT:
 					case XDB_TYPE_SMALLINT:
-						//printf ("%s %d\n", pCol[i]->col_name, ival_col[i]);
+						//xdb_print ("%s %d\n", pCol[i]->col_name, ival_col[i]);
 						xdb_row_setInt ((uintptr_t)pStmt->pMeta, pRow, i, ival_col[i]);
 						break;
 					case XDB_TYPE_FLOAT:
 					case XDB_TYPE_DOUBLE:
-						//printf ("%s %f\n", pCol[i]->col_name, fval_col[i]);
+						//xdb_print ("%s %f\n", pCol[i]->col_name, fval_col[i]);
 						xdb_row_setFloat ((uintptr_t)pStmt->pMeta, pRow, i, fval_col[i]);
 						break;
 					}
@@ -1205,22 +1374,31 @@ xdb_row_insert (xdb_conn_t *pConn, xdb_tblm_t *pTblm, void *pRow)
 
 	void *pRowDb;
 	xdb_rowid rid = xdb_stg_alloc (pStgMgr, &pRowDb);
-	if (rid <= 0) {
+	if (xdb_unlikely (rid <= 0)) {
 		xdb_dbglog ("No space");
 		return -1;
 	}
 	//xdb_dbglog ("alloc %d max%d\n", rid, XDB_STG_CAP(pStgMgr));
 
 	memcpy (pRowDb, pRow, pTblm->row_size);
-	// valid
-	*((uint8_t*)pRowDb+pStgMgr->pStgHdr->ctl_off) |= XDB_ROW_TRANS;
 
-	int rc = xdb_idx_addRow (pConn, pTblm, rid, pRowDb);
-
-	if (XDB_OK == rc) {
-		xdb_trans_addrow (pConn, pTblm, rid, true);
+	if (xdb_likely (pTblm->bMemory && pConn->bAutoTrans)) {
+		// Fast insert
+		// alloc set dirty ^ XDB_ROW_TRANS => XDB_ROW_COMMIT
+		*((uint8_t*)pRowDb+pStgMgr->pStgHdr->ctl_off) ^= XDB_ROW_TRANS;
+		int rc = xdb_idx_addRow (pConn, pTblm, rid, pRowDb);
+		if (xdb_unlikely (XDB_OK != rc)) {
+			xdb_stg_free (pStgMgr, rid, pRowDb);
+		}
 	} else {
-		xdb_stg_free (pStgMgr, rid, pRowDb);
+		*((uint8_t*)pRowDb+pStgMgr->pStgHdr->ctl_off) |= XDB_ROW_TRANS;
+
+		int rc = xdb_idx_addRow (pConn, pTblm, rid, pRowDb);
+		if (xdb_likely (XDB_OK == rc)) {
+			xdb_trans_addrow (pConn, pTblm, rid, true);
+		} else {
+			xdb_stg_free (pStgMgr, rid, pRowDb);
+		}
 	}
 
 	return rid;
@@ -1229,15 +1407,18 @@ xdb_row_insert (xdb_conn_t *pConn, xdb_tblm_t *pTblm, void *pRow)
 XDB_STATIC int 
 xdb_row_delete (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow)
 {
-	uint8_t ctrl = XDB_ROW_CTRL (pTblm->stg_mgr.pStgHdr, pRow) & 0x3;
-	if (XDB_ROW_COMMIT == ctrl) {
-		// add to dlt row list
-		xdb_trans_addrow (pConn, pTblm, rid, false);
-	} else {
+	uint8_t ctrl = XDB_ROW_CTRL (pTblm->stg_mgr.pStgHdr, pRow) & XDB_ROW_MASK;
+
+	if (xdb_likely ((pTblm->bMemory && pConn->bAutoTrans) || (XDB_ROW_TRANS == ctrl))) {
 		xdb_idx_remRow (pTblm, rid, pRow);
 		xdb_stg_free (&pTblm->stg_mgr, rid, pRow);
-		// del from new row list
-		xdb_trans_delrow (pConn, pTblm, rid);
+		if (xdb_unlikely (XDB_ROW_TRANS == ctrl)) {
+			// del from new row list
+			xdb_trans_delrow (pConn, pTblm, rid);
+		}
+	} else {
+		// add to dlt row list
+		xdb_trans_addrow (pConn, pTblm, rid, false);
 	}
 
 	return 0;
@@ -1246,7 +1427,7 @@ xdb_row_delete (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow)
 XDB_STATIC xdb_rowid 
 xdb_sql_insert (xdb_stmt_insert_t *pStmt)
 {
-	//printf ("ok insert tbl '%s' count %d\n", pStmt->XDB_OBJ_NAME(pTblm), pStmt->row_count);
+	//xdb_print ("ok insert tbl '%s' count %d\n", pStmt->XDB_OBJ_NAME(pTblm), pStmt->row_count);
 	xdb_rowid 		count = 0;
 	xdb_conn_t		*pConn = pStmt->pConn;
 	xdb_tblm_t		*pTblm = pStmt->pTblm;
@@ -1256,8 +1437,7 @@ xdb_sql_insert (xdb_stmt_insert_t *pStmt)
 	xdb_wrlock_tblstg (pTblm);
 
 	for (int i = 0 ; i < pStmt->row_count; ++i) {
-		void *pRow = pStmt->row_vals + pStmt->row_offset[i];
-		//printf ("\n");
+		void *pRow = pStmt->pRowsBuf + pStmt->row_offset[i];
 		xdb_rowid rid = xdb_row_insert (pConn, pTblm, pRow);
 		if (rid > 0) {
 			count ++;
@@ -1269,31 +1449,34 @@ xdb_sql_insert (xdb_stmt_insert_t *pStmt)
 	return count;
 }
 
-
 XDB_STATIC int 
-xdb_row_update (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow, xdb_setfld_t set_flds[], int count)
+xdb_row_update (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow, xdb_setfld_t set_flds[], int set_count)
 {
-	uint8_t ctrl = XDB_ROW_CTRL (pTblm->stg_mgr.pStgHdr, pRow) & 0x3;
-
-	if (XDB_ROW_COMMIT == ctrl) {
+	if ((pTblm->bMemory && pConn->bAutoTrans) || (XDB_ROW_TRANS == (XDB_ROW_CTRL (pTblm->stg_mgr.pStgHdr, pRow) & XDB_ROW_MASK))) {
+		uint64_t idx_bmp = 0;
+		for (int i = 0; i < set_count; ++i) {
+			xdb_field_t 	*pField = set_flds[i].pField;
+			idx_bmp |= pField->idx_bmp;
+		}
+		uint8_t idx_del[XDB_MAX_INDEX];
+		int idx_count = xdb_idx_remRow_bmp (pTblm, rid, pRow, idx_bmp, idx_del);
+		xdb_row_copy (pRow, set_flds, set_count);
+		xdb_idx_addRow_bmp (pConn, pTblm, rid, pRow, idx_del, idx_count);
+	} else {
 		XDB_BUF_DEF(pUpdRow, 4096);
 		XDB_BUF_ALLOC(pUpdRow, pTblm->pMeta->row_size);
 		memcpy (pUpdRow, pRow, pTblm->pMeta->row_size);
 		XDB_EXPECT (pUpdRow != NULL, XDB_E_MEMORY, "Can't alloc memory");
-		xdb_row_copy (pUpdRow, set_flds, count);
+		xdb_row_copy (pUpdRow, set_flds, set_count);
 		xdb_row_delete (pConn, pTblm, rid, pRow);
 		xdb_row_insert (pConn, pTblm, pUpdRow);	
 		XDB_BUF_FREE(pUpdRow);
-	} else {
-		xdb_idx_remRow (pTblm, rid, pRow);
-		xdb_row_copy (pRow, set_flds, count);
-		xdb_idx_addRow (pConn, pTblm, rid, pRow);
 	}
 
 	return 0;
 
 error:
-	return -XDB_E_MEMORY;
+	return -XDB_CONNCODE(pConn);
 }
 
 XDB_STATIC xdb_rowid 

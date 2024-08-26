@@ -196,6 +196,7 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 				// type will be overwritten by xdb_dump
 			}
 			pStmt->stmt_type = XDB_STMT_DUMP_DB;
+			pStmt->pSql = NULL;
 			break;
 		case XDB_STMT_HELP:
 			break;
@@ -219,6 +220,34 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 	return pRes;	
 }
 
+XDB_STATIC xdb_stmt_t*
+xdb_stmt_parse (xdb_conn_t *pConn, const char *sql, int len)
+{
+	xdb_stmt_t *pStmt;
+
+	if (xdb_likely (NULL == pConn->pNxtSql)) {
+		if (pConn->sqlbuf_len <= len) {
+			int blen = (len + 1023) & (~1023);
+			char *pBuf = xdb_realloc (pConn->pSql == pConn->sql_buf? NULL : pConn->pSql, blen);
+			XDB_EXPECT(pBuf != NULL, XDB_E_MEMORY, "Can't alloc memory");
+			pConn->sqlbuf_len = blen;
+			pConn->pSql = pBuf;
+		}
+		while (len && isspace((int)sql[len-1])) {
+			len--;
+		}
+		memcpy (pConn->pSql, sql, len);
+		pConn->pSql[len] = '\0';
+		pConn->pNxtSql = pConn->pSql;
+		pStmt = xdb_sql_parse (pConn, &pConn->pNxtSql, false);
+	} else {
+		pStmt = xdb_sql_parse_alloc (pConn, sql, false);
+	}
+	return pStmt;
+error:
+	return NULL;
+}
+
 xdb_res_t*
 xdb_exec2 (xdb_conn_t *pConn, const char *sql, int len)
 {
@@ -227,7 +256,7 @@ xdb_exec2 (xdb_conn_t *pConn, const char *sql, int len)
 	xdb_res_t	*pRes;
 
 #ifdef XDB_SQL_DBG
-	printf ("Run SQL: %s\n", sql);
+	xdb_print ("Run SQL: %s\n", sql);
 #endif
 
 	if (xdb_unlikely (0 == len)) {
@@ -247,25 +276,7 @@ xdb_exec2 (xdb_conn_t *pConn, const char *sql, int len)
 	{
 		pRes = &pConn->conn_res;
 		pRes->status = 0;
-		xdb_stmt_t *pStmt;
-		if (xdb_likely (NULL == pConn->pNxtSql)) {
-			if (pConn->sqlbuf_len <= len) {
-				int blen = (len + 1023) & (~1023);
-				char *pBuf = xdb_realloc (pConn->pSql == pConn->sql_buf? NULL : pConn->pSql, blen);
-				XDB_EXPECT(pBuf != NULL, XDB_E_MEMORY, "Can't alloc memory");
-				pConn->sqlbuf_len = blen;
-				pConn->pSql = pBuf;
-			}
-			while (len && isspace((int)sql[len-1])) {
-				len--;
-			}
-			memcpy (pConn->pSql, sql, len);
-			pConn->pSql[len] = '\0';
-			pConn->pNxtSql = pConn->pSql;
-			pStmt = xdb_sql_parse (pConn, &pConn->pNxtSql, false);
-		} else {
-			pStmt = xdb_sql_parse2 (pConn, sql, false);
-		}
+		xdb_stmt_t *pStmt = xdb_stmt_parse (pConn, sql, len);
 		if (xdb_likely(NULL != pStmt)) {
 			pRes = xdb_stmt_exec (pStmt);
 			if (pRes->row_count) {
@@ -282,7 +293,6 @@ xdb_exec2 (xdb_conn_t *pConn, const char *sql, int len)
 		}
 	}
 
-error:
 	// copy server/stmt status
 	pConn->status = pRes->status;
 	return pRes;
@@ -368,6 +378,27 @@ xdb_pexec (xdb_conn_t *pConn, const char *sql, ...)
 
 error:
 	return &pConn->conn_res;
+}
+
+xdb_res_t*
+xdb_vbexec (xdb_conn_t *pConn, const char *sql, va_list ap)
+{
+	xdb_stmt_t *pStmt = xdb_stmt_parse (pConn, sql, strlen(sql));
+	if (NULL != pStmt) {
+		return xdb_stmt_vbexec (pStmt, ap);
+	} else {
+		return &pConn->conn_res;
+	}
+}
+
+xdb_res_t*
+xdb_bexec (xdb_conn_t *pConn, const char *sql, ...)
+{
+	va_list ap;
+	va_start (ap, sql);
+	xdb_res_t* pRes = xdb_vbexec (pConn, sql, ap);
+	va_end (ap);
+	return pRes;
 }
 
 XDB_STATIC int 
@@ -461,22 +492,33 @@ xdb_exec_out (xdb_conn_t *pConn, const char *sql, int len)
 xdb_stmt_t*
 xdb_stmt_prepare (xdb_conn_t *pConn, const char *sql)
 {
-	return xdb_sql_parse2 (pConn, sql, true);
+	return xdb_sql_parse_alloc (pConn, sql, true);
 }
 
 xdb_ret
 xdb_bind_int64 (xdb_stmt_t *pStmt, uint16_t para_id, int64_t val)
 {
-	xdb_stmt_select_t *pStmtSel;
 	switch (pStmt->stmt_type) {
 	case XDB_STMT_SELECT:
 	case XDB_STMT_UPDATE:
 	case XDB_STMT_DELETE:
-		pStmtSel = (void*)pStmt;
-		if (xdb_unlikely (para_id > pStmtSel->bind_count)) {
-			return -XDB_E_PARAM;
+		{
+			xdb_stmt_select_t *pStmtSel = (void*)pStmt;
+			if (xdb_unlikely (--para_id >= pStmtSel->bind_count)) {
+				return -XDB_E_PARAM;
+			}
+			pStmtSel->pBind[para_id]->ival = val;
 		}
-		pStmtSel->pBind[para_id-1]->val.ival = val;
+		break;
+	case XDB_STMT_INSERT:
+		{
+			xdb_stmt_insert_t 	*pStmtIns = (void*)pStmt;
+			if (xdb_unlikely (--para_id > pStmtIns->bind_count)) {
+				return -XDB_E_PARAM;
+			}
+			xdb_field_t	*pField = pStmtIns->pBind[para_id];
+			xdb_fld_setInt (pStmtIns->pBindRow[para_id] + pField->fld_off, pField->fld_type, val);
+		}
 		break;
 	default:
 		break;
@@ -493,16 +535,27 @@ xdb_bind_int (xdb_stmt_t *pStmt, uint16_t para_id, int val)
 xdb_ret
 xdb_bind_double (xdb_stmt_t *pStmt, uint16_t para_id, double val)
 {
-	xdb_stmt_select_t *pStmtSel;
 	switch (pStmt->stmt_type) {
 	case XDB_STMT_SELECT:
 	case XDB_STMT_UPDATE:
 	case XDB_STMT_DELETE:
-		pStmtSel = (void*)pStmt;
-		if (xdb_unlikely (para_id >= pStmtSel->bind_count)) {
-			return -XDB_E_PARAM;
+		{
+			xdb_stmt_select_t *pStmtSel = (void*)pStmt;
+			if (xdb_unlikely (--para_id >= pStmtSel->bind_count)) {
+				return -XDB_E_PARAM;
+			}
+			pStmtSel->pBind[para_id]->fval = val;
 		}
-		pStmtSel->pBind[para_id-1]->val.fval = val;
+		break;
+	case XDB_STMT_INSERT:
+		{
+			xdb_stmt_insert_t	*pStmtIns = (void*)pStmt;
+			if (xdb_unlikely (--para_id > pStmtIns->bind_count)) {
+				return -XDB_E_PARAM;
+			}
+			xdb_field_t *pField = pStmtIns->pBind[para_id];
+			xdb_fld_setFloat (pStmtIns->pBindRow[para_id] + pField->fld_off, pField->fld_type, val);
+		}
 		break;
 	default:
 		break;
@@ -519,17 +572,28 @@ xdb_bind_float (xdb_stmt_t *pStmt, uint16_t para_id, float val)
 xdb_ret
 xdb_bind_str2 (xdb_stmt_t *pStmt, uint16_t para_id, const char *str, int len)
 {
-	xdb_stmt_select_t *pStmtSel;
 	switch (pStmt->stmt_type) {
 	case XDB_STMT_SELECT:
 	case XDB_STMT_UPDATE:
 	case XDB_STMT_DELETE:
-		pStmtSel = (void*)pStmt;
-		if (xdb_unlikely (para_id >= pStmtSel->bind_count)) {
-			return -XDB_E_PARAM;
+		{
+			xdb_stmt_select_t *pStmtSel = (void*)pStmt;
+			if (xdb_unlikely (--para_id >= pStmtSel->bind_count)) {
+				return -XDB_E_PARAM;
+			}
+			pStmtSel->pBind[para_id]->str.ptr = (char*)str;
+			pStmtSel->pBind[para_id]->str.len = len > 0 ? len : strlen (str);
 		}
-		pStmtSel->pBind[para_id-1]->val.str.ptr = (char*)str;
-		pStmtSel->pBind[para_id-1]->val.str.len = len > 0 ? len : strlen (str);
+		break;
+	case XDB_STMT_INSERT:
+		{
+			xdb_stmt_insert_t	*pStmtIns = (void*)pStmt;
+			if (xdb_unlikely (--para_id > pStmtIns->bind_count)) {
+				return -XDB_E_PARAM;
+			}
+			xdb_field_t *pField = pStmtIns->pBind[para_id];
+			xdb_fld_setStr (pField, pStmtIns->pBindRow[para_id], str, len);
+		}
 		break;
 	default:
 		break;
@@ -543,9 +607,104 @@ xdb_bind_str (xdb_stmt_t *pStmt, uint16_t id, const char *str)
 	return xdb_bind_str2 (pStmt, id, str, 0);
 }
 
-// TBD
-int
-xdb_stmt_bind (xdb_stmt_t *pStmt, ...);
+xdb_res_t*
+xdb_stmt_vbexec (xdb_stmt_t *pStmt, va_list ap)
+{
+	switch (pStmt->stmt_type) {
+	case XDB_STMT_SELECT:
+	case XDB_STMT_UPDATE:
+	case XDB_STMT_DELETE:
+		{
+			xdb_stmt_select_t *pStmtSel = (void*)pStmt;
+			for (int i = 0; i < pStmtSel->bind_count; ++i) {
+				xdb_value_t *pVal = pStmtSel->pBind[i];
+				switch (pVal->fld_type) {
+				case XDB_TYPE_INT:
+				case XDB_TYPE_SMALLINT:
+				case XDB_TYPE_TINYINT:
+					pVal->ival = va_arg (ap, int);
+					break;
+				case XDB_TYPE_BIGINT:
+					pVal->ival = va_arg (ap, int64_t);
+					break;
+				case XDB_TYPE_FLOAT:
+				case XDB_TYPE_DOUBLE:
+					pVal->fval = va_arg (ap, double);
+					break;
+				case XDB_TYPE_CHAR:
+					pVal->str.ptr = va_arg (ap, char *);
+					pVal->str.len = strlen (pVal->str.ptr);
+					break;
+				default:
+					break;
+				}
+			}
+		}
+		break;
+	case XDB_STMT_INSERT:
+		{
+			xdb_conn_t			*pConn = pStmt->pConn;
+			xdb_stmt_insert_t *pStmtIns = (void*)pStmt;
+			for (int i = 0; i < pStmtIns->bind_count; ++i) {
+				xdb_field_t *pFld = pStmtIns->pBind[i];
+				void		*pAddr = pStmtIns->pBindRow[i] + pFld->fld_off;
+				const 		char *str;
+				int			len;
+				switch (pFld->fld_type) {
+				case XDB_TYPE_INT:
+					*(int32_t*)pAddr = va_arg (ap, int);
+					break;
+				case XDB_TYPE_SMALLINT:
+					*(int16_t*)pAddr = va_arg (ap, int);
+					break;
+				case XDB_TYPE_TINYINT:
+					*(int8_t*)pAddr = va_arg (ap, int);
+					break;
+				case XDB_TYPE_BIGINT:
+					*(int64_t*)pAddr = va_arg (ap, int64_t);
+					break;
+				case XDB_TYPE_FLOAT:
+					*(float*)pAddr = va_arg (ap, double);
+					break;
+				case XDB_TYPE_DOUBLE:
+					*(double*)pAddr = va_arg (ap, double);
+					break;
+				case XDB_TYPE_CHAR:
+					str = va_arg (ap, char *);
+					len = strlen (str);
+					if (len > pFld->fld_len) {
+						XDB_SETERR(XDB_E_PARAM, "Field '%s' max len %d < input %d", XDB_OBJ_NAME(pFld), pFld->fld_len, len);
+						return &pConn->conn_res;
+					}
+					*(uint16_t*)(pAddr - 2) = len;
+					memcpy (pAddr, str, len + 1);
+					break;
+				}
+			}
+		}
+		break;
+	default:
+		break;
+	}
+
+	return xdb_stmt_exec (pStmt);
+}
+
+xdb_res_t*
+xdb_stmt_bexec (xdb_stmt_t *pStmt, ...)
+{
+	va_list ap;
+	va_start (ap, pStmt);
+	xdb_res_t* pRes = xdb_stmt_vbexec (pStmt, ap);
+	va_end (ap);
+	return pRes;
+}
+
+xdb_ret
+xdb_clear_bindings (xdb_stmt_t *pStmt)
+{
+	return XDB_OK;
+}
 
 void xdb_stmt_close (xdb_stmt_t *pStmt)
 {

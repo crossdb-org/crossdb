@@ -16,6 +16,45 @@
 * this program. If not, see <http://www.gnu.org/licenses/>.
 ******************************************************************************/
 
+#if 0
+XDB_STATIC void 
+xdb_hash_dump (xdb_idxm_t* pIdxm)
+{
+	xdb_hashHdr_t	*pHashHdr  = pIdxm->pHashHdr;	
+	xdb_rowid		*pHashSlot = pIdxm->pHashSlot;	
+	xdb_hashNode_t	*pHashNode = pIdxm->pHashNode;
+	xdb_stgmgr_t	*pStgMgr	= &pIdxm->pTblm->stg_mgr;
+
+	for (xdb_rowid slot = 0; slot < pIdxm->slot_cap; ++slot) {
+		xdb_rowid rid = pHashSlot[slot];
+		if (0 == rid) {
+			continue;
+		}
+		xdb_print ("slot:%d\n", slot);
+		xdb_hashNode_t	*pCurNode;
+		for (; rid > 0; rid = pCurNode->next) {
+			pCurNode = &pHashNode[rid];
+			xdb_print ("  %u: nxt %x pre %x sib %x\n", rid, pCurNode->next, pCurNode->prev, pCurNode->sibling);
+			xdb_hashNode_t *pSibNode;
+			for (xdb_rowid sid = pCurNode->sibling; sid > 0; sid = pSibNode->next) {
+				pSibNode = &pHashNode[sid];
+				xdb_print ("    %u: nxt %x pre %x sib %x\n", sid, pSibNode->next, pSibNode->prev, pSibNode->sibling);
+				if (pSibNode->next == sid) {
+					printf ("	 ERROR: next == sid\n", pSibNode->next, sid);
+					return;
+				}
+			}
+			if (pCurNode->next == rid) {
+				xdb_print ("    ERROR: next == rid\n", pCurNode->next, rid);
+				return;
+			}
+		}
+	}
+
+	return;
+}
+#endif
+
 XDB_STATIC int 
 xdb_hash_rehash (xdb_idxm_t *pIdxm, xdb_rowid old_max)
 {
@@ -118,7 +157,7 @@ xdb_hash_add (xdb_conn_t *pConn, xdb_idxm_t* pIdxm, xdb_rowid new_rid, void *pRo
 	xdb_hashHdr_t	*pHashHdr  = pIdxm->pHashHdr;	
 	xdb_rowid		*pHashSlot = pIdxm->pHashSlot;	
 	xdb_hashNode_t	*pHashNode = pIdxm->pHashNode;
-	xdb_rowid		rid;
+	xdb_rowid		rid, sid;
 
 	xdb_hashNode_t	*pNewNode = &pHashNode[new_rid];
 	pNewNode->hash_val = hash_val;
@@ -133,7 +172,7 @@ xdb_hash_add (xdb_conn_t *pConn, xdb_idxm_t* pIdxm, xdb_rowid new_rid, void *pRo
 		pHashHdr->slot_count++;
 		pHashHdr->node_count++;
 	} else {
-		xdb_hashNode_t	*pTopNode = NULL, *pCurNode;
+		xdb_hashNode_t	*pTopNode = NULL, *pSibNode;
 		for (rid = first_rid; rid > 0; rid = pTopNode->next) {
 			pTopNode = &pHashNode[rid];
 			if (pTopNode->hash_val != hash_val) {
@@ -150,10 +189,10 @@ xdb_hash_add (xdb_conn_t *pConn, xdb_idxm_t* pIdxm, xdb_rowid new_rid, void *pRo
 		}
 		if (rid) {
 			if (pIdxm->bUnique) {
-				for (rid = pTopNode->sibling; rid > 0; rid = pCurNode->next) {
-					pCurNode = &pHashNode[rid];
-					void *pRowDb = XDB_IDPTR(pStgMgr, rid);
-					if (xdb_likely (xdb_row_valid (pConn, pIdxm->pTblm, pRowDb, rid))) {
+				for (sid = pTopNode->sibling; sid > 0; sid = pSibNode->next) {
+					pSibNode = &pHashNode[sid];
+					void *pRowDb = XDB_IDPTR(pStgMgr, sid);
+					if (xdb_likely (xdb_row_valid (pConn, pIdxm->pTblm, pRowDb, sid))) {
 						goto error;
 					}
 				}
@@ -167,9 +206,9 @@ xdb_hash_add (xdb_conn_t *pConn, xdb_idxm_t* pIdxm, xdb_rowid new_rid, void *pRo
 			pNewNode->sibling = rid;
 			if (sibling_rid) {
 				xdb_dbglog ("  1st sibling %d replace previous 1st silbing %d\n", new_rid, sibling_rid);
-				xdb_hashNode_t *pSiblingNode = &pHashNode[sibling_rid];
-				pSiblingNode->prev = new_rid;
-				pSiblingNode->sibling = XDB_ROWID_MSB;
+				pSibNode = &pHashNode[sibling_rid];
+				pSibNode->prev = new_rid;
+				pSibNode->sibling = XDB_ROWID_MSB;
 			}
 		} else {
 			//xdb_dbglog ("  Insert %d in slot %d at head %d\n", new_rid, slot_id, first_rid);
@@ -198,7 +237,7 @@ error:
 
 XDB_STATIC int xdb_hash_rem (xdb_idxm_t* pIdxm, xdb_rowid rid, void *pRow)
 {
-	xdb_hashNode_t *pTopNode, *pCurNode, *pNxtNode, *pPreNode, *pSiblingNode, *pNxtSiblingNode;
+	xdb_hashNode_t *pTopNode, *pCurNode, *pNxtNode, *pPreNode, *pSibNode, *pNxtSibNode;
 	uint32_t slot_id;
 
 	xdb_hashHdr_t	*pHashHdr = pIdxm->pHashHdr;
@@ -244,29 +283,29 @@ XDB_STATIC int xdb_hash_rem (xdb_idxm_t* pIdxm, xdb_rowid rid, void *pRow)
 			pTopNode->sibling = pCurNode->next;
 			if (pCurNode->next) {
 				xdb_dbglog ("  1st sibling %d has next sibling %d, prompt to 1st siblinig\n", rid, pCurNode->next);
-				pNxtSiblingNode = &pHashNode[pCurNode->next];
-				pNxtSiblingNode->prev = 0;
-				pNxtSiblingNode->sibling = pCurNode->sibling;
+				pNxtSibNode = &pHashNode[pCurNode->next];
+				pNxtSibNode->prev = 0;
+				pNxtSibNode->sibling = pCurNode->sibling;
 			}
 		} else {
 			// It's the top node which has sibling
 			xdb_dbglog ("  Top rid %d has sibling %d, prompt to top\n", rid, pCurNode->sibling);
-			pSiblingNode = &pHashNode[pCurNode->sibling];
+			pSibNode = &pHashNode[pCurNode->sibling];
 			// if has next silbing, prompt to first sibling
-			if (pSiblingNode->next) {
-				xdb_dbglog ("  1st Sibling %d has next sibling %d, prompt to 1st sibling\n", pCurNode->sibling, pSiblingNode->next);
-				pNxtSiblingNode = &pHashNode[pSiblingNode->next];
-				pNxtSiblingNode->sibling = pNxtSiblingNode->prev;
-				pNxtSiblingNode->prev = 0;
+			if (pSibNode->next) {
+				xdb_dbglog ("  1st Sibling %d has next sibling %d, prompt to 1st sibling\n", pCurNode->sibling, pSibNode->next);
+				pNxtSibNode = &pHashNode[pSibNode->next];
+				pNxtSibNode->sibling = pNxtSibNode->prev;
+				pNxtSibNode->prev = 0;
 			}
-			pSiblingNode->sibling = pSiblingNode->next;
-			pSiblingNode->next = pCurNode->next;
+			pSibNode->sibling = pSibNode->next;
+			pSibNode->next = pCurNode->next;
 			if (pCurNode->next) {
 				xdb_dbglog ("  rid %d has next %d, point to it's sibling %d\n", rid, pCurNode->next, pCurNode->sibling);
 				pNxtNode = &pHashNode[pCurNode->next];
 				pNxtNode->prev = pCurNode->sibling;
 			}
-			pSiblingNode->prev = pCurNode->prev;
+			pSibNode->prev = pCurNode->prev;
 			if (pCurNode->prev & XDB_ROWID_MSB) {
 				slot_id = pCurNode->prev & XDB_ROWID_MASK;
 				pHashSlot[slot_id] = pCurNode->sibling;

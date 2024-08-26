@@ -58,9 +58,6 @@
 #define xdb_assert(exp)
 #endif
 
-#define xdb_likely(x)			__builtin_expect(!!(x), 1)
-#define xdb_unlikely(x)			__builtin_expect(!!(x), 0)
-
 #define xdb_prefetch(addr)		__builtin_prefetch (addr, 0, 3)
 
 // Log

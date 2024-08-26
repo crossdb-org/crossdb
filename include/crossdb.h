@@ -196,6 +196,12 @@ xdb_res_t*
 xdb_exec2 (xdb_conn_t *pConn, const char *sql, int len);
 
 xdb_res_t*
+xdb_bexec (xdb_conn_t *pConn, const char *sql, ...);
+
+xdb_res_t*
+xdb_vbexec (xdb_conn_t *pConn, const char *sql, va_list ap);
+
+xdb_res_t*
 xdb_pexec (xdb_conn_t *pConn, const char *sql, ...);
 
 xdb_res_t*
@@ -265,8 +271,17 @@ xdb_bind_str (xdb_stmt_t *pStmt, uint16_t para_id, const char *str);
 xdb_ret
 xdb_bind_str2 (xdb_stmt_t *pStmt, uint16_t para_id, const char *str, int len);
 
+xdb_ret
+xdb_clear_bindings (xdb_stmt_t *pStmt);
+
 xdb_res_t*
 xdb_stmt_exec (xdb_stmt_t *pStmt);
+
+xdb_res_t*
+xdb_stmt_bexec (xdb_stmt_t *pStmt, ...);
+
+xdb_res_t*
+xdb_stmt_vbexec (xdb_stmt_t *pStmt, va_list ap);
 
 void
 xdb_stmt_close (xdb_stmt_t *pStmt);
@@ -290,7 +305,16 @@ xdb_rollback (xdb_conn_t* pConn);
  Misc
 ***************************************/
 
-#define XDB_CHECK(pRes, action...)	if (pRes->errcode) {fprintf (stderr, "==== ERROR %d: %s\n", pRes->errcode, xdb_errmsg(pRes)); action;}
+#if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__clang__)
+#define xdb_likely(x)			__builtin_expect(x, 1)
+#define xdb_unlikely(x)			__builtin_expect(x, 0)
+#else
+#define xdb_likely(x)
+#define xdb_unlikely(x)
+#endif
+
+#define XDB_CHECK(expr, action...)	if (xdb_unlikely(!(expr))) { action; }
+#define XDB_RESCHK(pRes, action...)	if (xdb_unlikely(pRes->errcode)) { fprintf (stderr, "==== ERROR %d: %s\n", pRes->errcode, xdb_errmsg(pRes)); action; }
 
 const char*
 xdb_errmsg (xdb_res_t *pRes);

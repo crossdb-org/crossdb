@@ -42,6 +42,39 @@ xdb_idx_addRow (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow)
 }
 
 XDB_STATIC int 
+xdb_idx_addRow_bmp (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow, uint8_t *idx_del, int count)
+{
+	int rc;
+	for (int i = 0; i < count; ++i) {
+		xdb_idxm_t *pIdxm = XDB_OBJM_GET(pTblm->idx_objm, idx_del[i]);
+		rc = pIdxm->pIdxOps->idx_add (pConn, pIdxm, rid, pRow);
+		if (xdb_unlikely (rc != XDB_OK)) {
+			// recover added index
+			for (int j = 0; j < i; ++j) {
+				xdb_idxm_t *pIdxm = XDB_OBJM_GET(pTblm->idx_objm, pTblm->idx_order[i]);
+				pIdxm->pIdxOps->idx_rem (pIdxm, rid, pRow);
+			}
+			return rc;
+		}
+	}
+	return 0;
+}
+
+XDB_STATIC int 
+xdb_idx_remRow_bmp (xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow, uint64_t idx_bmp, uint8_t *idx_del)
+{
+	int count = 0;
+	for (int i = 0; i < XDB_OBJM_COUNT(pTblm->idx_objm); ++i) {
+		xdb_idxm_t *pIdxm = XDB_OBJM_GET(pTblm->idx_objm, pTblm->idx_order[i]);
+		if ((1<<XDB_OBJ_ID(pIdxm)) & idx_bmp) {
+			pIdxm->pIdxOps->idx_rem (pIdxm, rid, pRow);
+			idx_del[count++] = pTblm->idx_order[i];
+		}
+	}
+	return count;
+}
+
+XDB_STATIC int 
 xdb_idx_remRow (xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow)
 {
 	for (int i = 0; i < XDB_OBJM_COUNT(pTblm->idx_objm); ++i) {
@@ -104,6 +137,7 @@ xdb_create_index (xdb_stmt_idx_t *pStmt, bool bCreateTbl)
 		XDB_EXPECT (fld_id>=0, XDB_E_STMT, "Can't find field '%s'", pStmt->idx_col[i]);
 		pIdxm->pFields[i] = &pTblm->pFields[fld_id];
 		pIdxm->pFields[i]->idx_fid[XDB_OBJ_ID(pIdxm)] = i;
+		pIdxm->pFields[i]->idx_bmp |= (1<<XDB_OBJ_ID(pIdxm));
 	}
 
 	pIdxm->pIdxOps = s_xdb_idx_ops[pIdxm->idx_type];
@@ -170,6 +204,7 @@ xdb_drop_index (xdb_idxm_t *pIdxm)
 
 	for (int i = 0; i < pIdxm->fld_count; ++i) {
 		pIdxm->pFields[i]->idx_fid[XDB_OBJ_ID(pIdxm)] = -1;
+		pIdxm->pFields[i]->idx_bmp &= ~(1<<XDB_OBJ_ID(pIdxm));
 	}
 
 	xdb_objm_del (&pTblm->idx_objm, pIdxm);

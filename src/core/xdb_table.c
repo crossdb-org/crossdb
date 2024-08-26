@@ -147,7 +147,7 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 	xdb_dbglog ("ok create tbl '%s' fld %d size %d\n", XDB_OBJ_NAME(pTblm), pTblm->fld_count, pTblm->row_size);
 	for (int i = 0; i < pTblm->fld_count; ++i) {
 		xdb_field_t *pFld = &pTblm->pFields[i];
-		printf ("  %s %s %d off %d\n", XDB_OBJ_NAME(pFld), xdb_type2str(pFld->fld_type), pFld->fld_len, pFld->fld_off);
+		xdb_print ("  %s %s %d off %d\n", XDB_OBJ_NAME(pFld), xdb_type2str(pFld->fld_type), pFld->fld_len, pFld->fld_off);
 	}
 #endif
 

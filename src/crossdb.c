@@ -19,7 +19,7 @@
 #undef XDB_STATIC
 #define XDB_STATIC static
 
-#include "crossdb.h"
+#include "../include/crossdb.h"
 #include "core/xdb_cfg.h"
 #include "lib/xdb_lib.c"
 #include "core/xdb_common.h"

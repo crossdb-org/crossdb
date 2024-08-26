@@ -21,6 +21,7 @@ xdb_parse_create_server (xdb_conn_t* pConn, xdb_token_t *pTkn)
 {
 	xdb_stmt_svr_t *pStmt = &pConn->stmt_union.svr_stmt;
 	pStmt->stmt_type = XDB_STMT_CREATE_SVR;
+	pStmt->pSql = NULL;
 
 	xdb_token_type type = xdb_next_token (pTkn);
 	XDB_EXPECT (XDB_TOK_STR>=type, XDB_E_STMT, "Miss server name");
@@ -60,6 +61,7 @@ xdb_parse_drop_server (xdb_conn_t* pConn, xdb_token_t *pTkn)
 {
 	xdb_stmt_svr_t *pStmt = &pConn->stmt_union.svr_stmt;
 	pStmt->stmt_type = XDB_STMT_DROP_SVR;
+	pStmt->pSql = NULL;
 
 	xdb_token_type type = xdb_next_token (pTkn);
 	XDB_EXPECT (XDB_TOK_STR>=type, XDB_E_STMT, "Miss server name");

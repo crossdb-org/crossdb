@@ -59,6 +59,7 @@ typedef struct {
 	char			tk_nxt;
 	//xdb_str_t 	token;
 	int				tk_len;
+	bool			bFloat;
 	char			*token;
 } xdb_token_t;
 
@@ -135,6 +136,7 @@ xdb_next_token (xdb_token_t *pTkn)
 	case XDB_TOK_NUM:
 		pTkn->tk_type = XDB_TOK_NUM;
 		pTkn->token = pTkn->tk_sql;
+		pTkn->bFloat = false;
 		if (XDB_TOK_SUB == s_tok_type[(uint8_t)*pTkn->tk_sql]) {
 			pTkn->tk_sql++;
 		}
@@ -142,6 +144,7 @@ xdb_next_token (xdb_token_t *pTkn)
 			pTkn->tk_sql++;
 		}
 		if (XDB_TOK_DOT == s_tok_type[(uint8_t)*pTkn->tk_sql]) {
+			pTkn->bFloat = true;
 			pTkn->tk_sql++;
 			while (XDB_TOK_NUM == s_tok_type[(uint8_t)*pTkn->tk_sql]) {
 				pTkn->tk_sql++;

@@ -33,18 +33,25 @@ xdb_parse_field (xdb_conn_t* pConn, xdb_token_t *pTkn, xdb_stmt_tbl_t *pStmt)
 	XDB_EXPECT (XDB_TOK_ID == type, XDB_E_STMT, "Miss field type");
 	if (0 == strcasecmp (pTkn->token, "INT")) {
 		pFld->fld_type = XDB_TYPE_INT;
+		pFld->sup_type = XDB_TYPE_BIGINT;
 	} else if (0 == strcasecmp (pTkn->token, "CHAR")) {
 		pFld->fld_type = XDB_TYPE_CHAR;
+		pFld->sup_type = XDB_TYPE_CHAR;
 	} else if (0 == strcasecmp (pTkn->token, "TINYINT")) {
 		pFld->fld_type = XDB_TYPE_TINYINT;
+		pFld->sup_type = XDB_TYPE_BIGINT;
 	} else if (0 == strcasecmp (pTkn->token, "SMALLINT")) {
 		pFld->fld_type = XDB_TYPE_SMALLINT;
+		pFld->sup_type = XDB_TYPE_BIGINT;
 	} else if (0 == strcasecmp (pTkn->token, "BIGINT")) {
 		pFld->fld_type = XDB_TYPE_BIGINT;
+		pFld->sup_type = XDB_TYPE_BIGINT;
 	} else if (0 == strcasecmp (pTkn->token, "FLOAT")) {
 		pFld->fld_type = XDB_TYPE_FLOAT;
+		pFld->sup_type = XDB_TYPE_DOUBLE;
 	} else if (0 == strcasecmp (pTkn->token, "DOUBLE")) {
 		pFld->fld_type = XDB_TYPE_DOUBLE;
+		pFld->sup_type = XDB_TYPE_DOUBLE;
 	} else {
 		XDB_EXPECT (0, XDB_E_STMT, "unkown data type '%s'", pTkn->token);
 	}
@@ -111,6 +118,7 @@ xdb_parse_create_table (xdb_conn_t* pConn, xdb_token_t *pTkn)
 	int rc;
 	xdb_stmt_tbl_t *pStmt = &pConn->stmt_union.tbl_stmt;
 	pStmt->stmt_type = XDB_STMT_CREATE_TBL;
+	pStmt->pSql = NULL;
 
 	XDB_EXPECT (NULL != pConn->pCurDbm, XDB_E_NODB, XDB_SQL_NO_DB_ERR);
 
@@ -153,6 +161,7 @@ xdb_parse_create_table (xdb_conn_t* pConn, xdb_token_t *pTkn)
 	pStmt->bMemory	= pStmt->pDbm->bMemory;
 	pStmt->xoid 	= -1;
 	pStmt->stmt_type = XDB_STMT_CREATE_TBL;
+	pStmt->pSql = NULL;
 	pStmt->fld_count = 0;
 	pStmt->idx_count = 0;
 	pStmt->sql = pTkn->tk_sql;
@@ -241,6 +250,7 @@ xdb_parse_drop_table (xdb_conn_t* pConn, xdb_token_t *pTkn)
 {
 	xdb_stmt_tbl_t *pStmt = &pConn->stmt_union.tbl_stmt;
 	pStmt->stmt_type = XDB_STMT_DROP_TBL;
+	pStmt->pSql = NULL;
 
 	XDB_EXPECT (NULL != pConn->pCurDbm, XDB_E_NODB, XDB_SQL_NO_DB_ERR);
 

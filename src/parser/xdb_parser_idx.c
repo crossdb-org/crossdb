@@ -60,6 +60,7 @@ xdb_parse_create_index (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bUnique)
 	xdb_token_type type = xdb_next_token (pTkn);
 	xdb_stmt_idx_t *pStmt = &pConn->stmt_union.idx_stmt;;
 	pStmt->stmt_type = XDB_STMT_CREATE_IDX;
+	pStmt->pSql = NULL;
 
 	XDB_EXPECT (XDB_TOK_ID==type, XDB_E_STMT, "Miss Index name");
 
@@ -102,6 +103,7 @@ xdb_parse_drop_index (xdb_conn_t* pConn, xdb_token_t *pTkn)
 {
 	xdb_stmt_idx_t *pStmt = &pConn->stmt_union.idx_stmt;
 	pStmt->stmt_type = XDB_STMT_DROP_IDX;
+	pStmt->pSql = NULL;
 
 	xdb_token_type type = xdb_next_token (pTkn);
 	XDB_EXPECT (type == XDB_TOK_ID, XDB_E_STMT, "Miss INDEX name: "XDB_SQL_DROP_IDX_STMT);

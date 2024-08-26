@@ -30,7 +30,7 @@ static char *s_xdb_banner_server =
 XDB_STATIC int
 xdb_start_server (const char *host, uint16_t port, const char *datadir, const char *options)
 {
-	printf (s_xdb_banner_server, xdb_version(), port);
+	xdb_print (s_xdb_banner_server, xdb_version(), port);
 	
 	if (NULL == datadir) {
 		datadir = "/var/lib/crossdb";
@@ -49,7 +49,9 @@ xdb_start_server (const char *host, uint16_t port, const char *datadir, const ch
 	
 	while (1) {
 		sleep (1000);
-	}	
+	}
+
+	return XDB_OK;
 }
 
 int main (int argc, char **argv)
@@ -66,17 +68,17 @@ int main (int argc, char **argv)
 	while ((ch = getopt(argc, argv, "h:u:p:e:P:D:R:S")) != -1) {
 		switch (ch) {
 		case '?':
-			printf ("Usage: xdb-cli [OPTIONS] [[path]/db_name]\n");
-            printf ("  -?                        Show this help\n");
+			xdb_print ("Usage: xdb-cli [OPTIONS] [[path]/db_name]\n");
+            xdb_print ("  -?                        Show this help\n");
 		#if (XDB_ENABLE_SERVER == 1)
-            printf ("  -S                        Server: Start in server mode\n");
-            printf ("  -h <ip>                   IP address to bind to or connect to\n");
-            printf ("  -P <port>                 Port to listen or connect\n");
-            printf ("  -D <datadir>              Server: Data directory to store databases\n");
-            printf ("  -u <user>                 Client user\n");
-            printf ("  -p                        Client password\n");
+            xdb_print ("  -S                        Server: Start in server mode\n");
+            xdb_print ("  -h <ip>                   IP address to bind to or connect to\n");
+            xdb_print ("  -P <port>                 Port to listen or connect\n");
+            xdb_print ("  -D <datadir>              Server: Data directory to store databases\n");
+            xdb_print ("  -u <user>                 Client user\n");
+            xdb_print ("  -p                        Client password\n");
 		#endif // XDB_ENABLE_SERVER
-            printf ("  -e <sql>                  Client: Execute command and quit.\n");
+            xdb_print ("  -e <sql>                  Client: Execute command and quit.\n");
 			return -1;
 	#if (XDB_ENABLE_SERVER == 1)
 		case 'S':
@@ -116,7 +118,7 @@ int main (int argc, char **argv)
 	#endif
 	} else {
 		if (bNeedPasswd) {
-			printf ("Enter password:\n");
+			xdb_print ("Enter password:\n");
 		}
 		if ((argc > 1) && (*argv[argc-1] != '-') && (argc > 2 ? (*argv[argc-2] != '-') : 1)) {
 			db = argv[argc-1];

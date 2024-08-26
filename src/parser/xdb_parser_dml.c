@@ -17,11 +17,20 @@
 ******************************************************************************/
 
 XDB_STATIC xdb_stmt_t* 
-xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn)
+xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 {
-	xdb_stmt_insert_t *pStmt = &pConn->stmt_union.insert_stmt;
+	xdb_stmt_insert_t *pStmt;
+
+	if (xdb_unlikely (bPStmt)) {
+		pStmt = xdb_malloc (sizeof (*pStmt));
+		XDB_EXPECT(NULL != pStmt, XDB_E_MEMORY, "Run out of memory");
+	} else {
+		pStmt = &pConn->stmt_union.insert_stmt;
+	}
+
 	pStmt->stmt_type = XDB_STMT_INSERT;
-	pStmt->row_vals = NULL;
+	pStmt->pSql = NULL;
+	pStmt->pRowsBuf = NULL;
 
 	XDB_EXPECT (pConn->pCurDbm != NULL, XDB_E_NODB, XDB_SQL_NO_DB_ERR);
 
@@ -35,21 +44,25 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn)
 
 	XDB_PARSE_DBTBLNAME();
 
-	if (xdb_unlikely (pStmt->pTblm->pDbm->bSysDb)) {
-		XDB_EXPECT (pConn == s_xdb_sysdb_pConn, XDB_E_CONSTRAINT, "Can't insert into table '%s' in system database", XDB_OBJ_NAME(pStmt->pTblm));
+	xdb_tblm_t		*pTblm = pStmt->pTblm;
+
+	if (xdb_unlikely (pTblm->pDbm->bSysDb)) {
+		XDB_EXPECT (pConn == s_xdb_sysdb_pConn, XDB_E_CONSTRAINT, "Can't insert into table '%s' in system database", XDB_OBJ_NAME(pTblm));
 	}
 
+	pStmt->fld_count = 0;
+	pStmt->row_count = 0;
+	pStmt->bind_count = 0;
 
 	bool bColList = false;
 
 	if (XDB_TOK_LP == type) {
 		bColList = true;
-		pStmt->fld_count = 0;
 		// col list
 		do {
 			type = xdb_next_token (pTkn);
 		 	if (XDB_TOK_ID == type) {
-				int fld_id = xdb_find_field (pStmt->pTblm, pTkn->token, pTkn->tk_len);
+				int fld_id = xdb_find_field (pTblm, pTkn->token, pTkn->tk_len);
 				XDB_EXPECT (fld_id >= 0, XDB_E_STMT, "field '%s' doesn't exist", pTkn->token);
 				pStmt->fld_list[pStmt->fld_count++] = fld_id;
 		 	} else {
@@ -61,23 +74,46 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn)
 		XDB_EXPECT (XDB_TOK_RP == type, XDB_E_STMT, "Miss )");
 		type = xdb_next_token (pTkn);
 	} else {
-		pStmt->fld_count = pStmt->pTblm->fld_count;
+		pStmt->fld_count = pTblm->fld_count;
 	}
 
 	XDB_EXPECT ((XDB_TOK_ID == type) && !strcasecmp (pTkn->token, "VALUES"), XDB_E_STMT, "Expect VALUES");
 
-	pStmt->buf_len = 16  * pStmt->pTblm->row_size;
-	pStmt->row_vals = xdb_malloc (pStmt->buf_len);
-	XDB_EXPECT (NULL != pStmt->row_vals, XDB_E_MEMORY, "No memory");
+	if (pTblm->row_size < sizeof (pStmt->row_buf)) {
+		pStmt->pRowsBuf = pStmt->row_buf;
+		pStmt->buf_len	= sizeof (pStmt->row_buf);
+	} else {
+		pStmt->buf_len = 4  * pTblm->row_size;
+		pStmt->pRowsBuf = xdb_malloc (pStmt->buf_len);
+	}
+	XDB_EXPECT (NULL != pStmt->pRowsBuf, XDB_E_MEMORY, "No memory");
 
 	uint32_t	offset = 0;
-	pStmt->row_count = 0;
 
 	// Multiple rows
 	do {
 		// TBD: increase buf if less
-		void *ptr = pStmt->row_vals + offset;
-		memset (ptr, 0, pStmt->pTblm->row_size);
+		void *pRow = pStmt->pRowsBuf + offset;
+
+		if (xdb_unlikely (offset + pTblm->row_size > pStmt->buf_len)) {
+			uint32_t buf_len = pStmt->buf_len <<= 1;
+			void *pRowsBuf;
+			if (pStmt->pRowsBuf == pStmt->row_buf) {
+				pRowsBuf = xdb_malloc (buf_len);
+				if (NULL != pRowsBuf) {
+					memcpy (pRowsBuf, pStmt->row_buf, sizeof (pStmt->row_buf));
+				}
+			} else {
+				pRowsBuf = xdb_realloc (pStmt->pRowsBuf, buf_len);
+			}
+			XDB_EXPECT (NULL != pRowsBuf, XDB_E_MEMORY, "No memory");
+			pStmt->pRowsBuf = pRowsBuf;
+			pStmt->buf_len = buf_len;
+		}
+
+		// TBD copy from default?
+		memset (pRow, 0, pTblm->row_size);
+
 		pStmt->row_offset[pStmt->row_count++] = offset;
 		type = xdb_next_token (pTkn);
 
@@ -87,50 +123,52 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn)
 		int fld_seq = 0;			
 		do {
 			type = xdb_next_token (pTkn);
+			int fld_id = bColList ? pStmt->fld_list[fld_seq] : fld_seq;
+			XDB_EXPECT (++fld_seq <= pStmt->fld_count, XDB_E_STMT, "Too many values");
+			xdb_field_t *pFld = &pTblm->pFields[fld_id];
+
 			if (type <= XDB_TOK_NUM) {
-				int fld_id = bColList ? pStmt->fld_list[fld_seq] : fld_seq;
-
-				XDB_EXPECT (++fld_seq <= pStmt->fld_count, XDB_E_STMT, "Too many values");
-
-				xdb_field_t *pFld = &pStmt->pTblm->pFields[fld_id];
 				switch (pFld->fld_type) {
 				case XDB_TYPE_INT:
 					XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
-					*(int32_t*)(ptr+pFld->fld_off) = atoi (pTkn->token);
-					//printf ("%s %d\n", pFld->fld_name, vi32);
+					*(int32_t*)(pRow+pFld->fld_off) = atoi (pTkn->token);
+					//xdb_print ("%s %d\n", pFld->fld_name, vi32);
 					break;
 				case XDB_TYPE_BIGINT:
 					XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
-					*(int64_t*)(ptr+pFld->fld_off) = atoll (pTkn->token);
-					//printf ("%s %d\n", pFld->fld_name, vi32);
+					*(int64_t*)(pRow+pFld->fld_off) = atoll (pTkn->token);
+					//xdb_print ("%s %d\n", pFld->fld_name, vi32);
 					break;
 				case XDB_TYPE_TINYINT:
 					XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
-					*(int8_t*)(ptr+pFld->fld_off) = atoi (pTkn->token);
-					//printf ("%s %d\n", pFld->fld_name, vi32);
+					*(int8_t*)(pRow+pFld->fld_off) = atoi (pTkn->token);
+					//xdb_print ("%s %d\n", pFld->fld_name, vi32);
 					break;
 				case XDB_TYPE_SMALLINT:
 					XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
-					*(int16_t*)(ptr+pFld->fld_off) = atoi (pTkn->token);
-					//printf ("%s %d\n", pFld->fld_name, vi32);
+					*(int16_t*)(pRow+pFld->fld_off) = atoi (pTkn->token);
+					//xdb_print ("%s %d\n", pFld->fld_name, vi32);
 					break;
 				case XDB_TYPE_FLOAT:
 					XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
-					*(float*)(ptr+pFld->fld_off) = atof (pTkn->token);
-					//printf ("%s %d\n", pFld->fld_name, vi32);
+					*(float*)(pRow+pFld->fld_off) = atof (pTkn->token);
+					//xdb_print ("%s %d\n", pFld->fld_name, vi32);
 					break;
 				case XDB_TYPE_DOUBLE:
 					XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
-					*(double*)(ptr+pFld->fld_off) = atof (pTkn->token);
-					//printf ("%s %d\n", pFld->fld_name, vi32);
+					*(double*)(pRow+pFld->fld_off) = atof (pTkn->token);
+					//xdb_print ("%s %d\n", pFld->fld_name, vi32);
 					break;
 				case XDB_TYPE_CHAR:
 					XDB_EXPECT ((XDB_TOK_STR == type) && (pTkn->tk_len <= pFld->fld_len), XDB_E_STMT, "Expect string <= %d", pFld->fld_len);
-					*(uint16_t*)(ptr+pFld->fld_off-2) = pTkn->tk_len;
-					memcpy (ptr+pFld->fld_off, pTkn->token, pTkn->tk_len+1);
-					//printf ("%s %s\n", pFld->fld_name, pTkn->token);
+					*(uint16_t*)(pRow+pFld->fld_off-2) = pTkn->tk_len;
+					memcpy (pRow+pFld->fld_off, pTkn->token, pTkn->tk_len+1);
+					//xdb_print ("%s %s\n", pFld->fld_name, pTkn->token);
 					break;
 				}
+			} else if (XDB_TOK_QM == type) {
+				pStmt->pBindRow[pStmt->bind_count] = pRow;
+				pStmt->pBind[pStmt->bind_count++] = pFld;
 			} else {
 				break;
 			}
@@ -141,7 +179,7 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn)
 
 		XDB_EXPECT (fld_seq >= pStmt->fld_count, XDB_E_STMT, "Too few values");
 		type = xdb_next_token (pTkn);
-		offset += pStmt->pTblm->row_size;
+		offset += pTblm->row_size;
 
 	} while (XDB_TOK_COMMA == type);
 
@@ -155,16 +193,19 @@ error:
 static inline void 
 xdb_init_where_stmt (xdb_stmt_select_t *pStmt)
 {
-#if 0
+#if 1
+	// fast reset
+	memset (&pStmt->col_count, 0, 8 * sizeof (pStmt->col_count));
+#else
 	pStmt->filter_count = 0;
 	pStmt->bind_count = 0;
 	pStmt->idx_flt_cnt = 0;
 	pStmt->order_count = 0;
 	pStmt->agg_count = 0;
 	pStmt->col_count = 0;
+	pStmt->set_bind_count = 0;
+	pStmt->set_count = 0;
 #endif
-	// fast reset
-	memset (&pStmt->col_count, 0, 6 * sizeof (pStmt->col_count));
 
 	pStmt->pIdxm	= NULL;
 	pStmt->limit	= XDB_MAX_ROWS;
@@ -260,35 +301,33 @@ xdb_parse_where (xdb_conn_t* pConn, xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 		pFilter->cmp_op = XDB_OP_EQ;
 		type = xdb_next_token (pTkn);
 
-		switch (pField->fld_type) {
-		case XDB_TYPE_INT:
-		case XDB_TYPE_BIGINT:
-		case XDB_TYPE_TINYINT:
-		case XDB_TYPE_SMALLINT:
-			if (XDB_TOK_QM == type) {
-				pStmt->pBind[pStmt->bind_count++] = pFilter;
-			} else {
+		if (xdb_unlikely (XDB_TOK_QM == type)) {
+			pFilter->val.fld_type = pField->fld_type;
+			pFilter->val.val_type = pField->sup_type;
+			pStmt->pBind[pStmt->bind_count++] = &pFilter->val;
+		} else {
+			switch (pField->fld_type) {
+			case XDB_TYPE_INT:
+			case XDB_TYPE_BIGINT:
+			case XDB_TYPE_TINYINT:
+			case XDB_TYPE_SMALLINT:
 				pFilter->val.ival = atoll (pTkn->token);
-			}
-			pFilter->val.val_type = XDB_TYPE_BIGINT;
-			//printf ("%s = %d\n", pField->fld_name.str, pFilter->val.ival);
-			break;
-		case XDB_TYPE_CHAR:
-			pFilter->val.str.len = pTkn->tk_len;
-			pFilter->val.str.ptr = pTkn->token;
-			pFilter->val.val_type = XDB_TYPE_CHAR;
-			//printf ("%s = %s\n", pField->fld_name.str, pFilter->val.str.ptr);
-			break;
-		case XDB_TYPE_FLOAT:
-		case XDB_TYPE_DOUBLE:
-			if (XDB_TOK_QM == type) {
-				pStmt->pBind[pStmt->bind_count++] = pFilter;
-			} else {
+				pFilter->val.val_type = XDB_TYPE_BIGINT;
+				//xdb_print ("%s = %d\n", pField->fld_name.str, pFilter->val.ival);
+				break;
+			case XDB_TYPE_CHAR:
+				pFilter->val.str.len = pTkn->tk_len;
+				pFilter->val.str.ptr = pTkn->token;
+				pFilter->val.val_type = XDB_TYPE_CHAR;
+				//xdb_print ("%s = %s\n", pField->fld_name.str, pFilter->val.str.ptr);
+				break;
+			case XDB_TYPE_FLOAT:
+			case XDB_TYPE_DOUBLE:
 				pFilter->val.fval = atof (pTkn->token);
+				pFilter->val.val_type = XDB_TYPE_DOUBLE;
+				//xdb_print ("%s = %d\n", pField->fld_name.str, pFilter->val.ival);
+				break;
 			}
-			pFilter->val.val_type = XDB_TYPE_DOUBLE;
-			//printf ("%s = %d\n", pField->fld_name.str, pFilter->val.ival);
-			break;
 		}
 		type = xdb_next_token (pTkn);
 		if (XDB_TOK_ID != type) {
@@ -346,8 +385,11 @@ xdb_parse_select (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 	}
 
 	pStmt->stmt_type = XDB_STMT_SELECT;
+	pStmt->pSql = NULL;
 	pStmt->meta_size = 0; // no alloc
+
 	xdb_init_where_stmt (pStmt);
+
 	xdb_str_t 			pFldName[XDB_MAX_COLUMN];
 	//xdb_str_t			pColName[XDB_MAX_COLUMN];
 	xdb_str_t			pAggName[XDB_MAX_COLUMN];
@@ -541,12 +583,52 @@ error:
 	return NULL;
 }
 
+XDB_STATIC xdb_ret 
+xdb_parse_val (xdb_stmt_select_t *pStmt, xdb_value_t *pVal,  xdb_token_t *pTkn)
+{
+	int fld_id;
+	xdb_conn_t *pConn = pStmt->pConn;
+	
+	switch (pTkn->tk_type) {
+	case XDB_TOK_NUM:
+		if (xdb_likely (!pTkn->bFloat)) {
+			pVal->ival = atoll (pTkn->token);
+			pVal->val_type = XDB_TYPE_BIGINT;
+			pVal->sup_type = XDB_TYPE_BIGINT;
+		} else {
+			pVal->fval = atof (pTkn->token);
+			pVal->val_type = XDB_TYPE_DOUBLE;
+			pVal->sup_type = XDB_TYPE_DOUBLE;
+		}
+		break;
+	case XDB_TOK_STR:
+		//XDB_EXPECT(pTkn->tk_len <= pFld->fld_len, XDB_E_STMT, "Too long string values %d > %d", pTkn->tk_len, pFld->fld_len);
+		pVal->str.len = pTkn->tk_len;
+		pVal->str.ptr = pTkn->token;
+		pVal->val_type = XDB_TYPE_CHAR;
+		break;
+	case XDB_TOK_ID:
+		fld_id = xdb_find_field (pStmt->pTblm, pTkn->token, pTkn->tk_len);
+		XDB_EXPECT(fld_id>=0, XDB_E_STMT, "Can't find field '%s'", pTkn->token);
+		pVal->pField = &pStmt->pTblm->pFields[fld_id];
+		pVal->val_type = XDB_TYPE_FIELD;
+		break;
+	default:
+		break;
+	}
+	return XDB_OK;
+
+error:
+	return -1;
+}
+
 XDB_STATIC xdb_token_type 
 xdb_parse_setcol (xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 {
 	xdb_tblm_t *pTblm = pStmt->pTblm;
 	xdb_conn_t	*pConn = pStmt->pConn;
 	xdb_token_type	type;
+	int	rc;
 	
 	do {
 		type = xdb_next_token (pTkn);
@@ -562,26 +644,33 @@ xdb_parse_setcol (xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 		XDB_EXPECT(type==XDB_TOK_EQ, XDB_E_STMT, "Miss =");
 
 		type = xdb_next_token (pTkn);
-		XDB_EXPECT(type<=XDB_TOK_NUM, XDB_E_STMT, "Miss ID/STR/NUM");
-
-		switch (pFld->fld_type) {
-		case XDB_TYPE_INT:
-		case XDB_TYPE_BIGINT:
-		case XDB_TYPE_TINYINT:
-		case XDB_TYPE_SMALLINT:
-			pSet->val.ival = atoll (pTkn->token);
-			break;
-		case XDB_TYPE_FLOAT:
-		case XDB_TYPE_DOUBLE:
-			pSet->val.fval = atof (pTkn->token);
-			break;
-		case XDB_TYPE_CHAR:
-			XDB_EXPECT(pTkn->tk_len <= pFld->fld_len, XDB_E_STMT, "Too long string values %d > %d", pTkn->tk_len, pFld->fld_len);
-			pSet->val.str.len = pTkn->tk_len;
-			pSet->val.str.ptr = pTkn->token;
-			break;
+		if (xdb_unlikely (XDB_TOK_QM == type)) {
+			pSet->set_val[0].fld_type = pFld->fld_type;
+			pSet->set_val[0].val_type = pFld->sup_type;
+			pSet->set_val[0].sup_type = pFld->sup_type;
+			pStmt->pBind[pStmt->bind_count++] = &pSet->set_val[0];			
+		} else {
+			XDB_EXPECT(type<=XDB_TOK_NUM, XDB_E_STMT, "Miss ID/STR/NUM");
+			rc = xdb_parse_val (pStmt, &pSet->set_val[0], pTkn);
+			XDB_EXPECT2 (XDB_OK == rc);
 		}
+		pSet->set_op = XDB_OP_EQ;
 		type = xdb_next_token (pTkn);
+		if (xdb_unlikely (type <= XDB_TOK_DIV && type >= XDB_TOK_ADD)) {
+			pSet->set_op = XDB_OP_ADD - XDB_TOK_ADD + type ;
+			type = xdb_next_token (pTkn);
+			if (xdb_unlikely (XDB_TOK_QM == type)) {
+				pSet->set_val[1].fld_type = pFld->fld_type;
+				pSet->set_val[1].val_type = pFld->sup_type;
+				pSet->set_val[1].sup_type = pFld->sup_type;
+				pStmt->pBind[pStmt->bind_count++] = &pSet->set_val[1];
+			} else {
+				XDB_EXPECT(type<=XDB_TOK_NUM, XDB_E_STMT, "Miss ID/STR/NUM");
+				rc = xdb_parse_val (pStmt, &pSet->set_val[1], pTkn);
+				XDB_EXPECT2 (XDB_OK == rc);
+			}
+			type = xdb_next_token (pTkn);
+		}
 	} while (XDB_TOK_COMMA == type);
 
 	return type;
@@ -601,8 +690,9 @@ xdb_parse_update (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 		pStmt = &pConn->stmt_union.select_stmt;
 	}
 	pStmt->stmt_type = XDB_STMT_UPDATE;
+	pStmt->pSql = NULL;
+
 	xdb_init_where_stmt (pStmt);
-	pStmt->set_count = 0;
 
 	xdb_token_type	type = xdb_next_token (pTkn);
 
@@ -617,6 +707,7 @@ xdb_parse_update (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 	XDB_EXPECT((XDB_TOK_ID==type) && !strcasecmp(pTkn->token, "SET"), XDB_E_STMT, "Expect SET");
 
 	type = xdb_parse_setcol (pStmt, pTkn);
+	XDB_EXPECT2 (type >= 0);
 
 	if ((XDB_TOK_ID == type) && !strcasecmp(pTkn->token, "WHERE")) {
 		type = xdb_parse_where (pConn, pStmt, pTkn);
@@ -648,6 +739,8 @@ xdb_parse_delete (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 		pStmt = &pConn->stmt_union.select_stmt;
 	}
 	pStmt->stmt_type = XDB_STMT_DELETE;
+	pStmt->pSql = NULL;
+
 	xdb_init_where_stmt (pStmt);
 
 	XDB_EXPECT((XDB_TOK_ID==type) && !strcasecmp(pTkn->token, "FROM"), XDB_E_STMT, "Expect FROM");

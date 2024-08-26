@@ -747,26 +747,26 @@ xdb_shell_loop (xdb_conn_t* pConn, const char *prompt, const char *db)
 	bool	bNewConn = false;
 	
 	if (isatty(STDIN_FILENO)) {
-		printf (s_xdb_banner, xdb_version());
+		xdb_print (s_xdb_banner, xdb_version());
 
 		crossline_color_set (CROSSLINE_FGCOLOR_YELLOW);
-		printf ("============ Welcome to CrossDB Shell ============\n");
+		xdb_print ("============ Welcome to CrossDB Shell ============\n");
 		crossline_color_set (CROSSLINE_FGCOLOR_BRIGHT | CROSSLINE_FGCOLOR_CYAN);
-		printf ("<help>");
+		xdb_print ("<help>");
 		crossline_color_set (0);
-		printf (": Help Info\t");
+		xdb_print (": Help Info\t");
 		crossline_color_set (CROSSLINE_FGCOLOR_BRIGHT | CROSSLINE_FGCOLOR_MAGENTA);
-		printf ("<F1>");
+		xdb_print ("<F1>");
 		crossline_color_set (0);
-		printf (": Shortcuts\n");
+		xdb_print (": Shortcuts\n");
 		crossline_color_set (CROSSLINE_FGCOLOR_BRIGHT | CROSSLINE_FGCOLOR_RED);
-		printf ("<exit>");
+		xdb_print ("<exit>");
 		crossline_color_set (0);
-		printf (": Exit shell\t");
+		xdb_print (": Exit shell\t");
 		crossline_color_set (CROSSLINE_FGCOLOR_BRIGHT | CROSSLINE_FGCOLOR_BLUE);
-		printf ("<TAB>");
+		xdb_print ("<TAB>");
 		crossline_color_set (0);
-		printf (": Auto completion	\n\n");
+		xdb_print (": Auto completion	\n\n");
 	}
 
 	if (NULL == pConn) {
@@ -820,7 +820,7 @@ xdb_shell_loop (xdb_conn_t* pConn, const char *prompt, const char *db)
 			continue;
 		}		
 
-		//printf ("run '%s'\n", buf);
+		//xdb_print ("run '%s'\n", buf);
 		xdb_shell_process (pConn, buf);
 	}
 

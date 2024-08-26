@@ -35,23 +35,23 @@ xdb_hexdump (const void *addr, int len)
 {
 	int i, j;
 	const uint8_t *ptr = addr;
-	printf ("hexdump addr %p len %d\n", addr, len);
+	xdb_print ("hexdump addr %p len %d\n", addr, len);
 	for (i = 0; i < len; i+=16, ptr+=16) {
-		printf ("%08x  ", i);
+		xdb_print ("%08x  ", i);
 		for (j = 0; j < 16; ++j) {
 			if (i + j < len) {
-				printf ("%02x ", ptr[j]);
+				xdb_print ("%02x ", ptr[j]);
 			} else {
-				printf ("   ");
+				xdb_print ("   ");
 			}
-			if (j == 7) printf (" ");
+			if (j == 7) xdb_print (" ");
 		}
-		printf (" |");
+		xdb_print (" |");
 		for (j = 0; j < 16; ++j) {
-			printf ("%c", (i+j>=len)?' ':(isprint(ptr[j])?ptr[j]:'.'));
-			if (j == 7) printf (" ");
+			xdb_print ("%c", (i+j>=len)?' ':(isprint(ptr[j])?ptr[j]:'.'));
+			if (j == 7) xdb_print (" ");
 		}
-		printf ("|\n");
+		xdb_print ("|\n");
 	}
 }
 #endif

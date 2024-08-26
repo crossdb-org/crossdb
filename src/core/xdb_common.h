@@ -48,25 +48,25 @@ typedef int	xdb_rowid;
 		pConn->conn_res.data_len = pConn->conn_msg.len;
 
 #define XDB_EXPECT_BRK(expr, code, errmsgfmt...)	\
-	if (!(expr)) {	\
+	if (xdb_unlikely (!(expr))) {	\
 		XDB_SETERR (code, errmsgfmt) \
 		break;	\
 	}
 
 #define XDB_EXPECT_GOTO(expr, gototag, code, errmsgfmt...)	\
-	if (!(expr)) {	\
+	if (xdb_unlikely (!(expr))) {	\
 		XDB_SETERR (code, errmsgfmt) \
 		goto gototag;	\
 	}
 
 #define XDB_EXPECT_RET(expr, retval, code, errmsgfmt...)	\
-	if (!(expr)) {	\
+	if (xdb_unlikely (!(expr))) {	\
 		XDB_SETERR (code, errmsgfmt) \
 		return retval;	\
 	}
 
 #define XDB_EXPECT2(expr)	\
-	if (!(expr)) {	\
+	if (xdb_unlikely (!(expr))) {	\
 		goto error;	\
 	}
 
@@ -75,12 +75,14 @@ typedef int	xdb_rowid;
 #define XDB_EXPECT(expr, code, errmsgfmt...)		XDB_EXPECT_GOTO(expr, error, code, errmsgfmt)
 
 #define XDB_EXPECT_SOCK(expr, code, errmsgfmt...)	\
-	if (!(expr)) {	\
+	if (xdb_unlikely (!(expr))) {	\
 		XDB_SETERR (code, errmsgfmt) \
 		xdb_sock_close (pConn->sockfd);	\
 		pConn->sockfd = -1;	\
 		goto error;	\
 	}
+
+#define XDB_CONNCODE(pConn)		pConn->conn_res.errcode
 
 
 /******************************************************************************
@@ -90,12 +92,14 @@ typedef int	xdb_rowid;
 typedef struct xdb_field_t {
 	xdb_obj_t		obj;
 	uint8_t			fld_type;
+	uint8_t			sup_type;
 	uint8_t			fld_decmial;
 	uint16_t		fld_id;
 	uint32_t		fld_off;	
 	int				fld_len;
 	uint16_t		fld_flags;
 	int8_t			idx_fid[XDB_MAX_MATCH_COL];
+	uint64_t		idx_bmp;
 } xdb_field_t;
 
 
