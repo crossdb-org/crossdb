@@ -45,10 +45,7 @@ static uint32_t bench_ts_end (int count)
 {
 	s_last_ts = timestamp_us() - s_last_ts; 
 	uint32_t qps = (int)((uint64_t)count*1000000/s_last_ts);
-	if (qps > 1000000) {
-		bench_print ("Use time %7uus, QPS %s\n", (uint32_t)s_last_ts, qps2str(qps)); 
-	} else {
-	}
+	bench_print ("Use time %7uus, QPS %s\n", (uint32_t)s_last_ts, qps2str(qps)); 
 	return qps;
 }
 
@@ -80,7 +77,7 @@ static void print_result (uint32_t rows, const char *type, bench_result_t *pResu
 {
 	printf ("\n####################### %d Rows %s Test Result ###############################\n", rows, type);
 
-	printf ("\n %8s | %8s | %10s | %10s | %10s | %10s\n", "Rows", "DB", "Access", "INSERT QPS", "QUERY QPS", "UPDATE QPS", "DELETE QPS");
+	printf ("\n %8s | %8s | %10s | %10s | %10s | %10s\n", "DB", "Access", "INSERT QPS", "QUERY QPS", "UPDATE QPS", "DELETE QPS");
 	for (int i = 0; i < 2; ++i) {
 		printf (" %8s | %8s | %10s | %10s | %10s | %10s\n", BENCH_DBNAME, i?"PSTMT":"SQL", 
 			qps2str(pResult[i].insert_qps), qps2str(pResult[i].query_qps), 
