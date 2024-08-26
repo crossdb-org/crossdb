@@ -15,4 +15,4 @@ fast:
 	./bench-crossdb
 
 clean:
-	rm -f a.out bench-crossdb bench-sqlite
+	rm -f a.out bench-crossdb bench-sqlite *.txt
