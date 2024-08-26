@@ -45,7 +45,7 @@ It's developed for high performance scenarios with main memory can hold whole DB
 
 - High-frenquency trade (OLTP)
 - High-peformance query
-- High-peformance data manamgent: You can use CrossDB OnDisk DB to store data on Disk/Flash/SDD.
+- High-peformance data manamgent: You can use CrossDB OnDisk DB to store data on Disk/Flash/SSD.
 - High-peformance IMDB: You can use CrossDB In-Memory DB to manage Process Runtime Data to replace STL or hand-written data structures.
 - You can use CrossDB RamDisk DB to support Process Restartability, In-Service Software Upgrade(ISSU) easily.
 - You can use CrossDB to work as a super fast cache DB.
