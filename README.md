@@ -86,6 +86,16 @@ Following contributions are welcome:
 
 ## Reference
 
+### Benchmark vs. SQLite
+
+<p align="center">
+	<a href="https://crossdb.org/blog/benchmark/crossdb-vs-sqlite3/">
+	<img src="https://crossdb.org/images/crossdb-vs-sqlite.png">
+	</a>
+</p>
+
+https://crossdb.org/blog/benchmark/crossdb-vs-sqlite3/
+
 ### SQL Statements
 
 https://crossdb.org/sql/statements/
