@@ -23,6 +23,8 @@
 extern "C" {
 #endif
 
+#include "xdb_token.h"
+
 typedef enum {
 	XDB_STMT_INVALID		= 0,
 	XDB_STMT_USE_DB			= 1,
@@ -211,11 +213,16 @@ typedef struct {
 } xdb_stmt_idx_t;
 
 typedef enum xdb_op_t {
-	XDB_OP_EQ,
-	XDB_OP_ADD,
-	XDB_OP_SUB,
-	XDB_OP_MUL,
-	XDB_OP_DIV,
+	XDB_OP_EQ 	= XDB_TOK_EQ,
+	XDB_OP_LT 	= XDB_TOK_LT, 	// <
+	XDB_OP_LE 	= XDB_TOK_LE, 	// <=
+	XDB_OP_GT 	= XDB_TOK_GT, 	// >
+	XDB_OP_GE 	= XDB_TOK_GE, 	// >=
+	XDB_OP_NE 	= XDB_TOK_NE, 	// != <>
+	XDB_OP_ADD 	= XDB_TOK_ADD,
+	XDB_OP_SUB 	= XDB_TOK_SUB,
+	XDB_OP_MUL 	= XDB_TOK_MUL,
+	XDB_OP_DIV 	= XDB_TOK_DIV,
 } xdb_op_t;
 
 typedef struct xdb_str {
@@ -244,10 +251,10 @@ typedef struct xdb_value_t {
 
 typedef struct xdb_filter_t {
 	uint8_t			cmp_op;		// xdb_op_t
-	xdb_value_t		val;
-	uint16_t		fld_off;
 	uint8_t			fld_type;	
+	uint16_t		fld_off;
 	uint16_t		fld_id;
+	xdb_value_t		val;
 	xdb_field_t		*pField;
 } xdb_filter_t;
 

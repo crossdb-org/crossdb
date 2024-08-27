@@ -293,12 +293,17 @@ xdb_parse_where (xdb_conn_t* pConn, xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 		//pFilter->fld_off	= pField->fld_off;
 		//pFilter->fld_type	= pField->fld_type;
 		xdb_field_t *pField = &pStmt->pTblm->pFields[fld_id];
-		bmp[fld_id>>3] |= (1<<(fld_id&7));
 		pFilter->pField = pField;
 
 		type = xdb_next_token (pTkn);
-		XDB_EXPECT (XDB_TOK_EQ == type, XDB_E_STMT, "Miss =");
-		pFilter->cmp_op = XDB_OP_EQ;
+		//XDB_EXPECT (XDB_TOK_EQ == type, XDB_E_STMT, "Miss =");
+		if (xdb_likely (XDB_TOK_EQ == type)) {
+			bmp[fld_id>>3] |= (1<<(fld_id&7));
+			pFilter->cmp_op = XDB_OP_EQ;
+		} else {
+			XDB_EXPECT (type > XDB_TOK_EQ && type <= XDB_TOK_NE, XDB_E_STMT, "Unsupported operator");
+			pFilter->cmp_op = type;
+		}
 		type = xdb_next_token (pTkn);
 
 		if (xdb_unlikely (XDB_TOK_QM == type)) {
@@ -657,7 +662,7 @@ xdb_parse_setcol (xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 		pSet->set_op = XDB_OP_EQ;
 		type = xdb_next_token (pTkn);
 		if (xdb_unlikely (type <= XDB_TOK_DIV && type >= XDB_TOK_ADD)) {
-			pSet->set_op = XDB_OP_ADD - XDB_TOK_ADD + type ;
+			pSet->set_op = (xdb_op_t)type ;
 			type = xdb_next_token (pTkn);
 			if (xdb_unlikely (XDB_TOK_QM == type)) {
 				pSet->set_val[1].fld_type = pFld->fld_type;

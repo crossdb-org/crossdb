@@ -8,12 +8,10 @@
 </p>
 
 > **NOTE** 
-> This project was redesigned and rewritten from scratch.
-> It's still in early development stage, so please DO NOT use in your project now.
+> This project is still in early development stage, so please **DO NOT** use in your project now.
 
 **CrossDB** is a super high-performance lightweight embedded and server OLTP RDBMS. 
 It's developed for high performance scenarios where main memory can hold the whole DB.
-
 
 ## Features
 

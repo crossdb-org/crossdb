@@ -339,6 +339,7 @@ xdb_row_and_match (void *pRow, xdb_filter_t **pFilterList, int count)
 		case XDB_TYPE_FLOAT:
 			value.fval = *(float*)pVal;
 			value.val_type = XDB_TYPE_DOUBLE;
+			pValue->fval = (float)pValue->fval;
 			break;
 		case XDB_TYPE_DOUBLE:
 			value.fval = *(double*)pVal;
@@ -361,9 +362,22 @@ xdb_row_and_match (void *pRow, xdb_filter_t **pFilterList, int count)
 			}
 			switch (pFilter->cmp_op) {
 			case XDB_OP_EQ: 
-				if (value.ival != pValue->ival) {
-					return 0;
-				}
+				if (value.ival != pValue->ival) { return 0;	}
+				break;
+			case XDB_OP_GT: 
+				if (value.ival <= pValue->ival) { return 0; }
+				break;
+			case XDB_OP_GE: 
+				if (value.ival < pValue->ival) { return 0; }
+				break;
+			case XDB_OP_LT: 
+				if (value.ival >= pValue->ival) { return 0; }
+				break;
+			case XDB_OP_LE: 
+				if (value.ival > pValue->ival) { return 0; }
+				break;
+			case XDB_OP_NE: 
+				if (value.ival == pValue->ival) { return 0; }
 				break;
 			}
 			break;
@@ -374,9 +388,22 @@ xdb_row_and_match (void *pRow, xdb_filter_t **pFilterList, int count)
 			}
 			switch (pFilter->cmp_op) {
 			case XDB_OP_EQ: 
-				if (value.fval == pValue->fval) {
-					return 0;
-				}
+				if (value.fval != pValue->fval) {	return 0; }
+				break;
+			case XDB_OP_GT: 
+				if (value.fval <= pValue->fval) { return 0; }
+				break;
+			case XDB_OP_GE: 
+				if (value.fval < pValue->fval) { return 0; }
+				break;
+			case XDB_OP_LT: 
+				if (value.fval >= pValue->fval) { return 0; }
+				break;
+			case XDB_OP_LE: 
+				if (value.fval > pValue->fval) { return 0; }
+				break;
+			case XDB_OP_NE: 
+				if (value.fval == pValue->fval) { return 0; }
 				break;
 			}
 			break;
@@ -394,6 +421,14 @@ xdb_row_and_match (void *pRow, xdb_filter_t **pFilterList, int count)
 				//if (memcmp (value.str.ptr, pValue->str.ptr, value.str.len)) {
 					return 0;
 				}
+				break;
+			case XDB_OP_NE: 
+				if ((value.str.len == pValue->str.len) && !strcasecmp (value.str.ptr, pValue->str.ptr)) {
+					//if (memcmp (value.str.ptr, pValue->str.ptr, value.str.len)) {
+					return 0;
+				}
+				break;
+			default:
 				break;
 			}
 			break;
