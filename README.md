@@ -74,6 +74,31 @@ Then set `gcc` path to `system environment variables` `Path` and make sure `gcc`
 winbuild.bat
 ```
 
+### CMake
+```
+mkdir -p build;
+cd build
+cmake ..
+make
+sudo make install
+```
+
+### Build manually
+
+Though there're dozens of files, only one file need to build.
+
+```bash
+gcc -o build/xdb-cli src/xdb-cli.c -lpthread -O2
+gcc -o build/libcrossdb.so src/crossdb.c -fPIC -shared -lpthread -O2
+```
+
+or clang
+
+```bash
+clang -o build/xdb-cli src/xdb-cli.c -lpthread -O2
+clang -o build/libcrossdb.so src/crossdb.c -fPIC -shared -lpthread -O2
+```
+
 ## Contribution
 
 Following contributions are welcome:

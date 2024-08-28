@@ -15,16 +15,16 @@ help:
 build:
 	mkdir -p build
 	$(CC) -o build/libcrossdb.so -fPIC -shared -lpthread -O2 src/crossdb.c
-	$(CC) -o build/crossdb src/main.c -lpthread -O2
+	$(CC) -o build/xdb-cli src/xdb-cli.c -lpthread -O2
 	cp include/crossdb.h build/
 
 debug:
 	$(CC) -o build/libcrossdb.so -fPIC -lpthread -shared -g src/crossdb.c
-	$(CC) -o build/crossdb src/main.c -lpthread -g
+	$(CC) -o build/xdb-cli src/xdb-cli.c -lpthread -g
 	cp include/crossdb.h build/
 
 run:
-	build/crossdb
+	build/xdb-cli
 
 clean:
 	rm -rf build/*
@@ -32,32 +32,33 @@ clean:
 	make -C bench/basic/ clean
 
 wall:
-	$(CC) -o build/crossdb src/main.c -lpthread -O2 -Wall
+	$(CC) -o build/xdb-cli src/xdb-cli.c -lpthread -O2 -Wall
 
 gdb:
-	$(CC) -o build/crossdb src/main.c -lpthread -g
-	gdb build/crossdb
+	$(CC) -o build/xdb-cli src/xdb-cli.c -lpthread -g
+	gdb build/xdb-cli
 
 install:
-	install -c build/libcrossdb.so /usr/lib/
-	install -c build/crossdb.h /usr/include/
-	install -c build/crossdb /usr/bin/
+	install -c build/libcrossdb.so /usr/local/lib/
+	install -c build/crossdb.h /usr/local/include/
+	install -c build/xdb-cli /usr/local/bin/
+	ldconfig
 
 uninstall:
-	rm -rf /usr/lib/libcrossdb.so
-	rm -rf /usr/include/crossdb.h
-	rm -rf /usr/bin/crossdb
+	rm -rf /usr/local/lib/libcrossdb.so
+	rm -rf /usr/local/include/crossdb.h
+	rm -rf /usr/local/bin/xdb-cli
 
 installmac:
 	$(CC) -o build/libcrossdb.so -dynamiclib -lpthread -O2 src/crossdb.c
 	install -c build/libcrossdb.so /usr/local/lib/
 	install -c build/crossdb.h /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include
-	install -c build/crossdb /usr/local/bin/
+	install -c build/xdb-cli /usr/local/bin/
 
 uninstallmac:
 	rm -rf /usr/local/lib/libcrossdb.so
 	rm -rf /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/crossdb.h
-	rm -rf /usr/local/bin/crossdb
+	rm -rf /usr/local/bin/xdb-cli
 
 example:
 	make -C examples/c/
