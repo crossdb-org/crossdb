@@ -31,7 +31,6 @@ void bench_sql_test (void *pConn, int STU_COUNT, bool bRand, bench_result_t *pRe
 
 	bench_print ("\n[============= SQL Test =============]\n\n");
 
-
 	bench_print ("------------ INSERT %d ------------\n", STU_COUNT);
 	bench_ts_beg();
 	for (int i = 0; i < STU_COUNT; ++i) {
@@ -40,7 +39,6 @@ void bench_sql_test (void *pConn, int STU_COUNT, bool bRand, bench_result_t *pRe
 		XDB_RESCHK (pRes, bench_print ("Can't insert table student id=%d\n", i); return;);
 	}
 	pResult->insert_qps += bench_ts_end (STU_COUNT);
-
 
 	bench_print ("------------ %s LKUP %d ------------\n", ORDER_STR(bRand), SQL_LKUP_COUNT);
 	uint64_t qps_sum = 0;

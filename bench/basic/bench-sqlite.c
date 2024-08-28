@@ -78,7 +78,6 @@ void bench_sql_test (void *pDb, int STU_COUNT, bool bRand, bench_result_t *pResu
 
 	bench_print ("\n[============= SQL Test =============]\n\n");
 
-
 	bench_print ("------------ INSERT %d ------------\n", STU_COUNT);
 	bench_ts_beg();
 	for (int i = 0; i < STU_COUNT; ++i) {
@@ -88,7 +87,6 @@ void bench_sql_test (void *pDb, int STU_COUNT, bool bRand, bench_result_t *pResu
 		exec_error_check (status, err_msg);
 	}
 	pResult->insert_qps += bench_ts_end (STU_COUNT);
-
 
 	bench_print ("------------ %s LKUP %d ------------\n", ORDER_STR(bRand), LKUP_COUNT/2);
 	uint64_t qps_sum = 0;
