@@ -6,14 +6,22 @@ int main (int argc, char **argv)
 	xdb_row_t	*pRow;
 
 	xdb_conn_t	*pConn = xdb_open (":memory:");
+	//mkdir("tmp");
+	//xdb_conn_t	*pConn = xdb_open ("tmp/school");
+	XDB_CHECK (NULL != pConn, printf ("failed to create DB\n"); return -1;);
 
 	// Create Table
-	pRes = xdb_exec (pConn, "CREATE TABLE student (id INT PRIMARY KEY, name CHAR(16), age INT, class CHAR(16), score FLOAT, info CHAR(255))");
+	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS student (id INT PRIMARY KEY, name CHAR(16), age INT, class CHAR(16), score FLOAT, info CHAR(255))");
 	XDB_RESCHK(pRes, printf ("Can't create table student\n"); goto error;);
 	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS teacher (id INT PRIMARY KEY, name CHAR(16), age INT, info CHAR(255), INDEX (name))");
 	XDB_RESCHK(pRes, printf ("Can't create table teacher\n"); goto error;);
 	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS book (id INT PRIMARY KEY, name CHAR(64), author CHAR(32), count INT, INDEX (name))");
 	XDB_RESCHK(pRes, printf ("Can't create table book\n"); goto error;);
+
+	// clean table
+	pRes = xdb_exec (pConn, "DELETE FROM student");
+	pRes = xdb_exec (pConn, "DELETE FROM teacher");
+	pRes = xdb_exec (pConn, "DELETE FROM book");
 
 	// Insert
 	pRes = xdb_exec (pConn, "INSERT INTO student (id,name,age,class,score) VALUES (1,'jack',10,'3-1',90),(2,'tom',11,'2-5',91),(3,'jack',11,'1-6',92),(4,'rose',10,'4-2',90),(5,'tim',10,'3-1',95)");

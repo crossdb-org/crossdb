@@ -132,6 +132,8 @@ xdb_create_db (xdb_stmt_db_t *pStmt)
 	pDbm->stg_mgr.pOps = pDbm->bMemory ? &s_xdb_store_mem_ops : &s_xdb_store_file_ops;
 	pDbm->stg_mgr.pStgHdr	= &stg_hdr;
 	int rc = xdb_stg_open (&pDbm->stg_mgr, path, NULL, NULL);
+	XDB_EXPECT (XDB_OK == rc, XDB_E_FILE, "Can't create DB in path '%s'", path);
+
 	pDbm->lock_mode = pStmt->lock_mode;
 
 	xdb_db_t *pDb = (xdb_db_t*)pDbm->stg_mgr.pStgHdr;

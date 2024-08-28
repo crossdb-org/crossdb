@@ -342,10 +342,6 @@ xdb_stg_open (xdb_stgmgr_t *pStgMgr, const char *file, void (*init_cb)(xdb_stgmg
 		}
 	}
 
-	if (fsize > 0) {
-		// check file valid
-		return -XDB_E_EXISTS;
-	}
 	return XDB_OK;
 }
 
