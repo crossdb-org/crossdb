@@ -24,6 +24,7 @@ xdb_conn_init (xdb_conn_t* pConn)
 	pConn->bAutoCommit = true;
 	pConn->conn_stdout = stdout;
 	xdb_lv2bmp_init (&pConn->dbTrans_bmp);
+	xdb_atomic_inc (&s_xdb_conn_count);
 }
 
 xdb_conn_t*
@@ -50,7 +51,6 @@ xdb_open (const char *dbpath)
 		}
 	}
 
-	xdb_atomic_inc (&s_xdb_conn_count);
 	return pConn;
 }
 
@@ -77,7 +77,7 @@ xdb_close (xdb_conn_t* pConn)
 
 	xdb_atomic_dec (&s_xdb_conn_count);
 
-	if (0 == s_xdb_conn_count) {
+	if (1 == s_xdb_conn_count) {
 		xdb_exit ();
 	}
 }

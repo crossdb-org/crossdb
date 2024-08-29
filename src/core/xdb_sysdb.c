@@ -224,3 +224,10 @@ xdb_sysdb_init ()
 
 	return XDB_OK;
 }
+
+XDB_STATIC void 
+xdb_sysdb_exit ()
+{
+	xdb_close (s_xdb_sysdb_pConn);
+	s_xdb_sysdb_pConn = NULL;
+}

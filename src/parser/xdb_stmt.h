@@ -212,6 +212,7 @@ typedef enum xdb_op_t {
 	XDB_OP_GT 	= XDB_TOK_GT, 	// >
 	XDB_OP_GE 	= XDB_TOK_GE, 	// >=
 	XDB_OP_NE 	= XDB_TOK_NE, 	// != <>
+	XDB_OP_MAX	= XDB_OP_NE,
 	XDB_OP_ADD 	= XDB_TOK_ADD,
 	XDB_OP_SUB 	= XDB_TOK_SUB,
 	XDB_OP_MUL 	= XDB_TOK_MUL,

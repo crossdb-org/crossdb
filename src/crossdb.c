@@ -103,6 +103,7 @@ xdb_exit ()
 	// Close all opened DBs
 	s_xdb_bInit = false;
 	xdb_close_all_db (NULL);
+	xdb_sysdb_exit ();
 
 	return XDB_OK;
 }

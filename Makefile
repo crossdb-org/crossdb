@@ -13,7 +13,6 @@ help:
 
 .PHONY: build
 build:
-	mkdir -p build
 	$(CC) -o build/libcrossdb.so -fPIC -shared -lpthread -O2 src/crossdb.c
 	$(CC) -o build/xdb-cli src/xdb-cli.c -lpthread -O2
 	cp include/crossdb.h build/

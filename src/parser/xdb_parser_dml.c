@@ -266,21 +266,52 @@ error:
 	return -XDB_E_STMT;
 }
 
+
+static xdb_op_t s_xdb_op_opposite[] = {
+	[XDB_OP_EQ] = XDB_OP_EQ,
+	[XDB_OP_NE] = XDB_OP_NE,
+	[XDB_OP_LT] = XDB_OP_GT,
+	[XDB_OP_GT] = XDB_OP_LT,
+	[XDB_OP_LE] = XDB_OP_GE,
+	[XDB_OP_GE] = XDB_OP_LE,
+};
+
 XDB_STATIC int 
 xdb_parse_where (xdb_conn_t* pConn, xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 {
-	uint8_t bmp[8];
+	uint8_t 	bmp[8];
 	xdb_tblm_t	*pTblm = pStmt->pTblm;
-	memset (bmp, 0 , sizeof(bmp));
-	xdb_token_type type;
-	
+	memset (bmp, 0, sizeof(bmp));
+	xdb_token_type	type;
+	xdb_token_type	vtype;
+	int				vlen, flen;
+	xdb_op_t		op;
+	char 			*pVal, *pFldName;
+
 	do {
 		type = xdb_next_token (pTkn);
-		if (XDB_TOK_ID != type) {
-			break;
+		if (xdb_likely (XDB_TOK_ID == type)) {
+			pFldName = pTkn->token;
+			flen = pTkn->tk_len;
+			op = xdb_next_token (pTkn);
+			XDB_EXPECT (op >= XDB_OP_EQ && op <= XDB_OP_NE, XDB_E_STMT, "Unsupported operator");
+			vtype = xdb_next_token (pTkn);
+			pVal = pTkn->token;
+			vlen  = pTkn->tk_len;
+		} else {
+			vtype = type;
+			pVal = pTkn->token;
+			vlen  = pTkn->tk_len;
+			op = xdb_next_token (pTkn);
+			XDB_EXPECT (op >= XDB_OP_EQ && op <= XDB_OP_NE, XDB_E_STMT, "Unsupported operator");
+			op = s_xdb_op_opposite[op];
+			type = xdb_next_token (pTkn);
+			XDB_EXPECT (XDB_TOK_ID == type, XDB_E_STMT, "One val must be field");
+			pFldName = pTkn->token;
+			flen = pTkn->tk_len;
 		}
-		int fld_id = xdb_find_field (pStmt->pTblm, pTkn->token, pTkn->tk_len);
-		XDB_EXPECT (fld_id>=0, XDB_E_STMT, "Can't find field '%s'", pTkn->token);
+		int fld_id = xdb_find_field (pStmt->pTblm, pFldName, flen);
+		XDB_EXPECT (fld_id>=0, XDB_E_STMT, "Can't find field '%s'", pFldName);
 		xdb_filter_t *pFilter = &pStmt->filters[pStmt->filter_count];
 		pStmt->pFilters[pStmt->filter_count++] = pFilter;
 		//pFilter->fld_off	= pField->fld_off;
@@ -288,18 +319,12 @@ xdb_parse_where (xdb_conn_t* pConn, xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 		xdb_field_t *pField = &pStmt->pTblm->pFields[fld_id];
 		pFilter->pField = pField;
 
-		type = xdb_next_token (pTkn);
-		//XDB_EXPECT (XDB_TOK_EQ == type, XDB_E_STMT, "Miss =");
-		if (xdb_likely (XDB_TOK_EQ == type)) {
+		if (xdb_likely (XDB_OP_EQ == op)) {
 			bmp[fld_id>>3] |= (1<<(fld_id&7));
-			pFilter->cmp_op = XDB_OP_EQ;
-		} else {
-			XDB_EXPECT (type > XDB_TOK_EQ && type <= XDB_TOK_NE, XDB_E_STMT, "Unsupported operator");
-			pFilter->cmp_op = type;
 		}
-		type = xdb_next_token (pTkn);
+		pFilter->cmp_op = op;
 
-		if (xdb_unlikely (XDB_TOK_QM == type)) {
+		if (xdb_unlikely (XDB_TOK_QM == vtype)) {
 			pFilter->val.fld_type = pField->fld_type;
 			pFilter->val.val_type = pField->sup_type;
 			pStmt->pBind[pStmt->bind_count++] = &pFilter->val;
@@ -309,19 +334,22 @@ xdb_parse_where (xdb_conn_t* pConn, xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 			case XDB_TYPE_BIGINT:
 			case XDB_TYPE_TINYINT:
 			case XDB_TYPE_SMALLINT:
-				pFilter->val.ival = atoll (pTkn->token);
+				XDB_EXPECT (XDB_TOK_NUM == vtype, XDB_E_STMT, "Expect Value");
+				pFilter->val.ival = atoll (pVal);
 				pFilter->val.val_type = XDB_TYPE_BIGINT;
 				//xdb_print ("%s = %d\n", pField->fld_name.str, pFilter->val.ival);
 				break;
 			case XDB_TYPE_CHAR:
-				pFilter->val.str.len = pTkn->tk_len;
-				pFilter->val.str.ptr = pTkn->token;
+				XDB_EXPECT (XDB_TOK_STR == vtype, XDB_E_STMT, "Expect Value");
+				pFilter->val.str.len = vlen;
+				pFilter->val.str.ptr = pVal;
 				pFilter->val.val_type = XDB_TYPE_CHAR;
 				//xdb_print ("%s = %s\n", pField->fld_name.str, pFilter->val.str.ptr);
 				break;
 			case XDB_TYPE_FLOAT:
 			case XDB_TYPE_DOUBLE:
-				pFilter->val.fval = atof (pTkn->token);
+				XDB_EXPECT (XDB_TOK_NUM == vtype, XDB_E_STMT, "Expect Value");
+				pFilter->val.fval = atof (pVal);
 				pFilter->val.val_type = XDB_TYPE_DOUBLE;
 				//xdb_print ("%s = %d\n", pField->fld_name.str, pFilter->val.ival);
 				break;
