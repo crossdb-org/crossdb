@@ -6,7 +6,7 @@ int main (int argc, char **argv)
 	xdb_row_t	*pRow;
 
 	xdb_conn_t	*pConn = xdb_open (":memory:");
-	//mkdir("tmp");
+	//mkdir("tmp"); 
 	//xdb_conn_t	*pConn = xdb_open ("tmp/school");
 	XDB_CHECK (NULL != pConn, printf ("failed to create DB\n"); return -1;);
 
