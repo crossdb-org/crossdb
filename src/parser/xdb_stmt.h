@@ -206,24 +206,33 @@ typedef struct {
 } xdb_stmt_idx_t;
 
 typedef enum xdb_op_t {
+	XDB_OP_NONE,
 	XDB_OP_EQ 	= XDB_TOK_EQ,
 	XDB_OP_LT 	= XDB_TOK_LT, 	// <
 	XDB_OP_LE 	= XDB_TOK_LE, 	// <=
 	XDB_OP_GT 	= XDB_TOK_GT, 	// >
 	XDB_OP_GE 	= XDB_TOK_GE, 	// >=
 	XDB_OP_NE 	= XDB_TOK_NE, 	// != <>
-	XDB_OP_MAX	= XDB_OP_NE,
+	XDB_OPLOG_MAX	= XDB_OP_NE,
 	XDB_OP_ADD 	= XDB_TOK_ADD,
 	XDB_OP_SUB 	= XDB_TOK_SUB,
 	XDB_OP_MUL 	= XDB_TOK_MUL,
 	XDB_OP_DIV 	= XDB_TOK_DIV,
+
+	XDB_OP_COUNT,
+	XDB_OP_SUM,
+	XDB_OP_MIN,
+	XDB_OP_MAX,
+	XDB_OP_AVG,
 } xdb_op_t;
 
+#if 0
 typedef struct xdb_str {
 	char	*ptr;
 	int		len;
 	int		cap;
 } xdb_str;
+#endif
 
 typedef enum {
 	XDB_TYPE_FIELD = 128,
@@ -234,12 +243,13 @@ typedef struct xdb_value_t {
 	uint8_t			fld_type;
 	uint8_t			sup_type;
 	xdb_field_t 	*pField;
+	xdb_str_t		val_str;
 	//uint32_t		val_len;	// if table field, then is fld_id or function id
 	union {
 		double		fval;
 		uint64_t	uval;
 		int64_t		ival;
-		xdb_str		str;	// str/binary
+		xdb_str_t	str;	// str/binary
 	};
 } xdb_value_t;
 
@@ -253,25 +263,19 @@ typedef struct xdb_filter_t {
 } xdb_filter_t;
 
 typedef struct {
-	xdb_field_t		*pField;
-	xdb_op_t		set_op;
-	xdb_value_t		res_val;
-	xdb_value_t		set_val[2];
-} xdb_setfld_t;
-
-typedef enum {
-	XDB_AGGFUNC_NONE,
-	XDB_AGGFUNC_COUNT,
-	XDB_AGGFUNC_SUM,
-	XDB_AGGFUNC_MIN,
-	XDB_AGGFUNC_MAX,
-	XDB_AGGFUNC_AVG,
-} xdb_aggfunc_e;
+	uint8_t			exp_op;	// xdb_op_t
+	xdb_value_t		op_val[2];
+} xdb_exp_t;
 
 typedef struct {
 	xdb_field_t		*pField;
-	xdb_aggfunc_e	type;
-} xdb_aggfld_t;
+	xdb_exp_t		exp;
+} xdb_setfld_t;
+
+typedef struct {
+	xdb_str_t		as_name;
+	xdb_exp_t		exp;
+} xdb_selcol_t;
 
 typedef struct {
 	XDB_STMT_COMMON;
@@ -284,6 +288,7 @@ typedef struct {
 	uint16_t		order_count;
 	uint16_t		bind_count;
 	uint16_t		idx_flt_cnt;
+	uint16_t		exp_count;
 	uint16_t		set_bind_count;
 	uint16_t		set_count;
 
@@ -308,9 +313,9 @@ typedef struct {
 	xdb_filter_t	*pIdxFlts[XDB_MAX_MATCH_COL];
 
 	// agg func
-	xdb_aggfunc_e	agg_func[XDB_MAX_COLUMN];
 	uint64_t		agg_buf[XDB_MAX_COLUMN];
-	int16_t			agg_fid[XDB_MAX_COLUMN];
+
+	xdb_selcol_t	sel_cols[XDB_MAX_COLUMN];
 
 	// orderby
 	xdb_field_t		*pOrderFlds[XDB_MAX_MATCH_COL];
@@ -324,7 +329,6 @@ typedef struct {
 	xdb_size		res_size;
 
 	xdb_setfld_t	set_flds[XDB_MAX_COLUMN];
-	
 } xdb_stmt_select_t;
 
 typedef struct {

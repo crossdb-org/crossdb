@@ -4,13 +4,10 @@
 	</a>
 </p>
 <p align="center">
-	<strong>Super High-performance Lightweight Embedded and Server OLTP RDBMS✨</strong>
+	<strong>Ultra High-performance Lightweight Embedded and Server OLTP RDBMS✨</strong>
 </p>
 
-> **NOTE** 
-> This project is still in the early development stage, so please **DO NOT** use in your project now.
-
-**CrossDB** is a super high-performance, lightweight embedded and server OLTP RDBMS. 
+**CrossDB** is a ultra high-performance, lightweight embedded and server OLTP RDBMS. 
 It is designed for high-performance scenarios where the main memory can hold the entire database.
 
 ## Features
@@ -34,7 +31,7 @@ It is designed for high-performance scenarios where the main memory can hold the
 - Supports an embedded CrossDB shell with convenient auto-completion.
 - Supports multi-statement APIs.
 - Supports prepared statement APIs.
-- Super high performance.
+- Ultra high performance.
 - Very simple: Simple header and library file.
 - Zero config: No complex configuration, truly out-of-the-box.
 
@@ -48,6 +45,13 @@ It is designed for high-performance scenarios where the main memory can hold the
 - Use CrossDB as a super-fast cache DB.
 
 ## Build and Install
+
+### Download code
+
+```bash
+git clone https://github.com/crossdb-org/crossdb.git
+cd crossdb
+```
 
 ### Linux/FreeBSD
 
@@ -82,15 +86,18 @@ sudo make install
 
 ## Contribution
 
-Following contributions are welcome:
+This project is still in its early stages and currently lacks stability. We welcome the following contributions:
 
-- Language bindings: `Python`, `Java`, `Go`, `CSharp`, `Javascript`, `PHP`, etc.
-- Testing and bug reporting.
+- **Language bindings**: `Python`, `Java`, `Go`, `CSharp`, `JavaScript`, `PHP`, etc.
+- **Bug Reporting**: Identify and report any issues or bugs you encounter.
+- **Testing**: Participate in testing to ensure the reliability and stability of the project.
+
+Your contributions will be greatly appreciated and will help us make this project more robust and reliable.
 
 
 ## Reference
 
-### Benchmark vs. SQLite
+### 1,000,000 Rows Random Access Benchmark vs. SQLite
 
 <p align="center">
 	<a href="https://crossdb.org/blog/benchmark/crossdb-vs-sqlite3/">
@@ -99,6 +106,16 @@ Following contributions are welcome:
 </p>
 
 https://crossdb.org/blog/benchmark/crossdb-vs-sqlite3/
+
+### 1,000,000 Rows Random Access Benchmark vs. C++ STL Map and HashMap
+
+<p align="center">
+	<a href="https://crossdb.org/blog/benchmark/crossdb-vs-stlmap/">
+	<img src="https://crossdb.org/images/crossdb-vs-stlmap.png">
+	</a>
+</p>
+
+https://crossdb.org/blog/benchmark/crossdb-vs-stlmap/
 
 ### SQL Statements
 

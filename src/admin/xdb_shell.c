@@ -470,7 +470,7 @@ xdb_shell_completion_hook (char const *buf, crossline_completions_t *pCompletion
 		"Begin transaction",
 		"Commit transaction",
 		"Rollback transaction",
-		"Switch Databae",
+		"Switch Database",
 		"Show database, table, index, etc",
 		"Show Table Schema",
 		"Show SELECT statement index selection",
@@ -813,7 +813,7 @@ xdb_shell_loop (xdb_conn_t* pConn, const char *prompt, const char *db)
 			continue;
 		}		
 
-		//xdb_print ("run '%s'\n", buf);
+		//xdb_dbgprint ("run '%s'\n", buf);
 		xdb_shell_process (pConn, buf);
 	}
 

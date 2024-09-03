@@ -134,4 +134,6 @@ xdb_exit ();
 XDB_STATIC const char* 
 xdb_type2str (xdb_type_t tp);
 
+static xdb_type_t s_xdb_prompt_type[];
+
 #endif // __XDB_COMMON_H__

@@ -61,6 +61,41 @@ static char s_tok_type[256] = {
 	['9'] = XDB_TOK_NUM,
 };
 
+static const char* xdb_tok2str(xdb_token_type tp) 
+{
+	const char *id2str[] = {
+		[XDB_TOK_ID   ] = "ID",
+		[XDB_TOK_NUM  ] = "NUM",
+		[XDB_TOK_ESC  ] = "ESC",
+		[XDB_TOK_STR  ] = "STR",
+		[XDB_TOK_SP   ] = "SP",
+		[XDB_TOK_EQ   ] = "=",
+		[XDB_TOK_LT   ] = "<",
+		[XDB_TOK_LE   ] = "<=",
+		[XDB_TOK_GT   ] = ">",
+		[XDB_TOK_GE   ] = ">=",
+		[XDB_TOK_NE   ] = "<>",
+		[XDB_TOK_ADD  ] = "+",
+		[XDB_TOK_SUB  ] = "-",
+		[XDB_TOK_MUL  ] = "*",
+		[XDB_TOK_DIV  ] = "/",
+		[XDB_TOK_MOD  ] = "%",
+		[XDB_TOK_AND  ] = "AND",
+		[XDB_TOK_OR   ] = "OR",
+		[XDB_TOK_XOR  ] = "XOR",
+		[XDB_TOK_NOT  ] = "NOT",
+		[XDB_TOK_NEG  ] = "!",
+		[XDB_TOK_COMMA] = ",",
+		[XDB_TOK_DOT  ] = ".",
+		[XDB_TOK_LP   ] = "(",
+		[XDB_TOK_RP   ] = ")",
+		[XDB_TOK_END  ] = "END",
+		[XDB_TOK_EOF  ] = "EOF",
+		[XDB_TOK_INV  ] = "INV"
+	};
+	return tp <= XDB_ARY_LEN(id2str)? id2str[tp] : "Unkonwn";
+}
+
 XDB_STATIC xdb_token_type 
 xdb_next_token (xdb_token_t *pTkn)
 {

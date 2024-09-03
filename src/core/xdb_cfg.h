@@ -16,7 +16,7 @@
 	CrossDB Config
 ******************************************************************************/
 
-#define XDB_VERSION			"0.7.0"
+#define XDB_VERSION			"0.8.0"
 
 #define XDB_MAX_DB			1024 // at most 4096
 #define XDB_MAX_TBL			4095 // per DB

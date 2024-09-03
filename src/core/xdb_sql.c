@@ -46,6 +46,7 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 	int 	rc = 0;
 	xdb_res_t*	pRes;
 	xdb_conn_t		*pConn = pStmt->pConn;
+	xdb_tblm_t		*pTblm;
 
 	if (xdb_likely (XDB_STMT_SELECT == pStmt->stmt_type)) {
 		pRes = xdb_sql_select ((xdb_stmt_select_t*)pStmt);
@@ -59,13 +60,34 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 		pConn->conn_msg.len = 0;
 		switch (pStmt->stmt_type) {
 		case XDB_STMT_UPDATE: 
-			pRes->affected_rows = xdb_sql_update ((xdb_stmt_select_t*)pStmt);
-			break;
 		case XDB_STMT_INSERT:
-			pRes->affected_rows = xdb_sql_insert ((xdb_stmt_insert_t*)pStmt);
-			break;
 		case XDB_STMT_DELETE:
-			pRes->affected_rows = xdb_sql_delete ((xdb_stmt_select_t*)pStmt);
+			if (xdb_unlikely (!pConn->bInTrans)) {
+				xdb_begin2 (pConn, pConn->bAutoCommit);
+			}
+			if (xdb_likely (XDB_STMT_INSERT != pStmt->stmt_type)) {
+				pTblm = ((xdb_stmt_select_t*)pStmt)->pTblm;
+			} else {
+				pTblm = ((xdb_stmt_insert_t*)pStmt)->pTblm;
+			}
+			if (xdb_unlikely (!(pTblm->bMemory && pConn->bAutoTrans))) {
+				xdb_wrlock_table (pConn, pTblm);
+			}
+			if (xdb_likely (XDB_STMT_UPDATE == pStmt->stmt_type)) {
+				pRes->affected_rows = xdb_sql_update ((xdb_stmt_select_t*)pStmt);
+			} else if (XDB_STMT_INSERT == pStmt->stmt_type) {
+				pRes->affected_rows = xdb_sql_insert ((xdb_stmt_insert_t*)pStmt);
+			} else {
+				pRes->affected_rows = xdb_sql_delete ((xdb_stmt_select_t*)pStmt);
+			}
+			if (xdb_likely (pConn->bAutoTrans)) {
+				if (xdb_likely (pTblm->bMemory)) {
+					pConn->bInTrans = false;
+					pConn->bAutoTrans = false;			
+				} else {
+					xdb_commit (pConn);
+				}
+			}
 			break;
 		case XDB_STMT_BEGIN:
 			rc = xdb_begin2 (pConn, false);
@@ -196,10 +218,6 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 		default:
 			rc = XDB_E_STMT;
 			break;
-		}
-
-		if (pConn->bAutoTrans) {
-			xdb_commit (pStmt->pConn);
 		}
 
 		// extra msg set
@@ -574,7 +592,7 @@ xdb_bind_str2 (xdb_stmt_t *pStmt, uint16_t para_id, const char *str, int len)
 			if (xdb_unlikely (--para_id >= pStmtSel->bind_count)) {
 				return -XDB_E_PARAM;
 			}
-			pStmtSel->pBind[para_id]->str.ptr = (char*)str;
+			pStmtSel->pBind[para_id]->str.str = (char*)str;
 			pStmtSel->pBind[para_id]->str.len = len > 0 ? len : strlen (str);
 		}
 		break;
@@ -625,8 +643,8 @@ xdb_stmt_vbexec (xdb_stmt_t *pStmt, va_list ap)
 					pVal->fval = va_arg (ap, double);
 					break;
 				case XDB_TYPE_CHAR:
-					pVal->str.ptr = va_arg (ap, char *);
-					pVal->str.len = strlen (pVal->str.ptr);
+					pVal->str.str = va_arg (ap, char *);
+					pVal->str.len = strlen (pVal->str.str);
 					break;
 				default:
 					break;

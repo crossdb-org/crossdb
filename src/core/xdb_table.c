@@ -82,13 +82,14 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 	memcpy (pTblm->pFields, pStmt->stmt_flds, flds_size);
 
 	for (int i = 0; i < pTblm->fld_count; ++i) {
-		pTblm->meta_size += (sizeof(xdb_col_t) + XDB_OBJ_NMLEN(&pTblm->pFields[i]) + 1 + 3) & (~3); // 4B align
+		pTblm->meta_size += XDB_ALIGN4 (sizeof(xdb_col_t) + XDB_OBJ_NMLEN(&pTblm->pFields[i]) + 1);
 		xdb_objm_add (&pTblm->fld_objm, &pTblm->pFields[i]);
 	}
 
 	//pTblm->tbl_fd = tbl_fd;
 	pTblm->row_size = pStmt->row_size;
-	if (pTblm->row_size < 1) {
+	if (pStmt->row_size < 1) {
+		pTblm->row_size = 0;
 		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_BIGINT) | (1LL<<XDB_TYPE_DOUBLE), 8);
 		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_INT) | (1LL<<XDB_TYPE_FLOAT), 4);
 		xdb_alloc_offset (pTblm, (1<<XDB_TYPE_CHAR) | (1<<XDB_TYPE_SMALLINT), 2);
@@ -97,7 +98,7 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 	}
 
 	// add fast pointer access
-	int meta_size_align = (pTblm->meta_size + 2 + 7) & (~7); // 8B align
+	int meta_size_align = XDB_ALIGN8 (pTblm->meta_size + 2);
 	xdb_meta_t *pMeta = xdb_calloc (meta_size_align + 8 * pTblm->fld_count);
 	XDB_EXPECT (NULL!=pMeta, XDB_E_MEMORY, "Can't alloc memory");
 	pTblm->pMeta = pMeta;
@@ -115,7 +116,7 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 		pCol->col_off	= pFld->fld_off;
 		pCol->col_nmlen = XDB_OBJ_NMLEN(pFld);
 		memcpy (pCol->col_name, XDB_OBJ_NAME(pFld), pCol->col_nmlen + 1);
-		pCol->col_len = (sizeof (*pCol) + pCol->col_nmlen + 1 + 3) & (~3); // 4B allign
+		pCol->col_len = XDB_ALIGN4 (sizeof (*pCol) + pCol->col_nmlen + 1);
 		pCol = (void*)pCol + pCol->col_len;
 	}
 	pCol->col_len = 0;

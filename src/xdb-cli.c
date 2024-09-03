@@ -11,45 +11,9 @@
 
 #include "crossdb.c"
 
-static char *s_xdb_banner_server = 
-"\n"
-"   _____                   _____  ____      _          \n"  
-"  / ____|                 |  __ \\|  _ \\   _| |_    CrossDB %s\n"
-" | |     _ __ ___  ___ ___| |  | | |_) | |_   _|   Port: %d \n"
-" | |    | '__/ _ \\/ __/ __| |  | |  _ <    |_|      \n"
-" | |____| | | (_) \\__ \\__ \\ |__| | |_) |          \n"
-"  \\_____|_|  \\___/|___/___/_____/|____/            https://crossdb.org\n\n";
-
-XDB_STATIC int
-xdb_start_server (const char *host, uint16_t port, const char *datadir, const char *options)
-{
-	xdb_print (s_xdb_banner_server, xdb_version(), port);
-	
-	if (NULL == datadir) {
-		datadir = "/var/lib/crossdb";
-	}
-	xdb_mkdir (datadir);
-	
-	xdb_conn_t *pConn = xdb_open (NULL);
-	
-	xdb_mkdir (datadir);
-	
-	xdb_pexec (pConn, "OPEN DATADIR '%s'", datadir);
-	
-	xdb_pexec (pConn, "SET DATADIR='%s'", datadir);
-	
-	xdb_pexec (pConn, "CREATE SERVER crossdb PORT=%d", port);
-	
-	while (1) {
-		sleep (1000);
-	}
-
-	return XDB_OK;
-}
-
 int main (int argc, char **argv)
 {
-	char		*db = NULL;
+	char		*db = ":memory:";
 	char		ch;
 	bool		bServer = false, bNeedPasswd = false;
 	#if (XDB_ENABLE_SERVER == 1)

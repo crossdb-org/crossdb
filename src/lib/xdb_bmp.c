@@ -32,7 +32,7 @@ xdb_bmp_lv1alloc (xdb_bmp_t *pBmp)
 	}
 	pLv1Bmp->bmp2 = 0;
 	memset (pLv1Bmp->bmp3, 0, sizeof (pLv1Bmp->bmp3));
-	//xdb_print ("alloc v1bmp %p\n", pLv1Bmp);
+	//xdb_dbgprint ("alloc v1bmp %p\n", pLv1Bmp);
 	return pLv1Bmp;
 }
 
@@ -179,7 +179,7 @@ xdb_bmp_lv2alloc (xdb_bmp_t *pBmp)
 	}
 	pLv2Bmp->bmp4 = 0;
 	memset (pLv2Bmp->bmp5, 0, sizeof (pLv2Bmp->bmp5));
-	//xdb_print ("alloc v2bmp %p\n", pLv2Bmp);
+	//xdb_dbgprint ("alloc v2bmp %p\n", pLv2Bmp);
 	return pLv2Bmp;
 }
 
@@ -378,7 +378,7 @@ xdb_bmp_get (xdb_bmp_t *pBmp, uint32_t bit)
 	xdb_lv2bmp_t *pLv2Bmp = pLv1Bmp->pLv2Bmp[id2][id3];
 
 	int id4 = (bit>>6)&0x3f, id5 = bit&0x3f;
-	//xdb_print ("%d %d %d %d %d %d %lld", id0, id1, id2, id3, id4, id5, pLv2Bmp->bmp5[id4]);
+	//xdb_dbgprint ("%d %d %d %d %d %d %lld", id0, id1, id2, id3, id4, id5, pLv2Bmp->bmp5[id4]);
 	return (pLv2Bmp->bmp5[id4] & (1LL << id5)) > 0;
 }
 

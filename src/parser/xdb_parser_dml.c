@@ -125,38 +125,38 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 				case XDB_TYPE_INT:
 					XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
 					*(int32_t*)(pRow+pFld->fld_off) = atoi (pTkn->token);
-					//xdb_print ("%s %d\n", pFld->fld_name, vi32);
+					//xdb_dbgprint ("%s %d\n", pFld->fld_name, vi32);
 					break;
 				case XDB_TYPE_BIGINT:
 					XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
 					*(int64_t*)(pRow+pFld->fld_off) = atoll (pTkn->token);
-					//xdb_print ("%s %d\n", pFld->fld_name, vi32);
+					//xdb_dbgprint ("%s %d\n", pFld->fld_name, vi32);
 					break;
 				case XDB_TYPE_TINYINT:
 					XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
 					*(int8_t*)(pRow+pFld->fld_off) = atoi (pTkn->token);
-					//xdb_print ("%s %d\n", pFld->fld_name, vi32);
+					//xdb_dbgprint ("%s %d\n", pFld->fld_name, vi32);
 					break;
 				case XDB_TYPE_SMALLINT:
 					XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
 					*(int16_t*)(pRow+pFld->fld_off) = atoi (pTkn->token);
-					//xdb_print ("%s %d\n", pFld->fld_name, vi32);
+					//xdb_dbgprint ("%s %d\n", pFld->fld_name, vi32);
 					break;
 				case XDB_TYPE_FLOAT:
 					XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
 					*(float*)(pRow+pFld->fld_off) = atof (pTkn->token);
-					//xdb_print ("%s %d\n", pFld->fld_name, vi32);
+					//xdb_dbgprint ("%s %d\n", pFld->fld_name, vi32);
 					break;
 				case XDB_TYPE_DOUBLE:
 					XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
 					*(double*)(pRow+pFld->fld_off) = atof (pTkn->token);
-					//xdb_print ("%s %d\n", pFld->fld_name, vi32);
+					//xdb_dbgprint ("%s %d\n", pFld->fld_name, vi32);
 					break;
 				case XDB_TYPE_CHAR:
 					XDB_EXPECT ((XDB_TOK_STR == type) && (pTkn->tk_len <= pFld->fld_len), XDB_E_STMT, "Expect string <= %d", pFld->fld_len);
 					*(uint16_t*)(pRow+pFld->fld_off-2) = pTkn->tk_len;
 					memcpy (pRow+pFld->fld_off, pTkn->token, pTkn->tk_len+1);
-					//xdb_print ("%s %s\n", pFld->fld_name, pTkn->token);
+					//xdb_dbgprint ("%s %s\n", pFld->fld_name, pTkn->token);
 					break;
 				}
 			} else if (XDB_TOK_QM == type) {
@@ -188,7 +188,7 @@ xdb_init_where_stmt (xdb_stmt_select_t *pStmt)
 {
 #if 1
 	// fast reset
-	memset (&pStmt->col_count, 0, 8 * sizeof (pStmt->col_count));
+	memset (&pStmt->col_count, 0, 9 * sizeof (pStmt->col_count));
 #else
 	pStmt->filter_count = 0;
 	pStmt->bind_count = 0;
@@ -266,6 +266,50 @@ error:
 	return -XDB_E_STMT;
 }
 
+XDB_STATIC xdb_ret 
+xdb_parse_val (xdb_stmt_select_t *pStmt, xdb_value_t *pVal,  xdb_token_t *pTkn)
+{
+	int fld_id;
+	xdb_conn_t *pConn = pStmt->pConn;
+
+	pVal->val_str.str = pTkn->token;
+	pVal->val_str.len = pTkn->tk_len;
+	
+	switch (pTkn->tk_type) {
+	case XDB_TOK_NUM:
+		if (xdb_likely (!pTkn->bFloat)) {
+			pVal->ival = atoll (pTkn->token);
+			pVal->val_type = XDB_TYPE_BIGINT;
+			pVal->sup_type = XDB_TYPE_BIGINT;
+		} else {
+			pVal->fval = atof (pTkn->token);
+			pVal->val_type = XDB_TYPE_DOUBLE;
+			pVal->sup_type = XDB_TYPE_DOUBLE;
+		}
+		break;
+	case XDB_TOK_STR:
+		//XDB_EXPECT(pTkn->tk_len <= pFld->fld_len, XDB_E_STMT, "Too long string values %d > %d", pTkn->tk_len, pFld->fld_len);
+		pVal->str.len = pTkn->tk_len;
+		pVal->str.str = pTkn->token;
+		pVal->val_type = XDB_TYPE_CHAR;
+		break;
+	case XDB_TOK_ID:
+		if (pStmt->pTblm != NULL) {
+			fld_id = xdb_find_field (pStmt->pTblm, pTkn->token, pTkn->tk_len);
+			XDB_EXPECT(fld_id>=0, XDB_E_STMT, "Can't find field '%s'", pTkn->token);
+			pVal->pField = &pStmt->pTblm->pFields[fld_id];
+		}
+		pVal->val_type = XDB_TYPE_FIELD;
+		break;
+	default:
+		XDB_SETERR (XDB_E_STMT, "Unkown token type");
+		goto error;
+	}
+	return XDB_OK;
+
+error:
+	return -1;
+}
 
 static xdb_op_t s_xdb_op_opposite[] = {
 	[XDB_OP_EQ] = XDB_OP_EQ,
@@ -293,7 +337,7 @@ xdb_parse_where (xdb_conn_t* pConn, xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 		if (xdb_likely (XDB_TOK_ID == type)) {
 			pFldName = pTkn->token;
 			flen = pTkn->tk_len;
-			op = xdb_next_token (pTkn);
+			op = (xdb_op_t)xdb_next_token (pTkn);
 			XDB_EXPECT (op >= XDB_OP_EQ && op <= XDB_OP_NE, XDB_E_STMT, "Unsupported operator");
 			vtype = xdb_next_token (pTkn);
 			pVal = pTkn->token;
@@ -302,7 +346,7 @@ xdb_parse_where (xdb_conn_t* pConn, xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 			vtype = type;
 			pVal = pTkn->token;
 			vlen  = pTkn->tk_len;
-			op = xdb_next_token (pTkn);
+			op = (xdb_op_t)xdb_next_token (pTkn);
 			XDB_EXPECT (op >= XDB_OP_EQ && op <= XDB_OP_NE, XDB_E_STMT, "Unsupported operator");
 			op = s_xdb_op_opposite[op];
 			type = xdb_next_token (pTkn);
@@ -337,21 +381,21 @@ xdb_parse_where (xdb_conn_t* pConn, xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 				XDB_EXPECT (XDB_TOK_NUM == vtype, XDB_E_STMT, "Expect Value");
 				pFilter->val.ival = atoll (pVal);
 				pFilter->val.val_type = XDB_TYPE_BIGINT;
-				//xdb_print ("%s = %d\n", pField->fld_name.str, pFilter->val.ival);
+				//xdb_dbgprint ("%s = %d\n", pField->fld_name.str, pFilter->val.ival);
 				break;
 			case XDB_TYPE_CHAR:
 				XDB_EXPECT (XDB_TOK_STR == vtype, XDB_E_STMT, "Expect Value");
 				pFilter->val.str.len = vlen;
-				pFilter->val.str.ptr = pVal;
+				pFilter->val.str.str = pVal;
 				pFilter->val.val_type = XDB_TYPE_CHAR;
-				//xdb_print ("%s = %s\n", pField->fld_name.str, pFilter->val.str.ptr);
+				//xdb_dbgprint ("%s = %s\n", pField->fld_name.str, pFilter->val.str.str);
 				break;
 			case XDB_TYPE_FLOAT:
 			case XDB_TYPE_DOUBLE:
 				XDB_EXPECT (XDB_TOK_NUM == vtype, XDB_E_STMT, "Expect Value");
 				pFilter->val.fval = atof (pVal);
 				pFilter->val.val_type = XDB_TYPE_DOUBLE;
-				//xdb_print ("%s = %d\n", pField->fld_name.str, pFilter->val.ival);
+				//xdb_dbgprint ("%s = %d\n", pField->fld_name.str, pFilter->val.ival);
 				break;
 			}
 		}
@@ -402,7 +446,11 @@ error:
 XDB_STATIC xdb_stmt_t* 
 xdb_parse_select (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 {
+	int 	rc;
 	xdb_stmt_select_t 	*pStmt;
+	xdb_value_t 		*pVal;
+	xdb_value_t 		*pVal1;
+
 	if (xdb_unlikely (bPStmt)) {
 		pStmt = xdb_malloc (sizeof (*pStmt));
 		XDB_EXPECT(NULL != pStmt, XDB_E_MEMORY, "Run out of memory");
@@ -413,76 +461,101 @@ xdb_parse_select (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 	pStmt->stmt_type = XDB_STMT_SELECT;
 	pStmt->pSql = NULL;
 	pStmt->meta_size = 0; // no alloc
+	pStmt->pTblm = NULL;
 
 	xdb_init_where_stmt (pStmt);
 
-	xdb_str_t 			pFldName[XDB_MAX_COLUMN];
-	//xdb_str_t			pColName[XDB_MAX_COLUMN];
-	xdb_str_t			pAggName[XDB_MAX_COLUMN];
 	xdb_token_type		type;
-	uint16_t			col_count = 0;
 	int					meta_size = sizeof (xdb_meta_t);
+	int 				nmlen;
 
 	// fields
 	do {
-		xdb_str_t *pStr;
 		type = xdb_next_token (pTkn);
-	 	if (XDB_TOK_ID == type) {
-			XDB_EXPECT (col_count < XDB_ARY_LEN(pFldName), XDB_E_STMT, "Too many fields");
-			pStr = &pFldName[col_count];
-			pStr->len = pTkn->tk_len;
-			pStr->str = pTkn->token;
-	 	} else {
-	 		XDB_EXPECT (XDB_TOK_MUL == type, XDB_E_STMT, "Expect *");
+
+		if (XDB_TOK_MUL == type) {
 			type = xdb_next_token (pTkn);
-	 		break;
-	 	}
+			break;
+		}
+
+		XDB_EXPECT (pStmt->col_count < XDB_ARY_LEN(pStmt->sel_cols), XDB_E_STMT, "Too many fields");
+		xdb_selcol_t *pSelCol = &pStmt->sel_cols[pStmt->col_count++];
+		pSelCol->as_name.str = NULL;
+
+		pVal = &pSelCol->exp.op_val[0];
+		rc = xdb_parse_val (pStmt, pVal, pTkn);
+		XDB_EXPECT2 (XDB_OK == rc);
+
+		pSelCol->exp.exp_op = XDB_OP_NONE;
+		nmlen = XDB_ALIGN4 (pTkn->tk_len + 1);
+
 		type = xdb_next_token (pTkn);
-		if (XDB_TOK_LP == type) {
-			if (!strcasecmp(pStr->str, "COUNT")) {
-				pStmt->agg_func[col_count] = XDB_AGGFUNC_COUNT;
-			} else if (!strcasecmp(pStr->str, "MAX")) {
-				pStmt->agg_func[col_count] = XDB_AGGFUNC_MAX;
-			} else if (!strcasecmp(pStr->str, "MIN")) {
-				pStmt->agg_func[col_count] = XDB_AGGFUNC_MIN;
-			} else if (!strcasecmp(pStr->str, "SUM")) {
-				pStmt->agg_func[col_count] = XDB_AGGFUNC_SUM;
-			} else if (!strcasecmp(pStr->str, "AVG")) {
-				pStmt->agg_func[col_count] = XDB_AGGFUNC_AVG;
+		if (xdb_likely (XDB_TOK_COMMA == type)) {
+			// fast hit
+			if (pVal->val_type != XDB_TYPE_FIELD) {
+				pStmt->exp_count++;
+			}
+		} else if (type >= XDB_TOK_ADD && type <= XDB_TOK_DIV) {
+			// exp
+			pSelCol->exp.exp_op = type;
+			xdb_next_token (pTkn);
+			pVal1 = &pSelCol->exp.op_val[1];
+			rc = xdb_parse_val (pStmt, pVal1, pTkn);
+			XDB_EXPECT2 (XDB_OK == rc);
+			type = xdb_next_token (pTkn);
+			nmlen = XDB_ALIGN4 (pVal->val_str.len + pVal1->val_str.len + 1 + 1);
+			pStmt->exp_count++;
+		} else if (XDB_TOK_LP == type) {
+			// agg func
+			xdb_str_t *pFunc = &pVal->val_str;
+			if (!strcasecmp(pFunc->str, "COUNT")) {
+				pSelCol->exp.exp_op = XDB_OP_COUNT;
+			} else if (!strcasecmp(pFunc->str, "MAX")) {
+				pSelCol->exp.exp_op = XDB_OP_MAX;
+			} else if (!strcasecmp(pFunc->str, "MIN")) {
+				pSelCol->exp.exp_op = XDB_OP_MIN;
+			} else if (!strcasecmp(pFunc->str, "SUM")) {
+				pSelCol->exp.exp_op = XDB_OP_SUM;
+			} else if (!strcasecmp(pFunc->str, "AVG")) {
+				pSelCol->exp.exp_op = XDB_OP_AVG;
 			} else {
-				XDB_EXPECT (0, XDB_E_STMT, "Unkonwn ID '%s'", pStr->str);
+				XDB_EXPECT (0, XDB_E_STMT, "Unkonwn ID '%s'", pFunc->str);
 			}
-			pAggName[col_count].len = pTkn->tk_len;
-			pAggName[col_count].str = pTkn->token;
 			type = xdb_next_token (pTkn);
+			pVal1 = &pSelCol->exp.op_val[1];
 			if (XDB_TOK_MUL == type) {
-				XDB_EXPECT (XDB_AGGFUNC_COUNT == pStmt->agg_func[col_count], XDB_E_STMT, "%s can't use '*'", pStr->str);
+				XDB_EXPECT (XDB_OP_COUNT == pSelCol->exp.exp_op, XDB_E_STMT, "%s can't use '*'", pFunc->str);
+				pVal1->val_str.str = NULL;
+				pVal1->val_str.len = 1;
+			} else {
+				pVal1->val_str.str = pTkn->token;
+				pVal1->val_str.len = pTkn->tk_len;
 			}
-			pStr->len = pTkn->tk_len;
-			pStr->str = pTkn->token;
 			type = xdb_next_token (pTkn);
 			XDB_EXPECT (XDB_TOK_RP == type, XDB_E_STMT, "Expect )");
-			type = xdb_next_token (pTkn);
 			pStmt->agg_count++;
-			meta_size += (pAggName[col_count].len + 2 + pTkn->tk_len + 1 + 3) & (~3);
-		} else {
-			pStmt->agg_func[col_count] = XDB_AGGFUNC_NONE;
-			meta_size += (pTkn->tk_len + 1 + 3) & (~3);
-		}
-#if 0
-		if (xdb_unlikely (XDB_TOK_ID == type)) {
-			XDB_EXPECT (strcasecmp(pTkn->token, "AS"), XDB_E_STMT, "Expect AS", pStr->str);
+			nmlen = XDB_ALIGN4 (pFunc->len + 2 + pVal1->val_str.len + 1); // COUNT(fld)+`\0`
 			type = xdb_next_token (pTkn);
-			XDB_EXPECT (XDB_TOK_ID == type, XDB_E_STMT, "Expect ID");
-			pColName[col_count].str = pTkn->token;
-			pColName[col_count].len = pTkn->tk_len;
-			as_count++;
-		} else {
-			pColName[col_count] = pFldName[col_count];
 		}
-#endif
 
-		col_count++;
+		if (xdb_unlikely (XDB_TOK_ID == type)) {
+			if (!strcasecmp(pTkn->token, "AS")) {
+				type = xdb_next_token (pTkn);
+				XDB_EXPECT (XDB_TOK_ID == type, XDB_E_STMT, "Expect ID");
+				pSelCol->as_name.str = pTkn->token;
+				pSelCol->as_name.len = pTkn->tk_len;
+				nmlen = XDB_ALIGN4 (pTkn->tk_len + 1);
+				type = xdb_next_token (pTkn);
+			} else {
+				if (pVal->val_type != XDB_TYPE_FIELD) {
+					pStmt->exp_count++;
+				}
+				meta_size += nmlen;
+				break;
+			}
+		}
+
+		meta_size += nmlen;
 	} while (XDB_TOK_COMMA == type);
 
 	XDB_EXPECT ((XDB_TOK_ID == type) && !strcasecmp (pTkn->token, "FROM"), XDB_E_STMT, "Except FROM");
@@ -495,93 +568,160 @@ xdb_parse_select (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 
 	xdb_tblm_t		*pTblm = pStmt->pTblm;
 
-	if (0 == col_count) {
+	if (0 == pStmt->col_count) {
 		pStmt->pMeta = pTblm->pMeta;
 		pStmt->col_count = pTblm->pMeta->col_count;
 		pStmt->meta_size = 0;
 	} else {
-		meta_size += sizeof (xdb_col_t) * col_count;
+		meta_size += sizeof (xdb_col_t) * pStmt->col_count;
 		pStmt->meta_size = meta_size;
-		meta_size = (meta_size + 7) & (~7); // 8B align
-		if (meta_size + col_count * 8 <= sizeof (pStmt->set_flds)) {
+		meta_size = XDB_ALIGN8 (meta_size);
+		if (meta_size + pStmt->col_count * 8 <= sizeof (pStmt->set_flds)) {
 			pStmt->pMeta = (void*)pStmt->set_flds;
 		} else {
-			pStmt->pMeta	= xdb_malloc (meta_size + col_count * 8);
+			pStmt->pMeta	= xdb_malloc (meta_size + pStmt->col_count * 8);
 			XDB_EXPECT (pStmt->pMeta, XDB_E_MEMORY, "Can't alloc memory");
 		}
-		pStmt->col_count		= col_count;
-		pStmt->pMeta->col_count = col_count;
+		pStmt->pMeta->col_count = pStmt->col_count;
 		pStmt->pMeta->row_size = pTblm->pMeta->row_size;
 		pStmt->pMeta->null_off = pTblm->pMeta->null_off;
 		xdb_col_t *pCol = pStmt->pMeta->cols;
 		uint64_t *pColList = (void*)pStmt->pMeta + meta_size;
 		pStmt->pMeta->col_list = (uintptr_t)pColList;
-		if (xdb_likely (0 == pStmt->agg_count)) {
-			for (int i = 0; i < col_count; ++i) {
-				xdb_str_t *pStr =  &pFldName[i];
-				int fld_id = xdb_find_field (pStmt->pTblm, pStr->str, pStr->len);
-				XDB_EXPECT (fld_id >= 0, XDB_E_STMT, "field '%s' doesn't exist", pStr->str);
+		if (xdb_likely (0 == pStmt->agg_count + pStmt->exp_count)) {
+			for (int i = 0; i < pStmt->col_count; ++i) {
+				xdb_selcol_t *pSelCol = &pStmt->sel_cols[i];
+				xdb_str_t *pName = &pSelCol->as_name;
+				xdb_str_t *pFld = &pSelCol->exp.op_val[0].val_str;
+				int fld_id = xdb_find_field (pStmt->pTblm, pFld->str, pFld->len);
+				XDB_EXPECT (fld_id >= 0, XDB_E_STMT, "field '%s' doesn't exist", pFld->str);
 				xdb_col_t		*pColTbl = ((xdb_col_t**)pTblm->pMeta->col_list)[fld_id];
+				
+				*pCol = *pColTbl;
+				if (NULL == pName->str) {
+					pName = pFld;
+				} else {
+					pCol->col_nmlen = pName->len;
+					pCol->col_len = XDB_ALIGN4 (sizeof (*pCol) + pCol->col_nmlen + 1);
+				}
+				memcpy (pCol->col_name, pName->str, pName->len + 1);
 				pColList[i] = (uintptr_t)pCol;
-				memcpy (pCol, pColTbl, sizeof(*pColTbl));
-				memcpy (pCol->col_name, pStr->str, pStr->len + 1);
 				pCol = (void*)pCol + pCol->col_len;
 			}
 		} else {
 			uint32_t	offset = 0;
-			for (int i = 0; i < col_count; ++i) {
-				xdb_str_t *pStr =  &pFldName[i];
-				int fld_id = -1;
-				if (xdb_likely (*pStr->str != '*')) {
-					fld_id = xdb_find_field (pStmt->pTblm, pStr->str, pStr->len);
-					XDB_EXPECT (fld_id >= 0, XDB_E_STMT, "field '%s' doesn't exist", pStr->str);
+			for (int i = 0; i < pStmt->col_count; ++i) {
+				xdb_selcol_t *pSelCol = &pStmt->sel_cols[i];
+				xdb_str_t *pName = &pSelCol->as_name;
+				//xdb_str_t *pFld = &pSelCol->exp.op_val[0].val_str;
+				xdb_value_t *pVal = &pSelCol->exp.op_val[0];
+
+				pCol->col_off	= offset;
+
+				if (NULL != pName->str) {
+					pCol->col_nmlen = pName->len;
+					memcpy (pCol->col_name, pName->str, pName->len + 1);
 				}
-				pStmt->agg_fid[i] = fld_id;
 
-				xdb_col_t	*pTblCol = ((xdb_col_t**)pTblm->pMeta->col_list)[fld_id];
-
-				pColList[i] = (uintptr_t)pCol;
-				pCol->col_off 	= offset;
-
-				if (XDB_AGGFUNC_COUNT == pStmt->agg_func[i]) {
-					pCol->col_type	= XDB_TYPE_BIGINT;
-				} else if (XDB_AGGFUNC_SUM == pStmt->agg_func[i]) {
-					switch (pTblCol->col_type) {
-					case XDB_TYPE_INT:
-					case XDB_TYPE_BIGINT:
-					case XDB_TYPE_TINYINT:
-					case XDB_TYPE_SMALLINT:
-						pCol->col_type	= XDB_TYPE_BIGINT;
-						break;
-					case XDB_TYPE_FLOAT:
-					case XDB_TYPE_DOUBLE:
-						pCol->col_type	= XDB_TYPE_DOUBLE;
-						break;
+				if (XDB_OP_NONE == pSelCol->exp.exp_op) {
+					// single field
+					if (NULL == pName->str) {
+						pCol->col_nmlen = pVal->val_str.len;
+						memcpy (pCol->col_name, pVal->val_str.str, pVal->val_str.len + 1);
 					}
-				} else if (XDB_AGGFUNC_AVG == pStmt->agg_func[i]) {
-					pCol->col_type	= XDB_TYPE_DOUBLE;
-				} else {
-					pCol->col_type = pTblCol->col_type;
-				}
-				offset += 8;
-				if (xdb_likely (pStmt->agg_func[i] != XDB_AGGFUNC_NONE)) {
-					if ('*' != *pFldName[i].str) {
-						pCol->col_nmlen = pAggName[i].len + pFldName[i].len + 2; // ()
-						sprintf (pCol->col_name, "%s(%s)", pAggName[i].str, pFldName[i].str);
+					if (XDB_TYPE_FIELD == pVal->val_type) {
+						int fld_id = xdb_find_field (pStmt->pTblm, pVal->val_str.str, pVal->val_str.len);
+						XDB_EXPECT (fld_id >= 0, XDB_E_STMT, "field '%s' doesn't exist", pVal->val_str.str);
+						pVal->pField = &pStmt->pTblm->pFields[fld_id];
+						pCol->col_type	= pVal->pField->fld_type;
+						offset			= XDB_ALIGN4 (offset + pVal->pField->fld_len);
 					} else {
-						pCol->col_nmlen = pAggName[i].len + 1 + 2; // ()
-						sprintf (pCol->col_name, "%s(*)", pAggName[i].str);
+						pVal->pField 	= NULL;
+						pCol->col_type	= pVal->val_type;
+						offset			= XDB_ALIGN4 (offset + ((XDB_TYPE_CHAR == pVal->val_type)? pVal->str.len + 3 : 8));
+					}
+				} else if (pSelCol->exp.exp_op < XDB_OP_COUNT) {
+					// exp
+					pVal1 = &pSelCol->exp.op_val[1];
+					if (NULL == pName->str) {
+						pCol->col_nmlen = sprintf (pCol->col_name, "%s%s%s", pVal->val_str.str, xdb_tok2str(pSelCol->exp.exp_op), pVal1->val_str.str);
+					}
+
+					xdb_type_t vtype, vtype1;
+					if (XDB_TYPE_FIELD == pVal->val_type) {
+						int fld_id = xdb_find_field (pStmt->pTblm, pVal->val_str.str, pVal->val_str.len);
+						XDB_EXPECT (fld_id >= 0, XDB_E_STMT, "field '%s' doesn't exist", pVal->val_str.str);
+						pVal->pField = &pStmt->pTblm->pFields[fld_id];
+						vtype = pVal->pField->sup_type;
+					} else {
+						pVal->pField 	= NULL;
+						vtype = pVal->val_type;
+					}
+					if (XDB_TYPE_FIELD == pVal1->val_type) {
+						int fld_id = xdb_find_field (pStmt->pTblm, pVal1->val_str.str, pVal1->val_str.len);
+						XDB_EXPECT (fld_id >= 0, XDB_E_STMT, "field '%s' doesn't exist", pVal1->val_str.str);
+						pVal1->pField = &pStmt->pTblm->pFields[fld_id];
+						vtype1 = pVal1->pField->sup_type;
+					} else {
+						pVal1->pField 	= NULL;
+						vtype1 = pVal1->val_type;
+					}
+
+					if (XDB_OP_DIV != pSelCol->exp.exp_op) {
+						pCol->col_type	= vtype >= vtype1 ? vtype : vtype1;
+						offset			= XDB_ALIGN4 (offset + 8);
+					} else {
+						pCol->col_type	= XDB_TYPE_DOUBLE;
+						offset			= XDB_ALIGN4 (offset + 8);
 					}
 				} else {
-					pCol->col_nmlen = pFldName[i].len;
-					memcpy (pCol->col_name, pFldName[i].str, pFldName[i].len + 1);
-				}
-				pCol->col_len = (sizeof (*pCol) + pCol->col_nmlen + 1 + 3) & (~3); // 4B align
+					// agg
+					pVal1 = &pSelCol->exp.op_val[1];
+					if (xdb_likely (pVal1->val_str.str != NULL)) {
+						int fld_id = xdb_find_field (pStmt->pTblm, pVal1->val_str.str, pVal1->val_str.len);
+						XDB_EXPECT (fld_id >= 0, XDB_E_STMT, "field '%s' doesn't exist", pVal1->val_str.str);
+						pVal1->pField = &pStmt->pTblm->pFields[fld_id];
+						if (NULL == pName->str) {
+							pCol->col_nmlen = sprintf (pCol->col_name, "%s(%s)", pVal->val_str.str, pVal1->val_str.str);
+						}
+					} else {
+						pVal1->pField = NULL;
+						if (NULL == pName->str) {
+							pCol->col_nmlen = sprintf (pCol->col_name, "%s(*)", pVal->val_str.str);
+						}
+					}
+					switch (pSelCol->exp.exp_op) {
+					case XDB_OP_COUNT:
+						pCol->col_type	= XDB_TYPE_BIGINT;
+						offset			= XDB_ALIGN4 (offset + 8);
+						break;
+					case XDB_OP_SUM:
+						pCol->col_type = pVal1->pField->sup_type;
+						offset			= XDB_ALIGN4 (offset + 8);
+						break;
+					case XDB_OP_AVG:
+						pCol->col_type	= XDB_TYPE_DOUBLE;
+						offset			= XDB_ALIGN4 (offset + 8);
+						break;
+					case XDB_OP_MIN:
+					case XDB_OP_MAX:
+						pCol->col_type	= pVal1->pField->fld_type;
+						offset			= XDB_ALIGN4 (offset + pVal1->pField->fld_len);
+						break;
+					}
+				} // end agg
+
+				pCol->col_len = XDB_ALIGN4 (sizeof (*pCol) + pCol->col_nmlen + 1);
+				pColList[i] = (uintptr_t)pCol;
 				pCol = (void*)pCol + pCol->col_len;
 			}
+
 			pStmt->pMeta->row_size = offset;
+
 		}
+
 		pStmt->pMeta->len_type = pStmt->meta_size | (XDB_RET_META<<28);
+
 	}
 
 	if ((XDB_TOK_ID == type) && !strcasecmp (pTkn->token, "WHERE")) {
@@ -609,45 +749,6 @@ error:
 	return NULL;
 }
 
-XDB_STATIC xdb_ret 
-xdb_parse_val (xdb_stmt_select_t *pStmt, xdb_value_t *pVal,  xdb_token_t *pTkn)
-{
-	int fld_id;
-	xdb_conn_t *pConn = pStmt->pConn;
-	
-	switch (pTkn->tk_type) {
-	case XDB_TOK_NUM:
-		if (xdb_likely (!pTkn->bFloat)) {
-			pVal->ival = atoll (pTkn->token);
-			pVal->val_type = XDB_TYPE_BIGINT;
-			pVal->sup_type = XDB_TYPE_BIGINT;
-		} else {
-			pVal->fval = atof (pTkn->token);
-			pVal->val_type = XDB_TYPE_DOUBLE;
-			pVal->sup_type = XDB_TYPE_DOUBLE;
-		}
-		break;
-	case XDB_TOK_STR:
-		//XDB_EXPECT(pTkn->tk_len <= pFld->fld_len, XDB_E_STMT, "Too long string values %d > %d", pTkn->tk_len, pFld->fld_len);
-		pVal->str.len = pTkn->tk_len;
-		pVal->str.ptr = pTkn->token;
-		pVal->val_type = XDB_TYPE_CHAR;
-		break;
-	case XDB_TOK_ID:
-		fld_id = xdb_find_field (pStmt->pTblm, pTkn->token, pTkn->tk_len);
-		XDB_EXPECT(fld_id>=0, XDB_E_STMT, "Can't find field '%s'", pTkn->token);
-		pVal->pField = &pStmt->pTblm->pFields[fld_id];
-		pVal->val_type = XDB_TYPE_FIELD;
-		break;
-	default:
-		break;
-	}
-	return XDB_OK;
-
-error:
-	return -1;
-}
-
 XDB_STATIC xdb_token_type 
 xdb_parse_setcol (xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 {
@@ -671,28 +772,28 @@ xdb_parse_setcol (xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 
 		type = xdb_next_token (pTkn);
 		if (xdb_unlikely (XDB_TOK_QM == type)) {
-			pSet->set_val[0].fld_type = pFld->fld_type;
-			pSet->set_val[0].val_type = pFld->sup_type;
-			pSet->set_val[0].sup_type = pFld->sup_type;
-			pStmt->pBind[pStmt->bind_count++] = &pSet->set_val[0];			
+			pSet->exp.op_val[0].fld_type = pFld->fld_type;
+			pSet->exp.op_val[0].val_type = pFld->sup_type;
+			pSet->exp.op_val[0].sup_type = pFld->sup_type;
+			pStmt->pBind[pStmt->bind_count++] = &pSet->exp.op_val[0];			
 		} else {
 			XDB_EXPECT(type<=XDB_TOK_NUM, XDB_E_STMT, "Miss ID/STR/NUM");
-			rc = xdb_parse_val (pStmt, &pSet->set_val[0], pTkn);
+			rc = xdb_parse_val (pStmt, &pSet->exp.op_val[0], pTkn);
 			XDB_EXPECT2 (XDB_OK == rc);
 		}
-		pSet->set_op = XDB_OP_EQ;
+		pSet->exp.exp_op = XDB_OP_NONE;
 		type = xdb_next_token (pTkn);
 		if (xdb_unlikely (type <= XDB_TOK_DIV && type >= XDB_TOK_ADD)) {
-			pSet->set_op = (xdb_op_t)type ;
+			pSet->exp.exp_op = (xdb_op_t)type ;
 			type = xdb_next_token (pTkn);
 			if (xdb_unlikely (XDB_TOK_QM == type)) {
-				pSet->set_val[1].fld_type = pFld->fld_type;
-				pSet->set_val[1].val_type = pFld->sup_type;
-				pSet->set_val[1].sup_type = pFld->sup_type;
-				pStmt->pBind[pStmt->bind_count++] = &pSet->set_val[1];
+				pSet->exp.op_val[1].fld_type = pFld->fld_type;
+				pSet->exp.op_val[1].val_type = pFld->sup_type;
+				pSet->exp.op_val[1].sup_type = pFld->sup_type;
+				pStmt->pBind[pStmt->bind_count++] = &pSet->exp.op_val[1];
 			} else {
 				XDB_EXPECT(type<=XDB_TOK_NUM, XDB_E_STMT, "Miss ID/STR/NUM");
-				rc = xdb_parse_val (pStmt, &pSet->set_val[1], pTkn);
+				rc = xdb_parse_val (pStmt, &pSet->exp.op_val[1], pTkn);
 				XDB_EXPECT2 (XDB_OK == rc);
 			}
 			type = xdb_next_token (pTkn);

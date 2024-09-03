@@ -311,7 +311,7 @@ xdb_trans_unlock (xdb_conn_t *pConn)
 xdb_ret 
 xdb_commit (xdb_conn_t *pConn)
 {
-	if (xdb_unlikely (pConn->pConn->conn_client)) {
+	if (xdb_unlikely (pConn->conn_client)) {
 		xdb_res_t *pRes = xdb_exec (pConn, "COMMIT");
 		return -pRes->errcode;
 	}
@@ -364,7 +364,7 @@ xdb_trans_db_rollback (uint32_t did, void *pArg)
 int 
 xdb_rollback (xdb_conn_t *pConn)
 {
-	if (xdb_unlikely (pConn->pConn->conn_client)) {
+	if (xdb_unlikely (pConn->conn_client)) {
 		xdb_res_t *pRes = xdb_exec (pConn, "ROLLBACK");
 		return -pRes->errcode;
 	}
@@ -385,7 +385,7 @@ xdb_rollback (xdb_conn_t *pConn)
 XDB_STATIC xdb_ret 
 xdb_begin2 (xdb_conn_t *pConn, bool bAutoCommit)
 {
-	if (xdb_unlikely (pConn->pConn->conn_client)) {
+	if (xdb_unlikely (pConn->conn_client)) {
 		xdb_res_t *pRes = xdb_exec (pConn, "BEGIN");
 		return -pRes->errcode;
 	}

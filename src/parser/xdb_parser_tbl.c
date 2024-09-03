@@ -159,6 +159,7 @@ xdb_parse_create_table (xdb_conn_t* pConn, xdb_token_t *pTkn)
 	pStmt->idx_count = 0;
 	pStmt->sql = pTkn->tk_sql;
 	pStmt->pkey_idx = -1;
+	pStmt->row_size = 0;
 
 	XDB_EXPECT (XDB_TOK_LP==type, XDB_E_STMT, "Expect (");
 

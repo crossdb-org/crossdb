@@ -159,7 +159,7 @@ xdb_parse_set (xdb_conn_t* pConn, xdb_token_t *pTkn)
 		type = xdb_next_token (pTkn);
 		XDB_EXPECT (XDB_TOK_STR>=type, XDB_E_STMT, "Expect STRING");
 
-		//xdb_print ("var: %s\n", var);
+		//xdb_dbgprint ("var: %s\n", var);
 		if (!strcasecmp (var, "DATADIR")) {
 			pStmt->datadir = pTkn->token;
 		} else if (!strcasecmp (var, "FORMAT")) {
@@ -635,38 +635,6 @@ xdb_stmt_free (xdb_stmt_t *pStmt)
 /*
 gcc xdb_parser.c -DXDB_MOD_TEST -g
 */
-	
-static const char* xdb_tok2str(xdb_token_type tp) 
-{
-	const char *id2str[] = {
-		[XDB_TOK_ID   ] = "ID",
-		[XDB_TOK_NUM  ] = "NUM",
-		[XDB_TOK_ESC  ] = "ESC",
-		[XDB_TOK_STR  ] = "STR",
-		[XDB_TOK_SP   ] = "SP",
-		[XDB_TOK_EQ   ] = "EQ",
-		[XDB_TOK_LT   ] = "LT",
-		[XDB_TOK_GT   ] = "GT",
-		[XDB_TOK_ADD  ] = "ADD",
-		[XDB_TOK_SUB  ] = "SUB",
-		[XDB_TOK_MUL  ] = "MUL",
-		[XDB_TOK_DIV  ] = "DIV",
-		[XDB_TOK_MOD  ] = "MOD",
-		[XDB_TOK_AND  ] = "AND",
-		[XDB_TOK_OR   ] = "OR",
-		[XDB_TOK_XOR  ] = "XOR",
-		[XDB_TOK_NOT  ] = "NOT",
-		[XDB_TOK_NEG  ] = "NEG",
-		[XDB_TOK_COMMA] = "COMMA",
-		[XDB_TOK_DOT  ] = "DOT",
-		[XDB_TOK_LP   ] = "LP",
-		[XDB_TOK_RP   ] = "RP",
-		[XDB_TOK_END  ] = "END",
-		[XDB_TOK_EOF  ] = "EOF",
-		[XDB_TOK_INV  ] = "INV"
-	};
-	return tp <= XDB_ARY_LEN(id2str)? id2str[tp] : "Unkonwn";
-}
 
 int main ()
 {

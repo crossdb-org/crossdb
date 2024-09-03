@@ -120,9 +120,6 @@ xdb_hash_rehash (xdb_idxm_t *pIdxm, xdb_rowid old_max)
 XDB_STATIC int 
 xdb_hash_add (xdb_conn_t *pConn, xdb_idxm_t* pIdxm, xdb_rowid new_rid, void *pRow)
 {
-	uint32_t hash_val = xdb_row_hash (pRow, pIdxm->pFields, pIdxm->fld_count);
-	uint32_t slot_id = hash_val & pIdxm->slot_mask;
-
 	xdb_stgmgr_t	*pStgMgr	= &pIdxm->pTblm->stg_mgr;
 
 	if (new_rid > pIdxm->node_cap) {
@@ -134,7 +131,7 @@ xdb_hash_add (xdb_conn_t *pConn, xdb_idxm_t* pIdxm, xdb_rowid new_rid, void *pRo
 
 	if ((pIdxm->slot_cap>>1) < pIdxm->pHashHdr->slot_count) {
 		xdb_rowid old_cap = pIdxm->slot_cap;
-		//xdb_dbglog ("rehash slot_cap %d slot_count %d\n", pIdxm->slot_cap, pIdxm->pHashHdr->slot_count);
+		xdb_dbglog ("rehash slot_cap %d slot_count %d\n", pIdxm->slot_cap, pIdxm->pHashHdr->slot_count);
 		xdb_stg_truncate (&pIdxm->stg_mgr2, pIdxm->slot_cap<<1);
 		pIdxm->slot_cap		= XDB_STG_CAP(&pIdxm->stg_mgr2);
 		pIdxm->slot_mask	= pIdxm->slot_cap - 1;
@@ -144,6 +141,9 @@ xdb_hash_add (xdb_conn_t *pConn, xdb_idxm_t* pIdxm, xdb_rowid new_rid, void *pRo
 	if (xdb_hash_check (pConn, pIdxm, 0) < 0) { exit(-1); }
 #endif
 	}
+
+	uint32_t hash_val = xdb_row_hash (pRow, pIdxm->pFields, pIdxm->fld_count);
+	uint32_t slot_id = hash_val & pIdxm->slot_mask;
 
 	xdb_dbglog ("add rid %d hash %x slot %d\n", new_rid, hash_val, slot_id);
 

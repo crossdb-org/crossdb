@@ -10,6 +10,7 @@ help:
 	@echo "make example              Build and run example (need to install crossdb first)"
 	@echo "make bench                Build and run bench test (need to install crossdb first)"
 	@echo "make bench-sqlite         Build and run sqlite bench test (need to install sqlite3 first)"
+	@echo "make bench-stlmap         Build and run C++ STL Map and HashMap(unordered_map) bench test"
 
 .PHONY: build
 build:
@@ -22,6 +23,10 @@ debug:
 	$(CC) -o build/xdb-cli src/xdb-cli.c -lpthread -g
 	cp include/crossdb.h build/
 
+.PHONY: test
+test:
+	make -C test/
+
 run:
 	build/xdb-cli
 
@@ -29,6 +34,7 @@ clean:
 	rm -rf build/*
 	make -C examples/c/ clean
 	make -C bench/basic/ clean
+	make -C test/ clean
 
 wall:
 	$(CC) -o build/xdb-cli src/xdb-cli.c -lpthread -O2 -Wall
@@ -68,3 +74,6 @@ bench:
 
 bench-sqlite:
 	make -C bench/basic/ sqlite
+
+bench-stlmap:
+	make -C bench/basic/ stlmap

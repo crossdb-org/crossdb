@@ -1,5 +1,60 @@
 # Change Log
 
+<!--
+- distinct
+- group by, having
+- select expr a+b, a*b
+- insert expr
+- where a<b
+- where exp: OR
+- join
+- operators: like, in, between
+- data types: BOOL, TIMESTAMP
+- function (math[abs,round,floor], str[length], time[now()])
+- client-server mode
+- NULL, autoincr ID
+- WAL
+- TCP-B
+- TCP-C
+
+## 0.7.0 <small>(2024-08-26)</small>
+
+**Features**
+**Improvements**
+**Test**
+**Bug Fixes**
+
+-->
+
+## 0.8.0 <small>(2024-09-03)</small>
+
+**Features**
+
+- `SELECT` supports simple expr, ex: `a + 10` `a - b` [#12](https://github.com/crossdb-org/crossdb/issues/12)
+- Support operators: `>`, `>=`, `<`, `<=`, `!=`, `<>` [#13](https://github.com/crossdb-org/CrossDB/issues/13)
+- `WHERE` expression supports having the field on the right side, ex: `5 < id`
+- `xdb-cli` creates a default memory database, allowing you to directly create tables for practice.
+- Support `CMake`
+
+**Improvements**
+
+- Optimize `INSERT` `UPDATE` `DELETE` auto-commit performance for in-memory database 
+
+**Test**
+
+- Refactor benchmark test framework and support binding cpu core
+- New crossdb and `SQLite` benchmark test driver
+- Add C++ `STL Map` and `HashMap(unordered_map)` benchmark test driver
+- Import unit test framework
+- Add few test cases
+
+**Bug Fixes**
+
+- Fix bug [#15](https://github.com/crossdb-org/CrossDB/issues/15) Segmentation fault occurs while using on-disk database
+- Fix close connection then reopen connection will cause previous connection use-after-free issue and memory leak issue
+- Fix query misses issue during hash index rehashing
+
+
 ## 0.7.0 <small>(2024-08-26)</small>
 
 **Features**
@@ -13,7 +68,7 @@
 
 - `INSERT` parser avoids malloc
 - `UPDATE` only updates affected indexes
-- Optimize `INSERT` `UPDATE` `DELETE` auto-commit performance for `IMDB` 
+- Optimize `INSERT` `UPDATE` `DELETE` auto-commit performance for in-memory database 
 
 **Test**
 
@@ -26,64 +81,61 @@
 - Fix bench test time unit `ns` to `us`
 
 
-## 0.6.0 <small>(2024-08-15)</small>
+## 0.6.0 <small>(2024-08-18)</small>
 
-- **Initial refactor release**
+**Initial refactor release**
 
-- This project was redesigned and rewritten from scratch
+- This project was redesigned and rewritten from scratch for over one year
 - Standard RDBMS model
-- New APIs which can support more languages
+- New SQL APIs which can support more language
+- MySQL style SQL and shell, which will be easy to study.
 
 
 ## 0.5.0 <small>(2023-06-26)</small>
 
-Features
+**Features**
 
 - CrossDB command line tool `crossdb-cli` is released
 - Optimize insert/update/query/delete performance
 - Add new API `cross_matchCreate` and `cross_matchFree`
 - DML APIs supports `cross_fields_h` and `cross_match_h`
 
-Bug Fixes
+**Bug Fixes**
 
 
 ## 0.4.0 <small>(2023-06-20)</small>
 
-Features
+**Features**
 
 - Support FreeBSD(X64)
 - Optimize insert/update/query/delete performance
 - Add new API `cross_fieldsCreate` and `cross_fieldsFree`
 
-Bug Fixes
+**Bug Fixes**
 
 
 ## 0.3.0 <small>(2023-06-13)</small>
 
-Features
+**Features**
 
 - Support MacOS (X64 and ARM64)
 - Change `CROSS_DB_XXX` to `CROSS_XXX`
 
-Bug Fixes
+**Bug Fixes**
 
 - `cross_dbTblCreate` flags `CROSS_DB_RBTREE` doesn't create Primary Key Index type correctly
 
 
 ## 0.2.0 <small>(2023-06-07)</small>
 
-Features
+**Features**
 
 - Support Windows
 - Support Linux ARM64
 
-Bug Fixes
+**Bug Fixes**
 
 
 ## 0.1.0 <small>(2023-06-03)</small>
 
 - **Initial release**
-
-Features
-
-Bug Fixes

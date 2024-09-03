@@ -1,12 +1,10 @@
+#define _GNU_SOURCE
+#include <sqlite3.h>
 
 #define BENCH_DBNAME	"SQLite"
-
 #define LKUP_COUNT		1000000
-#define SQL_LKUP_COUNT	LKUP_COUNT/5
-#define UPD_COUNT		LKUP_COUNT/10
 
 #include "bench.h"
-#include <sqlite3.h>
 
 static inline void error_check (int status) 
 {
@@ -33,13 +31,13 @@ static inline void step_error_check (int status)
 	}
 }
 
-void* bench_create ()
+void* bench_open (const char *db)
 {
 	int status;
 	char* err_msg = NULL;
 	sqlite3* pDb = NULL;
 
-	status = sqlite3_open (":memory:", &pDb);
+	status = sqlite3_open (db, &pDb);
 	error_check (status);
 
 	char * sqlite3_cfg[] = {
@@ -54,9 +52,6 @@ void* bench_create ()
 		exec_error_check (status, err_msg);
 	}
 
-	status = sqlite3_exec (pDb, "CREATE TABLE student (id INT PRIMARY KEY, name CHAR(16), age INT, class CHAR(16), score INT)", NULL, NULL, &err_msg);
-	exec_error_check (status, err_msg);
-
 	return pDb;
 
 error:
@@ -69,174 +64,122 @@ void bench_close (void *pDb)
 	error_check (status);
 }
 
-void bench_sql_test (void *pDb, int STU_COUNT, bool bRand, bench_result_t *pResult)
+bool bench_sql (void *pDb, const char *sql)
 {
-	int 	status;
-	char 	sql[1024];
-	char* 	err_msg = NULL;
-	sqlite3_stmt *pStmt;
-
-	bench_print ("\n[============= SQL Test =============]\n\n");
-
-	bench_print ("------------ INSERT %d ------------\n", STU_COUNT);
-	bench_ts_beg();
-	for (int i = 0; i < STU_COUNT; ++i) {
-		sprintf (sql, "INSERT INTO student (id,name,age,class,score) VALUES (%d,'%s',%d,'%s',%d)", 
-								i, STU_NAME(i), STU_AGE(i), STU_CLASS(i), STU_SCORE(i));
-		status = sqlite3_exec (pDb, sql, NULL, NULL, &err_msg);
-		exec_error_check (status, err_msg);
-	}
-	pResult->insert_qps += bench_ts_end (STU_COUNT);
-
-	bench_print ("------------ %s LKUP %d ------------\n", ORDER_STR(bRand), LKUP_COUNT/2);
-	uint64_t qps_sum = 0;
-	for (int t = 0; t < 5; ++t) {
-		int count = 0;
-		bench_ts_beg();
-		for (int i = 0; i < SQL_LKUP_COUNT; ++i) {
-			status = sqlite3_prepare_v2 (pDb, "SELECT * FROM student WHERE id=?", -1, &pStmt, NULL);
-			error_check (status);
-			sqlite3_bind_int (pStmt, 1, STU_ID(i)%STU_COUNT);
-			// Execute query_stmt
-			if ((status = sqlite3_step(pStmt)) == SQLITE_ROW) {
-				int 		id		= sqlite3_column_int (pStmt, 0);
-				const char *name 	= sqlite3_column_text (pStmt, 1);
-				int 		age 	= sqlite3_column_int (pStmt, 2);	
-				const char *class 	= sqlite3_column_text (pStmt, 3);
-				int 		score	= sqlite3_column_int (pStmt, 4);
-				(void)id; (void)name; (void)age; (void)class; (void)score;
-				count++;
-			} else {
-				bench_print ("sqlite3 error: status = %d, no row found\n", status);
-			}
-			sqlite3_finalize(pStmt);
-		}
-		qps_sum += bench_ts_end (SQL_LKUP_COUNT);
-		if (count != SQL_LKUP_COUNT) {
-			bench_print ("OK %d != LKUP %d\n", count, SQL_LKUP_COUNT);
-			return;
-		}
-	}
-	pResult->query_qps += qps_sum / 5;
-
-
-	bench_print ("------------ %s UPDATE %d ------------\n", ORDER_STR(bRand), UPD_COUNT);
-	bench_ts_beg();
-	for (int i = 0; i < UPD_COUNT; ++i) {
-		sprintf (sql, "UPDATE student SET age=age+%d WHERE id=%d", i, STU_ID(i));
-		status = sqlite3_exec (pDb, sql, NULL, NULL, &err_msg);
-		exec_error_check (status, err_msg);
-	}
-	pResult->update_qps += bench_ts_end (UPD_COUNT);
-
-
-	bench_print ("------------ %s DELETE %d ------------\n", ORDER_STR(bRand), STU_COUNT);
-	bench_ts_beg();
-	for (int i = 0; i < STU_COUNT; ++i) {
-		sprintf (sql, "DELETE FROM student WHERE id=%d", STU_ID(i));
-		status = sqlite3_exec (pDb, sql, NULL, NULL, &err_msg);
-		exec_error_check (status, err_msg);
-	}
-	pResult->delete_qps += bench_ts_end (STU_COUNT);
-
-	return;
-
-error:	
-	return;
+	char* err_msg = NULL;
+	int status = sqlite3_exec (pDb, sql, NULL, NULL, &err_msg);
+	exec_error_check (status, err_msg);
+	return true;
 }
 
-void bench_pstmt_test (void *pDb, int STU_COUNT, bool bRand, bench_result_t *pResult)
+bool bench_sql_insert (void *pDb, const char *sql, int id, const char *name, int age, const char *cls, int score)
 {
-	int 	status;
-	char* 	err_msg = NULL;
+	sqlite3_stmt *pStmt = bench_stmt_prepare (pDb, sql);
+	bool ok = bench_stmt_insert (pStmt, id, name, age, cls, score);
+	bench_stmt_close (pStmt);
+	return ok;
+}
+
+bool bench_sql_get_byid (void *pDb, const char *sql, int id, stu_callback callback, void *pArg)
+{
+	sqlite3_stmt *pStmt = bench_stmt_prepare (pDb, sql);
+	bool ok = bench_stmt_get_byid (pStmt, id, callback, pArg);
+	bench_stmt_close (pStmt);
+	return ok;
+}
+
+bool bench_sql_updAge_byid (void *pDb, const char *sql, int id, int age)
+{
+	sqlite3_stmt *pStmt = bench_stmt_prepare (pDb, sql);
+	bool ok = bench_stmt_updAge_byid (pStmt, id, age);
+	bench_stmt_close (pStmt);
+	return ok;
+}
+
+bool bench_sql_del_byid (void *pDb, const char *sql, int id)
+{
+	sqlite3_stmt *pStmt = bench_stmt_prepare (pDb, sql);
+	bool ok = bench_stmt_del_byid (pStmt, id);
+	bench_stmt_close (pStmt);
+	return ok;
+}
+
+void* bench_stmt_prepare (void *pDb, const char *sql)
+{
 	sqlite3_stmt *pStmt;
-
-	bench_print ("\n[============= Prepared STMT Test =============]\n");
-
-
-	bench_print ("\n------------ INSERT %d ------------\n", STU_COUNT);
-	status = sqlite3_prepare_v2 (pDb, "INSERT INTO student (id,name,age,class,score) VALUES (?,?,?,?,?)", -1, &pStmt, NULL);
+	int status = sqlite3_prepare_v2 (pDb, sql, -1, &pStmt, NULL);
 	error_check (status);
-	bench_ts_beg();
-	for (int i = 0; i < STU_COUNT; ++i) {
-		sqlite3_bind_int (pStmt, 1, STU_ID(i));
-		sqlite3_bind_text (pStmt, 2, STU_NAME(i), strlen(STU_NAME(i)), SQLITE_STATIC);
-		sqlite3_bind_int (pStmt, 3, STU_AGE(i));
-		sqlite3_bind_text (pStmt, 4, STU_CLASS(i), strlen(STU_NAME(i)), SQLITE_STATIC);
-		sqlite3_bind_int (pStmt, 5, STU_SCORE(i));
-		status = sqlite3_step (pStmt);
-		step_error_check(status);
-		// Reset SQLite statement for next call
-		sqlite3_clear_bindings (pStmt);
-		sqlite3_reset (pStmt);
-	}
-	pResult->insert_qps += bench_ts_end (STU_COUNT);
+	return pStmt;
+}
+
+void bench_stmt_close (void *pStmt)
+{
 	sqlite3_finalize (pStmt);
+}
 
+bool bench_stmt_insert (void *pStmt, int id, const char *name, int age, const char *cls, int score)
+{
+	sqlite3_bind_int (pStmt, 1, id);
+	sqlite3_bind_text (pStmt, 2, name, strlen(name), SQLITE_STATIC);
+	sqlite3_bind_int (pStmt, 3, age);
+	sqlite3_bind_text (pStmt, 4, cls, strlen(cls), SQLITE_STATIC);
+	sqlite3_bind_int (pStmt, 5, score);
 
-	bench_print ("------------ %s LKUP %d ------------\n", ORDER_STR(bRand), LKUP_COUNT);
-	status = sqlite3_prepare_v2 (pDb, "SELECT * FROM student WHERE id=?", -1, &pStmt, NULL);
-	error_check (status);
-	uint64_t qps_sum = 0;
-	for (int t = 0; t < 5; ++t) {
-		int count = 0;
-		bench_ts_beg();
-		for (int i = 0; i < LKUP_COUNT; ++i) {
-			sqlite3_bind_int (pStmt, 1, STU_ID(i)%STU_COUNT);
-			// Execute query_stmt
-			if ((status = sqlite3_step (pStmt)) == SQLITE_ROW) {
-				int 		id		= sqlite3_column_int (pStmt, 0);
-				const char *name 	= sqlite3_column_text (pStmt, 1);
-				int 		age 	= sqlite3_column_int (pStmt, 2);	
-				const char *class 	= sqlite3_column_text (pStmt, 3);
-				int 		score	= sqlite3_column_int (pStmt, 4);
-				(void)id; (void)name; (void)age; (void)class; (void)score;
-				count++;
-			} else {
-				bench_print ("sqlite3 error: status = %d, no row found\n", status);
-			}
-			// Reset SQLite statement for next call
-			sqlite3_clear_bindings (pStmt);
-			sqlite3_reset (pStmt);
-		}
-		qps_sum += bench_ts_end (LKUP_COUNT);
-		if (count != LKUP_COUNT) {
-			bench_print ("OK %d != LKUP %d\n", count, LKUP_COUNT);
-			return;
-		}
+	int status = sqlite3_step (pStmt);
+	step_error_check(status);
+
+	// Reset SQLite statement for next call
+	sqlite3_clear_bindings (pStmt);
+	sqlite3_reset (pStmt);
+	return true;
+}
+
+bool bench_stmt_get_byid (void *pStmt, int id, stu_callback callback, void *pArg)
+{
+	int ok = false;
+	int status;
+
+	sqlite3_bind_int (pStmt, 1, id);
+	// Execute query_stmt
+	if ((status = sqlite3_step (pStmt)) == SQLITE_ROW) {
+		int 		id		= sqlite3_column_int (pStmt, 0);
+		const char *name	= (const char *)sqlite3_column_text (pStmt, 1);
+		int 		age 	= sqlite3_column_int (pStmt, 2);	
+		const char *cls		= (const char *)sqlite3_column_text (pStmt, 3);
+		int 		score	= sqlite3_column_int (pStmt, 4);
+		callback (pArg, id, name, age, cls, score);
+		ok = true;
+	} else {
+		bench_print ("sqlite3 error: status = %d, no row found\n", status);
 	}
-	status = sqlite3_finalize (pStmt);
-	error_check (status);			
-	pResult->query_qps += qps_sum / 5;
 
-	bench_print ("------------ %s UPDATE %d ------------\n", ORDER_STR(bRand), UPD_COUNT);
-	status = sqlite3_prepare_v2 (pDb, "UPDATE student SET age=age+? WHERE id=?", -1, &pStmt, NULL);
-	error_check (status);
-	bench_ts_beg();
-	for (int i = 0; i < UPD_COUNT; ++i) {
-		sqlite3_bind_int (pStmt, 1, 1);
-		sqlite3_bind_int (pStmt, 2, STU_ID(i));
-		status = sqlite3_step (pStmt);
-		step_error_check(status);
-		// Reset SQLite statement for next call
-		sqlite3_clear_bindings (pStmt);
-		sqlite3_reset (pStmt);
-	}
-	pResult->update_qps += bench_ts_end (UPD_COUNT);
-	sqlite3_finalize (pStmt);
+	// Reset SQLite statement for next call
+	sqlite3_clear_bindings (pStmt);
+	sqlite3_reset (pStmt);
+	return ok;
+}
 
-	bench_print ("------------ %s DELETE %d ------------\n", ORDER_STR(bRand), STU_COUNT);
-	status = sqlite3_prepare_v2 (pDb, "DELETE FROM student WHERE id=?", -1, &pStmt, NULL);
-	error_check (status);
-	bench_ts_beg();
-	for (int i = 0; i < STU_COUNT; ++i) {
-		sqlite3_bind_int (pStmt, 1, STU_ID(i));
-		status = sqlite3_step (pStmt);
-		step_error_check(status);
-		// Reset SQLite statement for next call
-		sqlite3_clear_bindings (pStmt);
-		sqlite3_reset (pStmt);
-	}
-	pResult->delete_qps += bench_ts_end (STU_COUNT);
-	sqlite3_finalize (pStmt);
+bool bench_stmt_updAge_byid (void *pStmt, int id, int age)
+{
+	sqlite3_bind_int (pStmt, 1, age);
+	sqlite3_bind_int (pStmt, 2, id);
+	int status = sqlite3_step (pStmt);
+	step_error_check(status);
+
+	// Reset SQLite statement for next call
+	sqlite3_clear_bindings (pStmt);
+	sqlite3_reset (pStmt);
+	return true;
+}
+
+bool bench_stmt_del_byid (void *pStmt, int id)
+{
+	sqlite3_bind_int (pStmt, 1, id);
+	int status = sqlite3_step (pStmt);
+	step_error_check(status);
+
+	// Reset SQLite statement for next call
+	sqlite3_clear_bindings (pStmt);
+	sqlite3_reset (pStmt);
+	return true;
 }

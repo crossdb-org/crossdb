@@ -83,6 +83,16 @@ static const char* xdb_type2str(xdb_type_t tp)
 	return tp <= XDB_ARY_LEN(id2str) ? id2str[tp] : "Unkonwn";
 }
 
+static xdb_type_t s_xdb_prompt_type[] = {
+	[XDB_TYPE_TINYINT  ] 	= XDB_TYPE_BIGINT,
+	[XDB_TYPE_SMALLINT  ] 	= XDB_TYPE_BIGINT,
+	[XDB_TYPE_INT	] 		= XDB_TYPE_BIGINT,
+	[XDB_TYPE_BIGINT	]	= XDB_TYPE_BIGINT,
+	[XDB_TYPE_FLOAT	]		= XDB_TYPE_DOUBLE,
+	[XDB_TYPE_DOUBLE	]	= XDB_TYPE_DOUBLE,
+	[XDB_TYPE_CHAR	]		= XDB_TYPE_CHAR
+};
+
 static bool s_xdb_bInit = false;
 
 int 

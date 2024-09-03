@@ -45,6 +45,9 @@
 #define XDB_ARY_LEN(a)			(sizeof(a)/sizeof(a[0]))
 #define XDB_OFFSET(st,fld)		offsetof(st,fld)
 
+#define XDB_ALIGN4(len)			((len + 3) & ~(3))
+#define XDB_ALIGN8(len)			((len + 7) & ~(7))
+
 #ifdef XDB_DEBUG
 #define xdb_assert(exp)			assert(exp)
 #else
@@ -63,6 +66,8 @@
 #define xdb_errlog(args...)		fprintf (stderr, "[XDB Error] "args)
 
 #define xdb_print(args...)		printf (args)
+
+#define xdb_dbgprint(args...)		printf (args)
 
 // Memory
 #define xdb_malloc				malloc
