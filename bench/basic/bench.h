@@ -82,8 +82,13 @@ static int bind_cpu (int cpuid)
 #endif
 }
 
+#ifndef __cplusplus
 const char *s_name[] = {"Jack", "Tom", "Rose", "Tina", "Wendy", "David", "Adam", "Mose", "Paul", "Joseph"};
 const char *s_class[] = {"5-2", "5-6", "5-3", "5-8", "5-7", "5-4", "5-1", "5-9", "5-10", "5-5"};
+#else
+string s_name[] = {"Jack", "Tom", "Rose", "Tina", "Wendy", "David", "Adam", "Mose", "Paul", "Joseph"};
+string s_class[] = {"5-2", "5-6", "5-3", "5-8", "5-7", "5-4", "5-1", "5-9", "5-10", "5-5"};
+#endif
 
 #define STU_BASEID		10000000
 #define STU_ID(id)		((bRand?s_rand_id[id]:id%STU_COUNT)+STU_BASEID)
@@ -101,7 +106,27 @@ typedef struct {
 	uint32_t	delete_qps;
 } bench_result_t;
 
+#ifndef __cplusplus
+
 typedef void (*stu_callback) (void *pArg, int id, const char *name, int age, const char *cls, int score);
+void stu_count_cb (void *pArg, int id, const char *name, int age, const char *cls, int score)
+{
+	int *pCount = (int*)pArg;
+	(*pCount)++;
+	(void)id, (void)name, (void)age, (void)cls, (void)score;
+}
+
+#else
+
+typedef void (*stu_callback) (void *pArg, int id, string &name, int age, string &cls, int score);
+void stu_count_cb (void *pArg, int id, string &name, int age, string &cls, int score)
+{
+	int *pCount = (int*)pArg;
+	(*pCount)++;
+	(void)id, (void)name, (void)age, (void)cls, (void)score;
+}
+
+#endif
 
 #define BENCH_SQL_CREATE		"CREATE TABLE student (id INT PRIMARY KEY, name CHAR(16), age INT, class CHAR(16), score INT)"
 #define BENCH_SQL_DROP			"DROP TABLE IF EXISTS student"
@@ -114,24 +139,25 @@ typedef void (*stu_callback) (void *pArg, int id, const char *name, int age, con
 void* bench_open (const char *db);
 void bench_close (void *pConn);
 bool bench_sql (void *pConn, const char *sql);
+#ifndef __cplusplus
 bool bench_sql_insert (void *pConn, const char *sql, int id, const char *name, int age, const char *cls, int score);
+#else
+bool bench_sql_insert (void *pConn, const char *sql, int id, string &name, int age, string &cls, int score);
+#endif
 bool bench_sql_get_byid (void *pConn, const char *sql, int id, stu_callback callback, void *pArg);
 bool bench_sql_updAge_byid (void *pConn, const char *sql, int id, int age);
 bool bench_sql_del_byid (void *pConn, const char *sql, int id);
 
 void* bench_stmt_prepare (void *pConn, const char *sql);
 void bench_stmt_close (void *pStmt);
+#ifndef __cplusplus
 bool bench_stmt_insert (void *pStmt, int id, const char *name, int age, const char *cls, int score);
+#else
+bool bench_stmt_insert (void *pStmt, int id, string &name, int age, string &cls, int score);
+#endif
 bool bench_stmt_updAge_byid (void *pStmt, int id, int age);
 bool bench_stmt_del_byid (void *pStmt, int id);
 bool bench_stmt_get_byid (void *pStmt, int id, stu_callback callback, void *pArg);
-
-void stu_count_cb (void *pArg, int id, const char *name, int age, const char *cls, int score)
-{
-	int *pCount = (int*)pArg;
-	(*pCount)++;
-	(void)id, (void)name, (void)age, (void)cls, (void)score;
-}
 
 void bench_sql_test (void *pConn, int STU_COUNT, bool bRand, bench_result_t *pResult)
 {
