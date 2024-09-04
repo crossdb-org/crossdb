@@ -14,18 +14,30 @@ using namespace std;
 class student {
 public:
 	int		id;
-	string 	name;
+#ifdef USE_STRING
+	string	name;
+	string	cls;
+#else
+	char	name[17];
+	char	cls[17];
+#endif
 	int		age;
-	string 	cls;
 	int		score;
 
 	student () {
 	}
 	student (int id, const char *name, int age, const char *cls, int score) {
 		this->id = id;
+#ifdef USE_STRING
 		this->name = name;
-		this->age = age;
 		this->cls = cls;
+#else
+		strncpy (this->name, name, 17);
+		this->name[16] = '\0';
+		strncpy (this->cls, cls, 17);
+		this->cls[16] = '\0';
+#endif
+		this->age = age;
 		this->score = score;
 	}	
 };
@@ -61,16 +73,10 @@ student* stl_map_get_byid (int id)
 
 bool bench_sql_insert (void *pDb, const char *sql, int id, const char *name, int age, const char *cls, int score)
 {
-    student stu(id, name, age, cls, score);
-
 	pthread_rwlock_wrlock(&stu_tbl_lock);
-	if (NULL != stl_map_get_byid (id)) {
-		pthread_rwlock_unlock(&stu_tbl_lock);
-		return false;
-	}
-	stu_tbl_map[id] = stu;
+	auto ok = stu_tbl_map.try_emplace (id, id, name, age, cls, score);
 	pthread_rwlock_unlock(&stu_tbl_lock);
-	return true;
+	return ok.second;
 }
 
 bool bench_sql_get_byid (void *pDb, const char *sql, int id, stu_callback callback, void *pArg)
@@ -85,7 +91,11 @@ bool bench_sql_get_byid (void *pDb, const char *sql, int id, stu_callback callba
 	stu = *pStu;
 	pthread_rwlock_unlock(&stu_tbl_lock);	
 	// handle row out of the lock to reduce lock time
+#ifdef USE_STRING
 	callback (pArg, stu.id, stu.name.c_str(), stu.age, stu.cls.c_str(), stu.score);
+#else
+	callback (pArg, stu.id, stu.name, stu.age, stu.cls, stu.score);
+#endif
 	return true;
 }
 
@@ -132,16 +142,10 @@ student* stl_hmap_get_byid (int id)
 
 bool bench_stmt_insert (void *pStmt, int id, const char *name, int age, const char *cls, int score)
 {
-    student stu(id, name, age, cls, score);
-
 	pthread_rwlock_wrlock(&stu_tbl_lock);
-	if (NULL != stl_hmap_get_byid (id)) {
-		pthread_rwlock_unlock(&stu_tbl_lock);
-		return false;
-	}
-	stu_tbl_hmap[id] = stu;
+	auto ok = stu_tbl_hmap.try_emplace (id, id, name, age, cls, score);
 	pthread_rwlock_unlock(&stu_tbl_lock);
-	return true;
+	return ok.second;
 }
 
 bool bench_stmt_get_byid (void *pStmt, int id, stu_callback callback, void *pArg)
@@ -156,7 +160,11 @@ bool bench_stmt_get_byid (void *pStmt, int id, stu_callback callback, void *pArg
 	stu = *pStu;
 	pthread_rwlock_unlock(&stu_tbl_lock);
 	// handle row out of the lock to reduce lock time
+#ifdef USE_STRING
 	callback (pArg, stu.id, stu.name.c_str(), stu.age, stu.cls.c_str(), stu.score);
+#else
+	callback (pArg, stu.id, stu.name, stu.age, stu.cls, stu.score);
+#endif
 	return true;
 }
 
