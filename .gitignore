@@ -41,6 +41,9 @@
 *.su
 *.idb
 *.pdb
+.idea
+cmake-build-debug
+
 
 # Kernel Module Compile Results
 *.mod*
@@ -54,3 +57,4 @@ dkms.conf
 # Misc
 *.bin
 build/*
+
