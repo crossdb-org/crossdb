@@ -11,4 +11,4 @@ gdb:
 	gdb example
 
 clean:
-	rm -f a.out example 
+	rm -f a.out example

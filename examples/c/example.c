@@ -52,8 +52,8 @@ int main (int argc, char **argv)
 	while (NULL != (pRow = xdb_fetch_row (pRes))) {
 		xdb_print_row (pRes->col_meta, pRow, 0);
 		printf ("\n");
-		printf ("  id=%d name='%s' age=%d class='%s' score=%f\n", 
-			xdb_column_int (pRes->col_meta, pRow, 0), 
+        printf ("  id=%d name='%s' age=%d class='%s' score=%f\n",
+            xdb_column_int (pRes->col_meta, pRow, 0),
 			xdb_column_str (pRes->col_meta, pRow, 1), 
 			xdb_column_int (pRes->col_meta, pRow, 2), 
 			xdb_column_str (pRes->col_meta, pRow, 3), 
