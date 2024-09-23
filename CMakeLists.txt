@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(crossdb)
 add_compile_options(-O2)
-add_library(crossdb STATIC src/crossdb.c)
+add_library(crossdb SHARED src/crossdb.c)
 add_executable(xdb-cli src/xdb-cli.c)
 target_link_libraries(xdb-cli pthread dl)
 set_target_properties(crossdb PROPERTIES PUBLIC_HEADER "include/crossdb.h")

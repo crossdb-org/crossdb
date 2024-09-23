@@ -1,9 +1,7 @@
-#include "./crossdb.h"
+#include <crossdb.h>
 
 int main (int argc, char **argv)
 {
-    printf("start------------------------------------");
-
 	xdb_res_t	*pRes;
 	xdb_row_t	*pRow;
 
@@ -54,8 +52,8 @@ int main (int argc, char **argv)
 	while (NULL != (pRow = xdb_fetch_row (pRes))) {
 		xdb_print_row (pRes->col_meta, pRow, 0);
 		printf ("\n");
-		printf ("  id=%d name='%s' age=%d class='%s' score=%f\n",
-			xdb_column_int (pRes->col_meta, pRow, 0),
+        printf ("  id=%d name='%s' age=%d class='%s' score=%f\n",
+            xdb_column_int (pRes->col_meta, pRow, 0),
 			xdb_column_str (pRes->col_meta, pRow, 1), 
 			xdb_column_int (pRes->col_meta, pRow, 2), 
 			xdb_column_str (pRes->col_meta, pRow, 3), 
@@ -171,8 +169,6 @@ int main (int argc, char **argv)
 
 	// Embedded shell
 	printf ("\n=== Enter interactive embedded shell\n");
-    fflush(stdout);
-
 	xdb_exec (pConn, "SHELL");
 
 error:
