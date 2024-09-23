@@ -1,7 +1,7 @@
 //
 // Created by Administrator on 2024/9/14.
 //
-#include <com_open_crossdb_jni_core_CrossDBJNI.h>
+#include <db_jni.h>
 #include "crossdb.h"
 
 JNIEXPORT jlong JNICALL Java_com_open_crossdb_jni_core_CrossDBJNI_jniOpenDB
