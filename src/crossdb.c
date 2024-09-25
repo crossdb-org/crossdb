@@ -37,6 +37,7 @@
 #endif
 
 #include "parser/xdb_parser.c"
+#include "core/xdb_expr.c"
 #include "core/xdb_store.c"
 #include "core/xdb_sysdb.c"
 #include "core/xdb_db.c"

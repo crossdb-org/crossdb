@@ -26,6 +26,7 @@
 #define XDB_MAX_MATCH_COL	64
 #define XDB_MAX_ROWS		((1U<<31) - 1)
 #define XDB_MAX_SQL_BUF		(1024*1024)
+#define XDB_MAX_JOIN		8
 
 #define XDB_PATH_LEN		256
 

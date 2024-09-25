@@ -17,6 +17,7 @@ extern "C" {
 #endif
 
 #include "xdb_token.h"
+#include "../core/xdb_expr.h"
 
 typedef enum {
 	XDB_STMT_INVALID		= 0,
@@ -205,27 +206,6 @@ typedef struct {
 	const char 			*idx_col[XDB_MAX_MATCH_COL];
 } xdb_stmt_idx_t;
 
-typedef enum xdb_op_t {
-	XDB_OP_NONE,
-	XDB_OP_EQ 	= XDB_TOK_EQ,
-	XDB_OP_LT 	= XDB_TOK_LT, 	// <
-	XDB_OP_LE 	= XDB_TOK_LE, 	// <=
-	XDB_OP_GT 	= XDB_TOK_GT, 	// >
-	XDB_OP_GE 	= XDB_TOK_GE, 	// >=
-	XDB_OP_NE 	= XDB_TOK_NE, 	// != <>
-	XDB_OPLOG_MAX	= XDB_OP_NE,
-	XDB_OP_ADD 	= XDB_TOK_ADD,
-	XDB_OP_SUB 	= XDB_TOK_SUB,
-	XDB_OP_MUL 	= XDB_TOK_MUL,
-	XDB_OP_DIV 	= XDB_TOK_DIV,
-
-	XDB_OP_COUNT,
-	XDB_OP_SUM,
-	XDB_OP_MIN,
-	XDB_OP_MAX,
-	XDB_OP_AVG,
-} xdb_op_t;
-
 #if 0
 typedef struct xdb_str {
 	char	*ptr;
@@ -234,36 +214,17 @@ typedef struct xdb_str {
 } xdb_str;
 #endif
 
-typedef enum {
-	XDB_TYPE_FIELD = 128,
-} xdb_type2_e;
-
-typedef struct xdb_value_t {
-	uint8_t			val_type;	// xdb_type_t int, uint, double, string, binary, field, function | =, !=, >, <, >=, <=, AND, OR, + - * / 
-	uint8_t			fld_type;
-	uint8_t			sup_type;
-	xdb_field_t 	*pField;
-	xdb_str_t		val_str;
-	//uint32_t		val_len;	// if table field, then is fld_id or function id
-	union {
-		double		fval;
-		uint64_t	uval;
-		int64_t		ival;
-		xdb_str_t	str;	// str/binary
-	};
-} xdb_value_t;
-
 typedef struct xdb_filter_t {
-	uint8_t			cmp_op;		// xdb_op_t
-	uint8_t			fld_type;	
+	uint8_t			cmp_op;		// xdb_token_type
+	//uint8_t			fld_type;	
 	uint16_t		fld_off;
 	uint16_t		fld_id;
-	xdb_value_t		val;
 	xdb_field_t		*pField;
+	xdb_value_t		val;
 } xdb_filter_t;
 
 typedef struct {
-	uint8_t			exp_op;	// xdb_op_t
+	xdb_token_type	exp_op;
 	xdb_value_t		op_val[2];
 } xdb_exp_t;
 
@@ -277,20 +238,52 @@ typedef struct {
 	xdb_exp_t		exp;
 } xdb_selcol_t;
 
+typedef enum xdb_join_e {
+	XDB_JOIN_NONE,
+	XDB_JOIN_INNER,
+	XDB_JOIN_LEFT,
+} xdb_join_e;
+
+typedef struct {
+	struct xdb_idxm_t	*pIdxm;
+	xdb_value_t 		*pIdxVals[XDB_MAX_MATCH_COL];
+	xdb_filter_t		*pIdxFlts[XDB_MAX_MATCH_COL];
+	int 				idx_flt_cnt;
+} xdb_idxfilter_t;
+
+typedef struct {
+	xdb_field_t			*pField[XDB_MAX_MATCH_COL];
+	xdb_field_t			*pJoinField[XDB_MAX_MATCH_COL];
+
+	struct xdb_tblm_t	*pRefTblm;
+	const char			*as_name;
+
+	xdb_join_e			join_type;
+	uint8_t				field_count;
+	uint8_t				eq_bmp[(XDB_MAX_COLUMN+7)/8];
+
+	uint8_t				filter_count;
+	xdb_filter_t		*pFilters[XDB_MAX_MATCH_COL];
+	xdb_filter_t		filters[XDB_MAX_MATCH_COL];
+
+	xdb_idxfilter_t 	idx_filter;
+	xdb_idxfilter_t 	*pIdxFilter;
+} xdb_reftbl_t;
+
 typedef struct {
 	XDB_STMT_COMMON;
 	char 	 		*tbl_name;
 
 	// if add more init, need to change xdb_init_where_stmt
 	uint16_t		col_count;
-	uint16_t		filter_count;
+	uint16_t		exp_count;
 	uint16_t		agg_count;
 	uint16_t		order_count;
 	uint16_t		bind_count;
-	uint16_t		idx_flt_cnt;
-	uint16_t		exp_count;
 	uint16_t		set_bind_count;
 	uint16_t		set_count;
+	uint8_t			reftbl_count;
+	uint8_t			rsvd;
 
 	// bind value
 	xdb_value_t	*pBind[XDB_MAX_MATCH_COL];
@@ -298,6 +291,8 @@ typedef struct {
 	xdb_field_t		*pSelFlds[XDB_MAX_COLUMN];
 
 	struct xdb_tblm_t	*pTblm;
+	xdb_reftbl_t		ref_tbl[XDB_MAX_JOIN];
+
 	//uint16_t		null_off;
 	uint32_t		meta_size;
 	xdb_meta_t		*pMeta;
@@ -305,14 +300,7 @@ typedef struct {
 	//uint8_t			*pFldType;
 	//uint16_t		*pFldOff;
 
-	// where
-	xdb_filter_t	*pFilters[XDB_MAX_MATCH_COL];
-	xdb_filter_t	filters[XDB_MAX_MATCH_COL];
-	struct xdb_idxm_t	*pIdxm;
-	xdb_value_t 	*pIdxVals[XDB_MAX_MATCH_COL];
-	xdb_filter_t	*pIdxFlts[XDB_MAX_MATCH_COL];
-
-	// agg func
+	// agg func result
 	uint64_t		agg_buf[XDB_MAX_COLUMN];
 
 	xdb_selcol_t	sel_cols[XDB_MAX_COLUMN];
@@ -329,6 +317,11 @@ typedef struct {
 	xdb_size		res_size;
 
 	xdb_setfld_t	set_flds[XDB_MAX_COLUMN];
+
+	xdb_row_t		pRow[XDB_MAX_COLUMN];
+
+	xdb_row_callback 	callback;
+	void 				*pCbArg;
 } xdb_stmt_select_t;
 
 typedef struct {
@@ -360,7 +353,7 @@ typedef struct {
 
 	char 	 			*tbl_name;
 	struct xdb_tblm_t	*pTblm;
-	uint16_t		fld_list[XDB_MAX_COLUMN];
+	xdb_field_t		*pFldList[XDB_MAX_COLUMN];
 	uint32_t		row_offset[XDB_MAX_COLUMN];
 	uint32_t		buf_len;
 	void			*pRowsBuf;

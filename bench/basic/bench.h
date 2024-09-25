@@ -297,7 +297,7 @@ int main (int argc, char **argv)
 	const	char *db = ":memory:";
 
 	if (argc >= 2) {
-		while ((ch = getopt(argc, argv, "n:r:c:d:qjh")) != -1) {
+		while ((ch = getopt(argc, argv, "n:r:c:d:l:qjh")) != -1) {
 			switch (ch) {
 			case 'h':
 				printf ("Usage:\n");

@@ -31,6 +31,7 @@
 **Features**
 
 - `SELECT` supports simple expr, ex: `a + 10` `a - b` [#12](https://github.com/crossdb-org/crossdb/issues/12)
+- `SELECT` supports `AS`
 - Support operators: `>`, `>=`, `<`, `<=`, `!=`, `<>` [#13](https://github.com/crossdb-org/CrossDB/issues/13)
 - `WHERE` expression supports having the field on the right side, ex: `5 < id`
 - `xdb-cli` creates a default memory database, allowing you to directly create tables for practice.

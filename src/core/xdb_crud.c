@@ -11,6 +11,25 @@
 
 #define XDB_IS_NULL(pNull,bits)	(pNull[bits>>3] & (1<<(bits&7)))
 
+static inline void xdb_get_rowptr (xdb_meta_t *pMeta, void *pRow, xdb_row_t *pRowPtr)
+{
+	xdb_col_t		**pColBase = (xdb_col_t**)pMeta->col_list;
+	if (xdb_likely (0 == pMeta->null_off)) {
+		for (int i = 0; i < pMeta->col_count; ++i) {
+			pRowPtr[i] =	(uintptr_t)(pRow + pColBase[i]->col_off);
+		}
+	} else {
+		uint8_t *pNull = (uint8_t*)(pRow + pMeta->null_off);
+		for (int i = 0; i < pMeta->col_count; ++i) {
+			if (!XDB_IS_NULL(pNull,i)) {
+				pRowPtr[i] = (uintptr_t)(pRow + pColBase[i]->col_off);
+			} else {
+				pRowPtr[i] = 0;
+			}
+		}
+	}
+}
+
 int
 xdb_fetch_rows (xdb_res_t* pRes)
 {
@@ -123,14 +142,12 @@ xdb_free_result (xdb_res_t* pRes)
 }
 
 XDB_STATIC bool 
-xdb_row_isequal (void *pRow, xdb_field_t **ppFields, xdb_value_t *pVals[], int count)
+xdb_row_isequal (void *pRow, xdb_field_t **ppFields, xdb_value_t *ppValues[], int count)
 {
-	xdb_value_t **pValues = pVals;
-	xdb_field_t **ppField = ppFields;
-	for (int i = 0; i < count; ++i, ++pValues, ++ppField) {
+	for (int i = 0; i < count; ++i) {
 		int len;
-		xdb_field_t *pField = *ppField;
-		xdb_value_t	*pValue = *pValues;
+		xdb_field_t *pField = ppFields[i];
+		xdb_value_t	*pValue = ppValues[i];
 		void *pRowVal = pRow + pField->fld_off;
 		switch (pField->fld_type) {
 		case XDB_TYPE_INT:
@@ -304,10 +321,10 @@ xdb_row_cmp (const void *pRowL, const void *pRowR, const xdb_field_t **ppFields,
 }
 
 XDB_STATIC bool 
-xdb_row_and_match (void *pRow, xdb_filter_t **pFilterList, int count)
+xdb_row_and_match (void *pRow, xdb_filter_t **pFilters, int count)
 {
-	for (int i = 0; i < count; ++i, ++pFilterList) {
-		xdb_filter_t *pFilter = *pFilterList;
+	for (int i = 0; i < count; ++i) {
+		xdb_filter_t *pFilter = pFilters[i];
 		xdb_field_t *pField = pFilter->pField;
 		void *pVal = pRow + pField->fld_off;
 		xdb_value_t	value, *pValue = &pFilter->val;
@@ -354,22 +371,22 @@ xdb_row_and_match (void *pRow, xdb_filter_t **pFilterList, int count)
 				return 0;
 			}
 			switch (pFilter->cmp_op) {
-			case XDB_OP_EQ: 
+			case XDB_TOK_EQ: 
 				if (value.ival != pValue->ival) { return 0;	}
 				break;
-			case XDB_OP_GT: 
+			case XDB_TOK_GT: 
 				if (value.ival <= pValue->ival) { return 0; }
 				break;
-			case XDB_OP_GE: 
+			case XDB_TOK_GE: 
 				if (value.ival < pValue->ival) { return 0; }
 				break;
-			case XDB_OP_LT: 
+			case XDB_TOK_LT: 
 				if (value.ival >= pValue->ival) { return 0; }
 				break;
-			case XDB_OP_LE: 
+			case XDB_TOK_LE: 
 				if (value.ival > pValue->ival) { return 0; }
 				break;
-			case XDB_OP_NE: 
+			case XDB_TOK_NE: 
 				if (value.ival == pValue->ival) { return 0; }
 				break;
 			}
@@ -380,22 +397,22 @@ xdb_row_and_match (void *pRow, xdb_filter_t **pFilterList, int count)
 				return 0;
 			}
 			switch (pFilter->cmp_op) {
-			case XDB_OP_EQ: 
+			case XDB_TOK_EQ: 
 				if (value.fval != pValue->fval) {	return 0; }
 				break;
-			case XDB_OP_GT: 
+			case XDB_TOK_GT: 
 				if (value.fval <= pValue->fval) { return 0; }
 				break;
-			case XDB_OP_GE: 
+			case XDB_TOK_GE: 
 				if (value.fval < pValue->fval) { return 0; }
 				break;
-			case XDB_OP_LT: 
+			case XDB_TOK_LT: 
 				if (value.fval >= pValue->fval) { return 0; }
 				break;
-			case XDB_OP_LE: 
+			case XDB_TOK_LE: 
 				if (value.fval > pValue->fval) { return 0; }
 				break;
-			case XDB_OP_NE: 
+			case XDB_TOK_NE: 
 				if (value.fval == pValue->fval) { return 0; }
 				break;
 			}
@@ -406,7 +423,7 @@ xdb_row_and_match (void *pRow, xdb_filter_t **pFilterList, int count)
 				return 0;
 			}
 			switch (pFilter->cmp_op) {
-			case XDB_OP_EQ: 
+			case XDB_TOK_EQ: 
 				if (value.str.len != pValue->str.len) {
 					return 0;
 				}
@@ -415,7 +432,7 @@ xdb_row_and_match (void *pRow, xdb_filter_t **pFilterList, int count)
 					return 0;
 				}
 				break;
-			case XDB_OP_NE: 
+			case XDB_TOK_NE: 
 				if ((value.str.len == pValue->str.len) && !strcasecmp (value.str.str, pValue->str.str)) {
 					//if (memcmp (value.str.str, pValue->str.str, value.str.len)) {
 					return 0;
@@ -425,6 +442,9 @@ xdb_row_and_match (void *pRow, xdb_filter_t **pFilterList, int count)
 				break;
 			}
 			break;
+
+		default:
+			return 0;
 		}
 	}
 
@@ -491,7 +511,7 @@ xdb_exp_eval (xdb_value_t *pResVal, xdb_exp_t *pExp, void *pRow)
 	if (xdb_likely (XDB_TYPE_FIELD == pVal->val_type)) {
 		xdb_row_getval (pRow, pVal);
 	}
-	if (xdb_likely (XDB_OP_NONE == pExp->exp_op)) {
+	if (xdb_likely (XDB_TOK_NONE == pExp->exp_op)) {
 		return pVal;
 	}
 
@@ -507,28 +527,28 @@ xdb_exp_eval (xdb_value_t *pResVal, xdb_exp_t *pExp, void *pRow)
 	pResVal->sup_type = pVal->sup_type;
 
 	switch (pExp->exp_op) {
-	case XDB_OP_ADD:
+	case XDB_TOK_ADD:
 		if (XDB_TYPE_BIGINT == pVal->sup_type) {
 			pResVal->ival = pVal->ival + pVal2->ival;
 		} else {
 			pResVal->fval = pVal->fval + pVal2->fval;
 		}
 		break;
-	case XDB_OP_SUB:
+	case XDB_TOK_SUB:
 		if (XDB_TYPE_BIGINT == pVal->sup_type) {
 			pResVal->ival = pVal->ival - pVal2->ival;
 		} else {
 			pResVal->fval = pVal->fval - pVal2->fval;
 		}
 		break;
-	case XDB_OP_MUL:
+	case XDB_TOK_MUL:
 		if (XDB_TYPE_BIGINT == pVal->sup_type) {
 			pResVal->ival = pVal->ival * pVal2->ival;
 		} else {
 			pResVal->fval = pVal->fval * pVal2->fval;
 		}
 		break;
-	case XDB_OP_DIV:
+	case XDB_TOK_DIV:
 		if (XDB_TYPE_BIGINT == pVal->sup_type) {
 			if (xdb_likely (pVal2->ival != 0)) {
 				pResVal->ival = pVal->ival / pVal2->ival;
@@ -644,12 +664,11 @@ xdb_row_hash (void *pRow, xdb_field_t *pFields[], int count)
 }
 
 XDB_STATIC uint64_t 
-xdb_val_hash (xdb_value_t *pValues[], int count)
+xdb_val_hash (xdb_value_t **ppValues, int count)
 {
 	uint64_t hashsum = 0, hash;
-	xdb_value_t **ppValue = pValues;
-	for (int i = 0; i < count; ++i, ++ppValue) {
-		xdb_value_t *pValue = *ppValue;
+	for (int i = 0; i < count; ++i) {
+		xdb_value_t *pValue = ppValues[i];
 		switch (pValue->val_type) {
 		case XDB_TYPE_BIGINT:
 			hash = pValue->ival;
@@ -970,10 +989,9 @@ XDB_STATIC void
 xdb_rowset_init (xdb_rowset_t *pRowSet)
 {
 	memset (&pRowSet->count, 0, sizeof(pRowSet->count) * 4);
-	if (NULL == pRowSet->pRowList) {
-		pRowSet->cap	= XDB_ARY_LEN (pRowSet->rowlist);
-		pRowSet->pRowList	= pRowSet->rowlist;
-	}
+	pRowSet->cap	= XDB_ARY_LEN (pRowSet->rowlist);
+	pRowSet->pRowList	= pRowSet->rowlist;
+	pRowSet->limit	= XDB_MAX_ROWS;
 }
 
 XDB_STATIC int 
@@ -1007,6 +1025,43 @@ xdb_rowset_add (xdb_rowset_t *pRowSet, xdb_rowid rid, void *ptr)
 	xdb_rowptr_t *pRowPtr = &pRowSet->pRowList[pRowSet->count];
 	pRowPtr->rid = rid;
 	pRowPtr->ptr = ptr;
+
+	if (xdb_unlikely (++pRowSet->count >= pRowSet->limit)) {
+		return -XDB_E_FULL;
+	}
+	return XDB_OK;
+}
+
+XDB_STATIC int 
+xdb_rowset_add_batch (xdb_rowset_t *pRowSet, xdb_rowptr_t *pRowPtrs, int batch)
+{
+	if (xdb_unlikely (pRowSet->count >= pRowSet->cap)) {
+		xdb_rowptr_t *pRows;
+		xdb_rowid cap = pRowSet->cap << 1;
+		if (pRowSet->pRowList == pRowSet->rowlist) {
+			pRows = xdb_malloc (cap * sizeof(xdb_rowptr_t) * batch);
+			if (NULL == pRows) {
+				return -XDB_E_MEMORY;
+			}
+			memcpy (pRows, pRowSet->rowlist, sizeof (pRowSet->rowlist));
+		} else {
+			pRows = xdb_realloc (pRowSet->pRowList, cap * sizeof(xdb_rowptr_t) * batch);
+			if (NULL == pRows) {
+				return -XDB_E_MEMORY;
+			}
+		}
+		pRowSet->cap	= cap;
+		pRowSet->pRowList	= pRows;
+	}
+
+	if (xdb_unlikely (pRowSet->offset > 0)) {
+		if (++pRowSet->seqid <= pRowSet->offset) {
+			return XDB_OK;
+		}
+	}
+
+	xdb_rowptr_t *pRowPtr = &pRowSet->pRowList[pRowSet->count * batch];
+	memcpy (pRowPtr, pRowPtrs, batch * sizeof (xdb_rowptr_t));
 
 	if (xdb_unlikely (++pRowSet->count >= pRowSet->limit)) {
 		return -XDB_E_FULL;
@@ -1088,11 +1143,74 @@ xdb_sql_limit (xdb_rowset_t 	*pRowSet, int limit, int offset)
 }
 
 XDB_STATIC int 
+xdb_sql_scan (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowset_t *pRowSet, xdb_filter_t **pFilters, int filter_count, 
+					xdb_idxfilter_t *pIdxFiter)
+{
+	if (xdb_likely (pIdxFiter != NULL)) {
+		return pIdxFiter->pIdxm->pIdxOps->idx_query (pConn, pIdxFiter, pRowSet);
+	}
+
+	xdb_stgmgr_t	*pStgMgr = &pTblm->stg_mgr;
+	xdb_rowid max_rid = XDB_STG_MAXID(pStgMgr);
+	for (xdb_rowid rid = 1; rid <= max_rid; ++rid) {
+		void *pRow = XDB_IDPTR(pStgMgr, rid);
+		if (xdb_row_valid (pConn, pTblm, pRow, rid)) {
+			if (filter_count > 0) {
+				bool ret = xdb_row_and_match (pRow, pFilters, filter_count);
+				if (!ret) {
+					continue;
+				}
+			}
+			if (xdb_unlikely (-XDB_E_FULL == xdb_rowset_add (pRowSet, rid, pRow))) {
+				break;
+			}
+		}
+	}
+
+	return XDB_OK;
+}
+
+XDB_STATIC int 
+xdb_sql_join (xdb_stmt_select_t *pStmt, xdb_rowptr_t *pRowPtrs, int level, xdb_rowset_t *pRowSet)
+{
+	xdb_rowset_t row_set;
+	xdb_filter_t filters[XDB_MAX_MATCH_COL], *pFilers[XDB_MAX_MATCH_COL];
+	xdb_rowset_init (&row_set);
+	xdb_reftbl_t		*pJoin = &pStmt->ref_tbl[level];
+	void *pRow = pRowPtrs[level].ptr;
+
+	for (int i = 0; i < pJoin->field_count; ++i) {
+		filters[i].cmp_op = XDB_TOK_EQ;
+		filters[i].pField = pJoin->pJoinField[i];
+		filters[i].val.pField  = pJoin->pField[i];
+		xdb_row_getval (pRow, &filters[i].val);
+		pFilers[i] = &filters[i];
+	}
+
+	xdb_sql_scan (pStmt->pConn, pJoin->pRefTblm, &row_set, pFilers, pJoin->field_count, NULL);
+	if (row_set.count > 0) {
+		int nxt_lvl = level + 1;
+		for (xdb_rowid id = 0; id < row_set.count; ++id) {
+			pRowPtrs[nxt_lvl] = row_set.pRowList[id];
+			if (nxt_lvl == pStmt->reftbl_count) {
+				// add to row
+				for (int i = 0; i < nxt_lvl; ++i) {
+					xdb_rowset_add_batch (pRowSet, pRowPtrs, pStmt->reftbl_count + 1);
+				}
+			} else {
+				xdb_sql_join (pStmt, pRowPtrs, nxt_lvl, pRowSet);
+			}
+		}
+	}
+	return 0;
+}
+
+XDB_STATIC int 
 xdb_sql_filter (xdb_stmt_select_t *pStmt)
 {
 	xdb_conn_t		*pConn = pStmt->pConn;
 	xdb_tblm_t		*pTblm = pStmt->pTblm;
-	xdb_stgmgr_t	*pStgMgr = &pTblm->stg_mgr;
+	xdb_rowset_t	row_set;
 	xdb_rowset_t 	*pRowSet = &pConn->row_set;
 
 	pRowSet->pTblMeta = pStmt->pTblm->pMeta;
@@ -1101,7 +1219,12 @@ xdb_sql_filter (xdb_stmt_select_t *pStmt)
 		return XDB_OK;
 	}
 
-	if (xdb_likely (0 == pStmt->order_count)) {
+	if (xdb_unlikely (pStmt->reftbl_count > 1)) {
+		xdb_rowset_init (&row_set);
+		pRowSet = &row_set;
+	}
+
+	if (xdb_likely ((0 == pStmt->order_count) || (pStmt->reftbl_count > 1))) {
 		// set limit and offset
 		memcpy (&pRowSet->limit, &pStmt->limit, sizeof(pRowSet->limit) * 2);
 	} else {
@@ -1109,24 +1232,17 @@ xdb_sql_filter (xdb_stmt_select_t *pStmt)
 		pRowSet->offset = 0;
 	}
 
-	if (pStmt->filter_count > 0 && (NULL != pStmt->pIdxm)) {
-		pStmt->pIdxm->pIdxOps->idx_query (pConn, pStmt->pIdxm, pStmt->pIdxVals, pStmt->pIdxFlts, pStmt->idx_flt_cnt, pRowSet);
-	} else {
-		xdb_rowid max_rid = XDB_STG_MAXID(pStgMgr);
-		for (xdb_rowid rid = 1; rid <= max_rid; ++rid) {
-			void *pRow = XDB_IDPTR(pStgMgr, rid);
-			if (xdb_row_valid (pConn, pTblm, pRow, rid)) {
-				if (pStmt->filter_count > 0) {
-					bool ret = xdb_row_and_match (pRow, pStmt->pFilters, pStmt->filter_count);
-					if (!ret) {
-						continue;
-					}
-				}
-				if (xdb_unlikely (-XDB_E_FULL == xdb_rowset_add (pRowSet, rid, pRow))) {
-					return XDB_OK;
-				}
-			}
+	xdb_reftbl_t *pRefTbl = &pStmt->ref_tbl[0];
+	xdb_sql_scan (pConn, pTblm, pRowSet, pRefTbl->pFilters, pRefTbl->filter_count, pRefTbl->pIdxFilter);
+
+	if (xdb_unlikely (pStmt->reftbl_count > 1)) {
+		xdb_rowptr_t row_ptrs[XDB_MAX_JOIN];
+		for (xdb_rowid id = 0; id < pRowSet->count; ++id) {
+			row_ptrs[0] = pRowSet->pRowList[id];
+			xdb_sql_join (pStmt, row_ptrs, 1, &pConn->row_set);
 		}
+		xdb_rowset_free(&row_set);
+		pRowSet = &pConn->row_set;
 	}
 
 	if (xdb_unlikely (pStmt->order_count > 0)) {
@@ -1148,11 +1264,11 @@ xdb_sql_filter (xdb_stmt_select_t *pStmt)
 		xdb_field_t	*pField;
 
 		for (int i = 0; i < pStmt->pMeta->col_count; ++i) {
-			if (XDB_OP_COUNT == pStmt->sel_cols[i].exp.exp_op) {
+			if (XDB_TOK_COUNT == pStmt->sel_cols[i].exp.exp_op) {
 				ival_col[i] = 1;
 				continue;
 			}
-			if (XDB_OP_AVG == pStmt->sel_cols[i].exp.exp_op) {
+			if (XDB_TOK_AVG == pStmt->sel_cols[i].exp.exp_op) {
 				agg_count[i] = 1;
 			}
 			pField = pStmt->sel_cols[i].exp.op_val[1].pField;
@@ -1171,10 +1287,10 @@ xdb_sql_filter (xdb_stmt_select_t *pStmt)
 			for (int i = 0; i < pStmt->pMeta->col_count; ++i) {
 				pField = pStmt->sel_cols[i].exp.op_val[1].pField;
 				switch (pStmt->sel_cols[i].exp.exp_op) {
-				case XDB_OP_COUNT:
+				case XDB_TOK_COUNT:
 					ival_col[i]++;
 					break;
-				case XDB_OP_MAX:
+				case XDB_TOK_MAX:
 					switch (pField->sup_type) {
 					case XDB_TYPE_BIGINT:
 						val = xdb_row_getInt ((uintptr_t)pTblm->pMeta, pRow, pField->fld_id);
@@ -1190,7 +1306,7 @@ xdb_sql_filter (xdb_stmt_select_t *pStmt)
 						break;
 					}
 					break;
-				case XDB_OP_MIN:
+				case XDB_TOK_MIN:
 					switch (pField->sup_type) {
 					case XDB_TYPE_BIGINT:
 						val = xdb_row_getInt ((uintptr_t)pTblm->pMeta, pRow, pField->fld_id);
@@ -1206,9 +1322,9 @@ xdb_sql_filter (xdb_stmt_select_t *pStmt)
 						break;
 					}
 					break;
-				case XDB_OP_AVG:
+				case XDB_TOK_AVG:
 					agg_count[i]++;
-				case XDB_OP_SUM:				
+				case XDB_TOK_SUM:				
 					switch (pField->sup_type) {
 					case XDB_TYPE_BIGINT:
 						val = xdb_row_getInt ((uintptr_t)pTblm->pMeta, pRow, pField->fld_id);
@@ -1233,7 +1349,7 @@ xdb_sql_filter (xdb_stmt_select_t *pStmt)
 		for (int i = 0; i < pStmt->pMeta->col_count; ++i) {
 			pField = pStmt->sel_cols[i].exp.op_val[1].pField;
 			switch (pStmt->sel_cols[i].exp.exp_op) {
-				case XDB_OP_AVG:
+				case XDB_TOK_AVG:
 					switch (pField->sup_type) {
 					case XDB_TYPE_BIGINT:
 						//xdb_dbgprint ("%s %d %d %f\n", pCol[i]->col_name, ival_col[i], agg_count[i], (double)ival_col[i]/agg_count[i]);
@@ -1327,12 +1443,22 @@ xdb_sql_select (xdb_stmt_select_t *pStmt)
 
 	xdb_rdlock_tblstg (pStmt->pTblm);
 
+	xdb_sql_filter (pStmt);
+
+	if (pStmt->callback != NULL) {
+		pRes = &pConn->conn_res;
+		memset (pRes, 0, sizeof (*pRes));
+		for (xdb_rowid id = 0; id < pRowSet->count; ++id) {
+			xdb_get_rowptr (pStmt->pMeta, pRowSet->pRowList[id].ptr, pStmt->pRow);
+			pStmt->callback ((uintptr_t)pStmt->pMeta, pStmt->pRow, pStmt->pCbArg);
+		}
+		goto exit;
+	}
+
 	pRes = xdb_queryres_alloc (pConn, XDB_ROW_BUF_SIZE);
 	if (NULL != pRes) {
 		goto exit;
 	}
-
-	xdb_sql_filter (pStmt);
 
 	xdb_queryRes_t	*pQueryRes = pConn->pQueryRes;
 	pRes = &pQueryRes->res;
@@ -1344,7 +1470,7 @@ xdb_sql_select (xdb_stmt_select_t *pStmt)
 	//pRes->stmt_type = pStmt->stmt_type;
 
 	pRes->affected_rows	= 0;
-	pRes->row_count = pRowSet->count;
+	pRes->row_count = 0;
 	pRes->col_count	= pStmt->pMeta->col_count;
 	pRes->insert_id = 0;
 	pRes->data_len  = 0;
@@ -1359,6 +1485,8 @@ xdb_sql_select (xdb_stmt_select_t *pStmt)
 	xdb_rowdat_t	*pRowDat = (void*)pMeta + pRes->meta_len;
 	xdb_rowdat_t	*pCurDat = pRowDat;
 
+	xdb_rowid jid = 0;
+
 	for (xdb_rowid id = 0; id < pRowSet->count; ++id) {
 		uint64_t	offset = (void*)pCurDat - (void*)pQueryRes;
 		pCurDat->len_type = row_size + 4;
@@ -1371,7 +1499,16 @@ xdb_sql_select (xdb_stmt_select_t *pStmt)
 			pCurDat = (void*)pQueryRes + offset;
 		}
 		if (0 == (pStmt->exp_count)) {
-			memcpy (pCurDat->rowdat, pRowSet->pRowList[id].ptr, row_size);
+			if (xdb_likely (1 == pStmt->reftbl_count)) {
+				memcpy (pCurDat->rowdat, pRowSet->pRowList[id].ptr, pStmt->pTblm->row_size);
+			} else {
+				void *pJoinDat = (void*)pCurDat->rowdat;
+				for (int i = 0; i < pStmt->reftbl_count; ++i) {
+					int tbl_rowsize = pStmt->ref_tbl[i].pRefTblm->row_size;
+					memcpy (pJoinDat, pRowSet->pRowList[jid++].ptr, tbl_rowsize);
+					pJoinDat += tbl_rowsize;
+				}
+			}
 		} else {
 			void *pRow = pRowSet->pRowList[id].ptr;
 			for (int i = 0 ; i < pStmt->pMeta->col_count; ++i) {
@@ -1387,6 +1524,7 @@ xdb_sql_select (xdb_stmt_select_t *pStmt)
 				xdb_col_set ((void*)pCurDat->rowdat + pCol->col_off, pCol->col_type, pVal);
 			}
 		}
+		pRes->row_count++;
 		pQueryRes->buf_free -= pCurDat->len_type;
 		pCurDat = (void*)pCurDat + sizeof(*pCurDat) + row_size;
 	}
@@ -1431,6 +1569,7 @@ xdb_row_insert (xdb_conn_t *pConn, xdb_tblm_t *pTblm, void *pRow)
 		int rc = xdb_idx_addRow (pConn, pTblm, rid, pRowDb);
 		if (xdb_unlikely (XDB_OK != rc)) {
 			xdb_stg_free (pStgMgr, rid, pRowDb);
+			rid = -1;
 		}
 	} else {
 		*((uint8_t*)pRowDb+pStgMgr->pStgHdr->ctl_off) |= XDB_ROW_TRANS;
@@ -1440,6 +1579,7 @@ xdb_row_insert (xdb_conn_t *pConn, xdb_tblm_t *pTblm, void *pRow)
 			xdb_trans_addrow (pConn, pTblm, rid, true);
 		} else {
 			xdb_stg_free (pStgMgr, rid, pRowDb);
+			rid = -1;
 		}
 	}
 
@@ -1469,22 +1609,49 @@ xdb_row_delete (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow)
 XDB_STATIC int 
 xdb_row_update (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow, xdb_setfld_t set_flds[], int set_count)
 {
-	if ((pTblm->bMemory && pConn->bAutoTrans) || (XDB_ROW_TRANS == (XDB_ROW_CTRL (pTblm->stg_mgr.pStgHdr, pRow) & XDB_ROW_MASK))) {
-		uint64_t idx_bmp = 0;
-		for (int i = 0; i < set_count; ++i) {
-			xdb_field_t 	*pField = set_flds[i].pField;
-			idx_bmp |= pField->idx_bmp;
+	uint64_t idx_bmp = 0;
+	XDB_BUF_DEF(pUpdRow, 4096);
+	bool	bCopy = false;
+	uint8_t idx_affect[XDB_MAX_INDEX];
+	int		idx_count = 0;
+
+	for (int i = 0; i < set_count; ++i) {
+		xdb_field_t 	*pField = set_flds[i].pField;
+		idx_bmp |= pField->idx_bmp;
+	}
+	if (xdb_unlikely (idx_bmp)) {
+		for (int i = 0; i < XDB_OBJM_COUNT(pTblm->idx_objm); ++i) {
+			xdb_idxm_t *pIdxm = XDB_OBJM_GET(pTblm->idx_objm, pTblm->idx_order[i]);
+			if ((1<<XDB_OBJ_ID(pIdxm)) & idx_bmp) {
+				idx_affect[idx_count++] = pTblm->idx_order[i];
+			}
+			if (pIdxm->bUnique) {
+				if (xdb_unlikely (!bCopy)) {
+					XDB_BUF_ALLOC(pUpdRow, pTblm->pMeta->row_size);
+					memcpy (pUpdRow, pRow, pTblm->pMeta->row_size);
+					XDB_EXPECT (pUpdRow != NULL, XDB_E_MEMORY, "Can't alloc memory");
+					xdb_row_set (pUpdRow, set_flds, set_count);
+					bCopy = true;
+				}
+				xdb_rowid rid2 = pIdxm->pIdxOps->idx_query2 (pConn, pIdxm, pUpdRow);
+				if (xdb_unlikely ((rid2 > 0) && (rid2 != rid))) {
+					return -XDB_E_EXISTS;
+				}
+			}
 		}
-		uint8_t idx_del[XDB_MAX_INDEX];
-		int idx_count = xdb_idx_remRow_bmp (pTblm, rid, pRow, idx_bmp, idx_del);
+	}
+
+	if ((pTblm->bMemory && pConn->bAutoTrans) || (XDB_ROW_TRANS == (XDB_ROW_CTRL (pTblm->stg_mgr.pStgHdr, pRow) & XDB_ROW_MASK))) {
+		xdb_idx_remRow_bmp (pTblm, rid, pRow, idx_affect, idx_count);
 		xdb_row_set (pRow, set_flds, set_count);
-		xdb_idx_addRow_bmp (pConn, pTblm, rid, pRow, idx_del, idx_count);
+		xdb_idx_addRow_bmp (pConn, pTblm, rid, pRow, idx_affect, idx_count);
 	} else {
-		XDB_BUF_DEF(pUpdRow, 4096);
-		XDB_BUF_ALLOC(pUpdRow, pTblm->pMeta->row_size);
-		memcpy (pUpdRow, pRow, pTblm->pMeta->row_size);
-		XDB_EXPECT (pUpdRow != NULL, XDB_E_MEMORY, "Can't alloc memory");
-		xdb_row_set (pUpdRow, set_flds, set_count);
+		if (!bCopy) {
+			XDB_BUF_ALLOC(pUpdRow, pTblm->pMeta->row_size);
+			memcpy (pUpdRow, pRow, pTblm->pMeta->row_size);
+			XDB_EXPECT (pUpdRow != NULL, XDB_E_MEMORY, "Can't alloc memory");
+			xdb_row_set (pUpdRow, set_flds, set_count);
+		}
 		xdb_row_delete (pConn, pTblm, rid, pRow);
 		xdb_row_insert (pConn, pTblm, pUpdRow);	
 		XDB_BUF_FREE(pUpdRow);
@@ -1541,6 +1708,8 @@ xdb_sql_update (xdb_stmt_select_t *pStmt)
 
 	for (xdb_rowid id = 0 ; id < pRowSet->count; ++id) {
 		xdb_rowptr_t *pRow = &pRowSet->pRowList[id];
+		// insert may cause remap
+		pRow->ptr = XDB_IDPTR (&pTblm->stg_mgr, pRow->rid);
 		int rc = xdb_row_update (pConn, pTblm, pRow->rid, pRow->ptr, pStmt->set_flds, pStmt->set_count);
 		if (0 == rc) {
 			count ++;

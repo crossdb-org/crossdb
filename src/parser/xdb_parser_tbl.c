@@ -170,6 +170,8 @@ xdb_parse_create_table (xdb_conn_t* pConn, xdb_token_t *pTkn)
 			xdb_stmt_idx_t *pStmtIdx = &pStmt->stmt_idx[pStmt->idx_count++];
 			pStmtIdx->idx_type = XDB_IDX_HASH;
 			pStmtIdx->xoid	= -1;
+			pStmtIdx->idx_name = NULL;
+			pStmtIdx->bUnique = false;
 
 			const char *idx_type = pTkn->token;
 			type = xdb_next_token (pTkn);
@@ -192,7 +194,7 @@ xdb_parse_create_table (xdb_conn_t* pConn, xdb_token_t *pTkn)
 				type = xdb_next_token (pTkn);
 			}
 			rc = xdb_parse_create_idx_def (pConn, pTkn, pStmtIdx);
-			if ((NULL == pStmtIdx->idx_name) && (pStmtIdx->fld_count > 0)) {
+			if (NULL == pStmtIdx->idx_name) {
 				xdb_sprintf (pStmtIdx->idxName, "%s_%d", pStmtIdx->idx_col[0], pStmt->idx_count);
 				pStmtIdx->idx_name = pStmtIdx->idxName;
 			}

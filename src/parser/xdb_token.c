@@ -82,7 +82,7 @@ static const char* xdb_tok2str(xdb_token_type tp)
 		[XDB_TOK_MOD  ] = "%",
 		[XDB_TOK_AND  ] = "AND",
 		[XDB_TOK_OR   ] = "OR",
-		[XDB_TOK_XOR  ] = "XOR",
+		[XDB_TOK_BXOR  ] = "BXOR",
 		[XDB_TOK_NOT  ] = "NOT",
 		[XDB_TOK_NEG  ] = "!",
 		[XDB_TOK_COMMA] = ",",
@@ -100,8 +100,9 @@ XDB_STATIC xdb_token_type
 xdb_next_token (xdb_token_t *pTkn)
 {
 	char *str, ch;
+
 	// last is id, check if next is not space
-	if (XDB_TOK_ID == pTkn->tk_type || XDB_TOK_NUM == pTkn->tk_type) {
+	if ((XDB_TOK_ID == pTkn->tk_type) || (XDB_TOK_NUM == pTkn->tk_type)) {
 		ch = s_tok_type[(uint8_t)pTkn->tk_nxt];
 		if (XDB_TOK_SP != ch) {
 			switch (ch) {
@@ -116,6 +117,10 @@ xdb_next_token (xdb_token_t *pTkn)
 			pTkn->tk_type = ch;
 			return pTkn->tk_type;
 		}
+	}
+
+	if (XDB_TOK_EOF == pTkn->tk_type) {
+		return XDB_TOK_EOF;
 	}
     // skip white space
     while (XDB_TOK_SP == s_tok_type[(uint8_t)*pTkn->tk_sql]) {

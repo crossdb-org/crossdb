@@ -9,7 +9,6 @@ void* bench_open (const char *db)
 {
 	xdb_conn_t* pConn = xdb_open (db);
 	XDB_CHECK (NULL != pConn, printf ("Can't open connection:\n"); return NULL;);
-
 	return pConn;
 }
 

@@ -15,7 +15,8 @@
 typedef struct {
 	int (*idx_add) (xdb_conn_t *pConn, struct xdb_idxm_t* pIdxm, xdb_rowid new_rid, void *pRow);
 	int (*idx_rem) (struct xdb_idxm_t* pIdxm, xdb_rowid rid, void *pRow);
-	xdb_rowid (*idx_query) (xdb_conn_t *pConn, struct xdb_idxm_t* pIdxm, xdb_value_t **ppValue, xdb_filter_t **ppFilter, int count, xdb_rowset_t *pRowSet);
+	xdb_rowid (*idx_query) (xdb_conn_t *pConn, xdb_idxfilter_t *pIdxFilter, xdb_rowset_t *pRowSet);
+	xdb_rowid (*idx_query2) (xdb_conn_t *pConn, struct xdb_idxm_t* pIdxm, void *pRow);
 	int (*idx_create) (struct xdb_idxm_t *pIdxm);
 	int (*idx_close) (struct xdb_idxm_t* pIdxm);
 	int (*idx_drop) (struct xdb_idxm_t* pIdxm);
@@ -50,7 +51,7 @@ XDB_STATIC int
 xdb_idx_remRow (xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow);
 
 XDB_STATIC int 
-xdb_idx_remRow_bmp (xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow, uint64_t idx_bmp, uint8_t *idx_del);
+xdb_idx_remRow_bmp (xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow, uint8_t *idx_del, int count);
 
 XDB_STATIC xdb_idxm_t* 
 xdb_find_index (xdb_tblm_t *pTblm, const char *idx_name);

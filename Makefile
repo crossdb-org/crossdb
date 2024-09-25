@@ -11,6 +11,7 @@ help:
 	@echo "make bench                Build and run bench test (need to install crossdb first)"
 	@echo "make bench-sqlite         Build and run sqlite bench test (need to install sqlite3 first)"
 	@echo "make bench-stlmap         Build and run C++ STL Map and HashMap(unordered_map) bench test"
+	@echo "make bench-boostmidx      Build and run C++ Boost MultiIndex Order and Hash bench test"
 
 .PHONY: build
 build:
@@ -77,3 +78,6 @@ bench-sqlite:
 
 bench-stlmap:
 	make -C bench/basic/ stlmap
+
+bench-boostmidx:
+	make -C bench/basic/ boostmidx

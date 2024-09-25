@@ -6,7 +6,7 @@ add_executable(xdb-cli src/xdb-cli.c)
 target_link_libraries(xdb-cli pthread dl)
 set_target_properties(crossdb PROPERTIES PUBLIC_HEADER "include/crossdb.h")
 
-add_subdirectory(jni)
+#add_subdirectory(jni)
 
 INSTALL(
 	TARGETS xdb-cli crossdb

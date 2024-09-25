@@ -1,11 +1,14 @@
 #include <iostream>
 #include <string>
-#include <map>
-#include <unordered_map>
+#include <boost/multi_index_container.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/member.hpp>
+#include <boost/multi_index/composite_key.hpp>
 
-#define BENCH_DBNAME	"STL"
+#define BENCH_DBNAME	"Boost"
 #define LKUP_COUNT		10000000
-#define TEST_NAME(i) 	i?"HashMap":"Map"
+#define TEST_NAME(i) 	i?"Hash":"Order"
 
 using namespace std;
 
@@ -35,10 +38,22 @@ static pthread_rwlock_t stu_tbl_lock = PTHREAD_RWLOCK_INITIALIZER;
 
 
 /************************************************
-		Map
+		Ordered Index
  ************************************************/
 
-static map<int, student> 			stu_tbl_map;
+struct _id {};
+
+using student_table_map =
+boost::multi_index::multi_index_container<
+	student,
+	boost::multi_index::indexed_by<
+		boost::multi_index::ordered_unique<boost::multi_index::tag<_id>, BOOST_MULTI_INDEX_MEMBER(student, int, id)>
+	>
+>;
+
+student_table_map stu_tbl_map;
+
+student_table_map::index<_id>::type& find_id_map = stu_tbl_map.get<_id>();
 
 void* bench_open (const char *db)
 {
@@ -54,31 +69,22 @@ bool bench_sql (void *pDb, const char *sql)
 	return true;
 }
 
-student* stl_map_get_byid (int id)
-{
-    auto iter = stu_tbl_map.find (id);
-	if (iter != stu_tbl_map.end()) {
-		return &iter->second;
-	} else {
-		return NULL;
-	}
-}
-
 bool bench_sql_insert (void *pDb, const char *sql, int id, string &name, int age, string &cls, int score)
 {
 	pthread_rwlock_wrlock(&stu_tbl_lock);
-	auto ok = stu_tbl_map.try_emplace (id, id, name, age, cls, score);
+	auto ok = stu_tbl_map.emplace (id, name, age, cls, score);
 	pthread_rwlock_unlock(&stu_tbl_lock);
 	return ok.second;
 }
 
 bool bench_sql_get_byid (void *pDb, const char *sql, int id, stu_callback callback, void *pArg)
 {
-	student *pStu, stu;
+	student stu, *pStu = NULL;
 
 	pthread_rwlock_rdlock(&stu_tbl_lock);	
-	if (NULL != (pStu = stl_map_get_byid (id))) {
-		stu = *pStu;
+	student_table_map::index<_id>::type::iterator iter_id = find_id_map.find(id);
+	if (iter_id != find_id_map.end()) {
+		stu = *iter_id;
 		pStu = &stu;
 	}
 	pthread_rwlock_unlock(&stu_tbl_lock);	
@@ -92,30 +98,44 @@ bool bench_sql_get_byid (void *pDb, const char *sql, int id, stu_callback callba
 
 bool bench_sql_updAge_byid (void *pDb, const char *sql, int id, int age)
 {
-	student *pStu;
-	
+	bool ok = false;
+	student stu;
+
 	pthread_rwlock_wrlock(&stu_tbl_lock);
-	if (NULL != (pStu = stl_map_get_byid (id))) {
-		pStu->age = age;
+	student_table_map::index<_id>::type::iterator iter_id = find_id_map.find(id);
+	if (iter_id != find_id_map.end()) {
+		stu = *iter_id;
+		stu.age += age;
+		ok = find_id_map.replace(iter_id, stu);
 	}
 	pthread_rwlock_unlock(&stu_tbl_lock);	
-	return pStu != NULL;
+	return ok;
 }
 
 bool bench_sql_del_byid (void *pDb, const char *sql, int id)
 {
 	pthread_rwlock_wrlock(&stu_tbl_lock);
-	bool ok = stu_tbl_map.erase(id);;
-	pthread_rwlock_unlock(&stu_tbl_lock);
+	bool ok = find_id_map.erase(id);
+	pthread_rwlock_unlock(&stu_tbl_lock);	
 	return ok;
 }
 
 
 /************************************************
-		HashMap (unordered_map)
+		Hashed Index
  ************************************************/
- 
-static unordered_map<int, student> 	stu_tbl_hmap;
+
+using student_table_hmap =
+boost::multi_index::multi_index_container<
+	student,
+	boost::multi_index::indexed_by<
+		boost::multi_index::hashed_unique<boost::multi_index::tag<_id>, BOOST_MULTI_INDEX_MEMBER(student, int, id)>
+	>
+>;
+
+student_table_hmap stu_tbl_hmap;
+
+student_table_hmap::index<_id>::type& find_id_hmap = stu_tbl_hmap.get<_id>();
 
 void* bench_stmt_prepare (void *pDb, const char *sql)
 {
@@ -126,58 +146,55 @@ void bench_stmt_close (void *pStmt)
 {
 }
 
-student* stl_hmap_get_byid (int id)
-{
-    auto iter = stu_tbl_hmap.find (id);
-	if (iter != stu_tbl_hmap.end()) {
-		return &iter->second;
-	} else {
-		return NULL;
-	}
-}
-
 bool bench_stmt_insert (void *pStmt, int id, string &name, int age, string &cls, int score)
 {
 	pthread_rwlock_wrlock(&stu_tbl_lock);
-	auto ok = stu_tbl_hmap.try_emplace (id, id, name, age, cls, score);
+	auto ok = stu_tbl_hmap.emplace (id, name, age, cls, score);
 	pthread_rwlock_unlock(&stu_tbl_lock);
 	return ok.second;
 }
 
 bool bench_stmt_get_byid (void *pStmt, int id, stu_callback callback, void *pArg)
 {
-	student *pStu, stu;
+	student stu, *pStu = NULL;
 
 	pthread_rwlock_rdlock(&stu_tbl_lock);	
-	if (NULL != (pStu = stl_hmap_get_byid (id))) {
-		stu = *pStu;
+	student_table_hmap::index<_id>::type::iterator iter_id = find_id_hmap.find(id);
+	if (iter_id != find_id_hmap.end()) {
+		stu = *iter_id;
 		pStu = &stu;
 	}
 	pthread_rwlock_unlock(&stu_tbl_lock);	
 
 	if (pStu) {
 		// handle row out of the lock to reduce lock time
-		callback (pArg, pStu->id, pStu->name, pStu->age, pStu->cls, pStu->score);
+		callback (pArg, stu.id, stu.name, stu.age, stu.cls, stu.score);
 	}
 	return pStu != NULL;
 }
 
 bool bench_stmt_updAge_byid (void *pStmt, int id, int age)
 {
-	student *pStu;
+	bool ok = false;
+	student stu;
 
 	pthread_rwlock_wrlock(&stu_tbl_lock);
-	if (NULL != (pStu = stl_hmap_get_byid (id))) {
-		pStu->age = age;
+
+	student_table_hmap::index<_id>::type::iterator iter_id = find_id_hmap.find(id);
+	if (iter_id != find_id_hmap.end()) {
+		stu = *iter_id;
+		stu.age += age;
+		ok = find_id_hmap.replace(iter_id, stu);
 	}
+
 	pthread_rwlock_unlock(&stu_tbl_lock);	
-	return pStu != NULL;
+	return ok;
 }
 
 bool bench_stmt_del_byid (void *pStmt, int id)
 {
 	pthread_rwlock_wrlock(&stu_tbl_lock);
-	bool ok = stu_tbl_hmap.erase(id);
+	bool ok = find_id_hmap.erase(id);
 	pthread_rwlock_unlock(&stu_tbl_lock);
 	return ok;
 }

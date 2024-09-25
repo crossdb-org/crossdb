@@ -95,6 +95,7 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 		xdb_alloc_offset (pTblm, (1<<XDB_TYPE_CHAR) | (1<<XDB_TYPE_SMALLINT), 2);
 		xdb_alloc_offset (pTblm, (1<<XDB_TYPE_TINYINT), 1);
 		// TBD row_size need to add bitmap
+		pTblm->row_size  = XDB_ALIGN4 (pTblm->row_size);
 	}
 
 	// add fast pointer access
@@ -233,19 +234,6 @@ xdb_drop_table (xdb_tblm_t *pTblm)
 	xdb_gen_db_schema (pDbm);
 
 	return XDB_OK;
-}
-
-XDB_STATIC xdb_tblm_t* 
-xdb_find_table (xdb_dbm_t *pDbm, const char *tbl_name)
-{
-	return xdb_objm_get (&pDbm->db_objm, tbl_name);
-}
-
-XDB_STATIC int 
-xdb_find_field (xdb_tblm_t *pTblm, const char *fld_name, int len)
-{
-	xdb_field_t *pFld = xdb_objm_get2 (&pTblm->fld_objm, fld_name, len);
-	return pFld != NULL ? pFld->fld_id : -1;
 }
 
 XDB_STATIC int 

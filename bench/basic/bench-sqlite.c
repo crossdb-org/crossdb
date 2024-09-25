@@ -31,7 +31,7 @@ static inline void step_error_check (int status)
 	}
 }
 
-void* bench_open (const char *db)
+void* bench_open (const char *db, bool bLock)
 {
 	int status;
 	char* err_msg = NULL;

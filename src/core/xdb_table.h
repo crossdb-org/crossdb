@@ -52,17 +52,24 @@ typedef struct xdb_tbl_t {
 	uint8_t			pRowDat[];
 } xdb_tbl_t;
 
-XDB_STATIC xdb_tblm_t* 
-xdb_find_table (xdb_dbm_t *pDbm, const char *tbl_name);
+
+static inline xdb_tblm_t* 
+xdb_find_table (xdb_dbm_t *pDbm, const char *tbl_name)
+{
+	return xdb_objm_get (&pDbm->db_objm, tbl_name);
+}
+
+static inline xdb_field_t* 
+xdb_find_field (xdb_tblm_t *pTblm, const char *fld_name, int len)
+{
+	return xdb_objm_get2 (&pTblm->fld_objm, fld_name, len);
+}
 
 XDB_STATIC int 
 xdb_close_table (xdb_tblm_t *pTblm);
 
 XDB_STATIC int 
 xdb_drop_table (xdb_tblm_t *pTblm);
-
-XDB_STATIC int 
-xdb_find_field (xdb_tblm_t *pTblm, const char *fld_name, int len);
 
 XDB_STATIC int 
 xdb_dump_create_table (xdb_tblm_t *pTblm, char buf[], xdb_size size, uint32_t flags);

@@ -41,14 +41,8 @@ xdb_open (const char *dbpath)
 	xdb_conn_init (pConn);
 
 	if (NULL != dbpath) {
-		if (!strcasecmp (dbpath, ":memory:")) {
-			xdb_res_t *pRes = xdb_exec (pConn, "CREATE DATABASE IF NOT EXISTS memory ENGINE=MEMORY");
-			XDB_RESCHK (pRes);
-			xdb_exec (pConn, "USE memory");
-		} else {
-			xdb_res_t *pRes = xdb_pexec (pConn, "CREATE DATABASE IF NOT EXISTS \'%s\'", dbpath);
-			XDB_RESCHK (pRes);
-		}
+		xdb_res_t *pRes = xdb_pexec (pConn, "CREATE DATABASE IF NOT EXISTS \'%s\'", dbpath);
+		XDB_RESCHK (pRes);
 	}
 
 	return pConn;

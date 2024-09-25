@@ -31,6 +31,10 @@ xdb_parse_create_db (xdb_conn_t* pConn, xdb_token_t *pTkn)
 		pStmt->bIfExistOrNot = true;
 	}
 	pStmt->db_name	= pTkn->token;
+	if (!strcasecmp (pStmt->db_name, ":memory:")) {
+		xdb_strcpy (pStmt->db_name, "memory");
+		pStmt->bMemory = true;
+	}
 
 	pStmt->pDbm = xdb_find_db (pStmt->db_name);
 	XDB_EXPECT (pStmt->bIfExistOrNot || (NULL == pStmt->pDbm), XDB_E_EXISTS, "Database '%s' already exists", pStmt->db_name);
@@ -91,7 +95,7 @@ xdb_parse_drop_db (xdb_conn_t* pConn, xdb_token_t *pTkn)
 
 	if ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "IF")) {
 		type = xdb_next_token (pTkn);
-		XDB_EXPECT ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "EXISTS"), XDB_E_STMT, "Miss EXISTS: "XDB_SQL_DROP_TBL_STMT);
+		XDB_EXPECT ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "EXISTS"), XDB_E_STMT, "Miss EXISTS: "XDB_SQL_DROP_DB_STMT);
 		type = xdb_next_token (pTkn);
 		XDB_EXPECT (type<=XDB_TOK_STR, XDB_E_STMT, "Miss DB name: "XDB_SQL_DROP_TBL_STMT);
 		pStmt->bIfExistOrNot = true;

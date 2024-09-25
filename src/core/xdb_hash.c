@@ -224,7 +224,7 @@ xdb_hash_add (xdb_conn_t *pConn, xdb_idxm_t* pIdxm, xdb_rowid new_rid, void *pRo
 	return 0;
 
 error:
-	XDB_SETERR(XDB_E_EXISTS, "Duplicate insert for index '%s'", XDB_OBJ_NAME(pIdxm));
+	//XDB_SETERR(XDB_E_EXISTS, "Duplicate insert for index '%s'", XDB_OBJ_NAME(pIdxm));
 	return -XDB_E_EXISTS;
 }
 
@@ -326,9 +326,71 @@ XDB_STATIC int xdb_hash_rem (xdb_idxm_t* pIdxm, xdb_rowid rid, void *pRow)
 }
 
 XDB_STATIC xdb_rowid 
-xdb_hash_query (xdb_conn_t *pConn, xdb_idxm_t* pIdxm, xdb_value_t **ppValue, xdb_filter_t **ppFilter, int count, xdb_rowset_t *pRowSet)
+xdb_hash_query (xdb_conn_t *pConn, xdb_idxfilter_t *pIdxFilter, xdb_rowset_t *pRowSet)
 {
-	uint32_t hash_val = xdb_val_hash (ppValue, pIdxm->fld_count);
+	xdb_idxm_t			*pIdxm = pIdxFilter->pIdxm;
+	uint32_t hash_val = xdb_val_hash (pIdxFilter->pIdxVals, pIdxm->fld_count);
+	uint32_t slot_id = hash_val & pIdxm->slot_mask;
+	int				count = pIdxFilter->idx_flt_cnt;
+
+	xdb_hashHdr_t	*pHashHdr  = pIdxm->pHashHdr;	
+	xdb_rowid		*pHashSlot = pIdxm->pHashSlot;	
+	xdb_hashNode_t	*pHashNode = pIdxm->pHashNode;
+	xdb_stgmgr_t	*pStgMgr	= &pIdxm->pTblm->stg_mgr;
+
+	//affect multi-thead performance
+#if !defined (XDB_HPO)
+	pHashHdr->query_times++;
+#endif
+
+	xdb_rowid rid = pHashSlot[slot_id];
+
+	//xdb_dbglog ("hash_get_slot hash 0x%x mod 0x%x slot %d 1st row %d\n", hash_val, pIdxm->slot_mask, slot_id, rid);
+
+	xdb_hashNode_t	*pCurNode;
+	for (; rid > 0; rid = pCurNode->next) {
+		pCurNode = &pHashNode[rid];
+		xdb_prefetch (pCurNode);
+		void *pRow = XDB_IDPTR(pStgMgr, rid);
+		xdb_prefetch (pRow);
+		if (xdb_unlikely (pCurNode->hash_val != hash_val)) {
+			continue;
+		}
+		if (xdb_unlikely (! xdb_row_isequal (pRow, pIdxm->pFields, pIdxFilter->pIdxVals, pIdxm->fld_count))) {
+			continue;
+		}
+		if (xdb_likely (xdb_row_valid (pConn, pIdxm->pTblm, pRow, rid))) {
+			// Compare rest fields
+	 		if ((0 == count) || xdb_row_and_match (pRow, pIdxFilter->pIdxFlts, count)) {
+				if (xdb_unlikely (-XDB_E_FULL == xdb_rowset_add (pRowSet, rid, pRow))) {
+					return XDB_OK;
+				}
+			}
+		}
+
+		for (rid = pCurNode->sibling; rid > 0; rid = pCurNode->next) {
+			pCurNode = &pHashNode[rid];
+			pRow = XDB_IDPTR(pStgMgr, rid);
+			if (xdb_likely (xdb_row_valid (pConn, pIdxm->pTblm, pRow, rid))) {
+				// Compare rest fields
+				if ((0 == count) || xdb_row_and_match (pRow, pIdxFilter->pIdxFlts, count)) {
+					if (xdb_unlikely (-XDB_E_FULL == xdb_rowset_add (pRowSet, rid, pRow))) {
+						return XDB_OK;
+					}
+				}
+			}
+		}
+
+		return XDB_OK;
+	}
+
+	return XDB_OK;
+}
+
+XDB_STATIC xdb_rowid 
+xdb_hash_query2 (xdb_conn_t *pConn, struct xdb_idxm_t* pIdxm, void *pRow2)
+{
+	uint32_t hash_val = xdb_row_hash (pRow2, pIdxm->pFields, pIdxm->fld_count);
 	uint32_t slot_id = hash_val & pIdxm->slot_mask;
 
 	xdb_hashHdr_t	*pHashHdr  = pIdxm->pHashHdr;	
@@ -354,35 +416,23 @@ xdb_hash_query (xdb_conn_t *pConn, xdb_idxm_t* pIdxm, xdb_value_t **ppValue, xdb
 		if (xdb_unlikely (pCurNode->hash_val != hash_val)) {
 			continue;
 		}
-		if (xdb_unlikely (! xdb_row_isequal (pRow, pIdxm->pFields, ppValue, pIdxm->fld_count))) {
-			continue;
-		}
-		if (xdb_likely (xdb_row_valid (pConn, pIdxm->pTblm, pRow, rid))) {
-			// Compare rest fields
-	 		if ((0 == count) || xdb_row_and_match (pRow, ppFilter, count)) {
-				if (xdb_unlikely (-XDB_E_FULL == xdb_rowset_add (pRowSet, rid, pRow))) {
-					return XDB_OK;
-				}
-			}
+		if (xdb_row_isequal2 (pRow, pRow2, pIdxm->pFields, pIdxm->fld_count) && 
+			xdb_row_valid (pConn, pIdxm->pTblm, pRow, rid)) {
+			return rid;
 		}
 
 		for (rid = pCurNode->sibling; rid > 0; rid = pCurNode->next) {
 			pCurNode = &pHashNode[rid];
 			pRow = XDB_IDPTR(pStgMgr, rid);
 			if (xdb_likely (xdb_row_valid (pConn, pIdxm->pTblm, pRow, rid))) {
-				// Compare rest fields
-				if ((0 == count) || xdb_row_and_match (pRow, ppFilter, count)) {
-					if (xdb_unlikely (-XDB_E_FULL == xdb_rowset_add (pRowSet, rid, pRow))) {
-						return XDB_OK;
-					}
-				}
+				return rid;
 			}
 		}
 
-		return XDB_OK;
+		return 0;
 	}
 
-	return XDB_OK;
+	return 0;
 }
 
 XDB_STATIC int 
@@ -464,6 +514,7 @@ static xdb_idx_ops s_xdb_hash_ops = {
 	.idx_add 	= xdb_hash_add,
 	.idx_rem 	= xdb_hash_rem,
 	.idx_query 	= xdb_hash_query,
+	.idx_query2	= xdb_hash_query2,
 	.idx_create = xdb_hash_create,
 	.idx_drop 	= xdb_hash_drop,
 	.idx_close 	= xdb_hash_close,

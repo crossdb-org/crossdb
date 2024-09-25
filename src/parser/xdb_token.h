@@ -11,7 +11,7 @@
 
 typedef enum {
 	XDB_TOK_ERR = -1, // make enum signed
-	XDB_TOK_ID  = 0,	// normal char
+	XDB_TOK_ID = 0,	// normal char
 	XDB_TOK_STR,	// ' " `
 	XDB_TOK_NUM,	// 0-9, 0xA-Z,a-z 
 	XDB_TOK_ESC,	/* \ */
@@ -27,9 +27,9 @@ typedef enum {
 	XDB_TOK_MUL, 	// *
 	XDB_TOK_DIV, 	// /
 	XDB_TOK_MOD, 	// %
-	XDB_TOK_AND, 	// &
-	XDB_TOK_OR,  	// |
-	XDB_TOK_XOR, 	// ^
+	XDB_TOK_BAND, 	// &
+	XDB_TOK_BOR,  	// |
+	XDB_TOK_BXOR, 	// ^
 	XDB_TOK_NOT,   	// ~
 	XDB_TOK_NEG,   	// !
 	XDB_TOK_DOT, 	// .
@@ -42,6 +42,25 @@ typedef enum {
 	XDB_TOK_LBK,	// [ Brackets
 	XDB_TOK_RBK,	// ] 
 	XDB_TOK_QM,		// ?
+
+	XDB_TOK_BIGINT,
+	XDB_TOK_DOUBLE,
+
+	// AGG function
+	XDB_TOK_COUNT,
+	XDB_TOK_SUM,
+	XDB_TOK_MIN,
+	XDB_TOK_MAX,
+	XDB_TOK_AVG,
+
+	XDB_TOK_BTWN,
+	XDB_TOK_IN,
+
+	XDB_TOK_AND,
+	XDB_TOK_OR,
+
+	XDB_TOK_NONE,
+
 	XDB_TOK_INV,	// invalid
 	XDB_TOK_END,	// ; Semi-colon
 	XDB_TOK_EOF,	// \0

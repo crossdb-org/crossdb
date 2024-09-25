@@ -9,6 +9,9 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/.
 ******************************************************************************/
 
+XDB_STATIC xdb_res_t*
+xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap);
+
 XDB_STATIC int 
 xdb_sql_set (xdb_stmt_set_t *pStmt)
 {
@@ -104,7 +107,9 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 		case XDB_STMT_DROP_DB:
 			{
 				xdb_stmt_db_t *pStmtDb = (xdb_stmt_db_t*)pStmt;
-				rc = xdb_drop_db (pStmtDb->pConn, pStmtDb->pDbm);
+				if (NULL != pStmtDb->pDbm) {
+					rc = xdb_drop_db (pStmtDb->pConn, pStmtDb->pDbm);
+				}
 			}
 			break;
 		case XDB_STMT_CLOSE_DB:
@@ -155,8 +160,10 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 		case XDB_STMT_EXPLAIN:
 			{
 				xdb_stmt_select_t *pStmtSel = (xdb_stmt_select_t*)pStmt;
-				if (NULL != pStmtSel->pIdxm) {
-					pConn->conn_msg.len = sprintf (pConn->conn_msg.msg, "Use INDEX %s", XDB_OBJ_NAME(pStmtSel->pIdxm));
+				xdb_idxfilter_t 	*pIdxFilter = pStmtSel->ref_tbl[0].pIdxFilter;
+				xdb_idxm_t	*pIdxm = pIdxFilter ? pIdxFilter->pIdxm : NULL;
+				if (NULL != pIdxm) {
+					pConn->conn_msg.len = sprintf (pConn->conn_msg.msg, "Use INDEX %s", XDB_OBJ_NAME(pIdxm));
 				} else {
 					pConn->conn_msg.len = sprintf (pConn->conn_msg.msg, "Scan Table");
 				}
@@ -392,6 +399,32 @@ error:
 }
 
 xdb_res_t*
+xdb_vbexec_cb (xdb_conn_t *pConn, xdb_row_callback callback, void *pArg, const char *sql, va_list ap)
+{
+	xdb_stmt_t *pStmt = xdb_stmt_parse (pConn, sql, strlen(sql));
+	if (NULL != pStmt) {
+		if (XDB_STMT_SELECT == pStmt->stmt_type) {
+			xdb_stmt_select_t *pStmtSel = (xdb_stmt_select_t*)pStmt;
+			pStmtSel->callback 	= callback;
+			pStmtSel->pCbArg	= pArg;
+		}
+		return xdb_stmt_vbexec2 (pStmt, ap);
+	} else {
+		return &pConn->conn_res;
+	}
+}
+
+xdb_res_t*
+xdb_bexec_cb (xdb_conn_t *pConn, xdb_row_callback callback, void *pArg, const char *sql, ...)
+{
+	va_list ap;
+	va_start (ap, sql);
+	xdb_res_t* pRes = xdb_vbexec_cb (pConn, callback, pArg, sql, ap);
+	va_end (ap);
+	return pRes;
+}
+
+xdb_res_t*
 xdb_vbexec (xdb_conn_t *pConn, const char *sql, va_list ap)
 {
 	xdb_stmt_t *pStmt = xdb_stmt_parse (pConn, sql, strlen(sql));
@@ -618,8 +651,8 @@ xdb_bind_str (xdb_stmt_t *pStmt, uint16_t id, const char *str)
 	return xdb_bind_str2 (pStmt, id, str, 0);
 }
 
-xdb_res_t*
-xdb_stmt_vbexec (xdb_stmt_t *pStmt, va_list ap)
+XDB_STATIC xdb_res_t*
+xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 {
 	switch (pStmt->stmt_type) {
 	case XDB_STMT_SELECT:
@@ -702,11 +735,41 @@ xdb_stmt_vbexec (xdb_stmt_t *pStmt, va_list ap)
 }
 
 xdb_res_t*
+xdb_stmt_vbexec (xdb_stmt_t *pStmt, va_list ap)
+{
+	if (XDB_STMT_SELECT == pStmt->stmt_type) {
+		((xdb_stmt_select_t*)pStmt)->callback	= NULL;
+	}	
+	return xdb_stmt_vbexec2 (pStmt, ap);
+}
+
+xdb_res_t*
 xdb_stmt_bexec (xdb_stmt_t *pStmt, ...)
 {
 	va_list ap;
 	va_start (ap, pStmt);
 	xdb_res_t* pRes = xdb_stmt_vbexec (pStmt, ap);
+	va_end (ap);
+	return pRes;
+}
+
+xdb_res_t*
+xdb_stmt_vbexec_cb (xdb_stmt_t *pStmt, xdb_row_callback callback, void *pArg, va_list ap)
+{
+	if (XDB_STMT_SELECT == pStmt->stmt_type) {
+		xdb_stmt_select_t *pStmtSel = (xdb_stmt_select_t*)pStmt;
+		pStmtSel->callback	= callback;
+		pStmtSel->pCbArg	= pArg;
+	}
+	return xdb_stmt_vbexec2 (pStmt, ap);
+}
+
+xdb_res_t*
+xdb_stmt_bexec_cb (xdb_stmt_t *pStmt, xdb_row_callback callback, void *pArg, ...)
+{
+	va_list ap;
+	va_start (ap, pArg);
+	xdb_res_t* pRes = xdb_stmt_vbexec_cb (pStmt, callback, pArg, ap);
 	va_end (ap);
 	return pRes;
 }
