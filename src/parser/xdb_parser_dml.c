@@ -318,6 +318,7 @@ static xdb_token_type s_XDB_TOK_opposite[] = {
 	[XDB_TOK_GT] = XDB_TOK_LT,
 	[XDB_TOK_LE] = XDB_TOK_GE,
 	[XDB_TOK_GE] = XDB_TOK_LE,
+	[XDB_TOK_LIKE] = XDB_TOK_LIKE,
 };
 
 XDB_STATIC int 
@@ -339,6 +340,13 @@ xdb_parse_where (xdb_conn_t* pConn, xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 			pFldName = pTkn->token;
 			flen = pTkn->tk_len;
 			op = xdb_next_token (pTkn);
+			if (xdb_unlikely (XDB_TOK_ID == op)) {
+				if (!strcasecmp (pTkn->token, "LIKE")) {
+					op = XDB_TOK_LIKE;
+				} else if (!strcasecmp (pTkn->token, "BETWEEN")) {
+					op = XDB_TOK_BTWN;
+				}
+			}
 			XDB_EXPECT (op >= XDB_TOK_EQ && op <= XDB_TOK_NE, XDB_E_STMT, "Unsupported operator");
 			vtype = xdb_next_token (pTkn);
 			pVal = pTkn->token;

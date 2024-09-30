@@ -368,7 +368,7 @@ xdb_row_and_match (void *pRow, xdb_filter_t **pFilters, int count)
 		switch (pValue->val_type) {
 		case XDB_TYPE_BIGINT:
 			if (xdb_unlikely (value.val_type != XDB_TYPE_BIGINT)) {
-				return 0;
+				return false;
 			}
 			switch (pFilter->cmp_op) {
 			case XDB_TOK_EQ: 
@@ -394,7 +394,7 @@ xdb_row_and_match (void *pRow, xdb_filter_t **pFilters, int count)
 
 		case XDB_TYPE_DOUBLE:
 			if (xdb_unlikely (value.val_type != XDB_TYPE_DOUBLE)) {
-				return 0;
+				return false;
 			}
 			switch (pFilter->cmp_op) {
 			case XDB_TOK_EQ: 
@@ -429,13 +429,18 @@ xdb_row_and_match (void *pRow, xdb_filter_t **pFilters, int count)
 				}
 				if (strcasecmp (value.str.str, pValue->str.str)) {
 				//if (memcmp (value.str.str, pValue->str.str, value.str.len)) {
-					return 0;
+					return false;
 				}
 				break;
 			case XDB_TOK_NE: 
 				if ((value.str.len == pValue->str.len) && !strcasecmp (value.str.str, pValue->str.str)) {
 					//if (memcmp (value.str.str, pValue->str.str, value.str.len)) {
-					return 0;
+					return false;
+				}
+				break;
+			case XDB_TOK_LIKE: 
+				if (!xdb_str_like2 (value.str.str, value.str.len, pValue->str.str, pValue->str.len, true)) {
+					return false;
 				}
 				break;
 			default:
@@ -444,11 +449,11 @@ xdb_row_and_match (void *pRow, xdb_filter_t **pFilters, int count)
 			break;
 
 		default:
-			return 0;
+			return false;
 		}
 	}
 
-	return 1;
+	return true;
 }
 
 XDB_STATIC void 

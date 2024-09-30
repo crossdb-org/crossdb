@@ -21,6 +21,9 @@ typedef enum {
 	XDB_TOK_LE, 	// <=
 	XDB_TOK_GT,		// >
 	XDB_TOK_GE, 	// >=
+	XDB_TOK_LIKE,
+	XDB_TOK_BTWN,
+	XDB_TOK_IN,
 	XDB_TOK_NE, 	// != <>
 	XDB_TOK_ADD, 	// +
 	XDB_TOK_SUB, 	// -
@@ -52,9 +55,6 @@ typedef enum {
 	XDB_TOK_MIN,
 	XDB_TOK_MAX,
 	XDB_TOK_AVG,
-
-	XDB_TOK_BTWN,
-	XDB_TOK_IN,
 
 	XDB_TOK_AND,
 	XDB_TOK_OR,

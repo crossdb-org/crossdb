@@ -44,3 +44,77 @@ xdb_strdup (const char *str, int len)
 	}
 	return dst;
 }
+
+static bool __xdb_str_like (const char *string, int strLen, const char *pattern, int patLen, bool bNoCase, bool *bSkipLongMat)
+{
+	while (patLen && strLen) {
+		switch (*pattern) {
+		case '%':
+			while (patLen && ('%' == pattern[1])) {
+				++pattern;
+				--patLen;
+			}
+			if (1 == patLen) {
+				return true;
+			}
+			while (strLen) {
+				if (__xdb_str_like (string, strLen, pattern+1, patLen-1, bNoCase, bSkipLongMat)) {
+					return true;
+				}
+				if (*bSkipLongMat) {
+					return false;
+				}
+				++string;
+				--strLen;
+			}
+			*bSkipLongMat = 1;
+			return false;
+		case '_':
+			++string;
+			--strLen;
+			break;
+		case '\\':
+			if (patLen >= 2) {
+				++pattern;
+				--patLen;
+			}
+		// fall through
+		default:
+			if (!bNoCase) {
+				if (*pattern != *string) {
+					return false;
+				}
+		 	} else if (tolower((int)*pattern) != tolower((int)*string)) {
+				return false;
+			}
+			++string;
+			--strLen;
+		 	break;
+		}
+		++pattern;
+		--patLen;
+		if (0 == strLen) {
+			while ('%' == *pattern) {
+				++pattern;
+				--patLen;
+			}
+			break;
+		}
+	}
+	if (0 == (patLen + strLen)) {
+		return true;
+	}
+	return false;
+}
+
+int xdb_str_like2 (const char *string, int strLen, const char *pattern, int patLen, bool bNoCase)
+{
+	bool bSkipLongMat = 0;
+	return __xdb_str_like (string, strLen, pattern, patLen, bNoCase, &bSkipLongMat);
+}
+
+int xdb_str_like (const char *string, const char *pattern, int bNoCase)
+{
+	return xdb_str_like2 (string, strlen(string), pattern, strlen(pattern), bNoCase);
+}
+
