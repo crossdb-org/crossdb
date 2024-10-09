@@ -5,7 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"time"
-	"github.com/crossdb-org/crossdb/go"
+	"github.com/crossdb-org/crossdb/connector/go"
 )
 
 const (

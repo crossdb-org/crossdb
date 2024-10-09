@@ -2,6 +2,6 @@ module example
 
 go 1.14
 
-replace github.com/crossdb-org/crossdb/go => ../../connector/go
+replace github.com/crossdb-org/crossdb/connector/go => ../../connector/go
 
-require github.com/crossdb-org/crossdb/go v0.8.0
+require github.com/crossdb-org/crossdb/connector/go v0.8.0

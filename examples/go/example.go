@@ -3,7 +3,7 @@ package main
 import (
         "fmt"
         "log"
-        "github.com/crossdb-org/crossdb/go"
+        "github.com/crossdb-org/crossdb/connector/go"
 )
 
 func main() {
