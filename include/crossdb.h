@@ -138,21 +138,22 @@ typedef struct {
 
 typedef struct {
 	uint16_t	col_len;		// colum total len
-	uint8_t		col_type;		// xdb_type_t
-	uint8_t		col_rsvd;
-	uint32_t	col_off;
-	uint16_t	col_rsvd2;
-	uint8_t		col_nmlen;
-	char		col_name[];
+	uint8_t		col_type;		// 2 xdb_type_t
+	uint8_t		col_rsvd;		// 3
+	uint32_t	col_off;		// 4
+	uint16_t	col_rsvd2;		// 8
+	uint8_t		col_nmlen;		// 10
+	char		col_name[];		// 11
 } xdb_col_t;
 
 typedef struct {
 	uint32_t	len_type;		// LSB 4bit are type
-	uint16_t	col_count;		// 3*4
-	uint16_t	null_off;		// 3*4+2
-	uint16_t	row_size;
-	uint16_t	rsvd;
-	uint64_t	col_list;		// xdb_col_t list
+	uint16_t	col_count;		// 4
+	uint16_t	null_off;		// 6
+	uint16_t	row_size;		// 8
+	uint16_t	rsvd;			// 10
+	uint32_t	rsvd2;			// 12
+	uint64_t	col_list;		// 16 xdb_col_t list
 	xdb_col_t	cols[];
 } xdb_meta_t;
 

@@ -23,6 +23,7 @@ xdb_conn_init (xdb_conn_t* pConn)
 	pConn->bAutoTrans = false;
 	pConn->bAutoCommit = true;
 	pConn->conn_stdout = stdout;
+	pConn->ref_cnt = 1;
 	xdb_lv2bmp_init (&pConn->dbTrans_bmp);
 	xdb_atomic_inc (&s_xdb_conn_count);
 }
@@ -52,6 +53,9 @@ void
 xdb_close (xdb_conn_t* pConn)
 {
 	if (NULL == pConn) {
+		return;
+	}
+	if (--pConn->ref_cnt > 0) {
 		return;
 	}
 

@@ -39,6 +39,7 @@ typedef struct {
 
 typedef struct xdb_conn_t {
 	uint64_t			session_id;
+	int32_t				ref_cnt;
 	pid_t				pid;
 	char				connect_time[16];
 	uint64_t			stmt_times;

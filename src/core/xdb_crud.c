@@ -116,6 +116,10 @@ xdb_free_result (xdb_res_t* pRes)
 	xdb_conn_t	*pConn = *(xdb_conn_t**)((void*)pRes - (XDB_OFFSET(xdb_conn_t, conn_res) - XDB_OFFSET(xdb_conn_t, pConn)));
 	xdb_queryRes_t *pQueryRes = pConn->pQueryRes;
 
+	if (pRes->col_meta > 0) {
+		pConn->ref_cnt--;
+	}
+
 	if (&pQueryRes->res == pRes) {
 		pQueryRes->buf_free = -1LL;
 		if (pQueryRes->buf_len > 2*XDB_ROW_BUF_SIZE) {
@@ -138,6 +142,10 @@ xdb_free_result (xdb_res_t* pRes)
 			xdb_stmt_free((xdb_stmt_t*)pQueryRes->pStmt);
 		}
 		xdb_free (pQueryRes);
+	}
+
+	if (xdb_unlikely (0 == pConn->ref_cnt)) {
+		xdb_close (pConn);
 	}
 }
 
@@ -1558,6 +1566,8 @@ xdb_sql_select (xdb_stmt_select_t *pStmt)
 	xdb_init_rowlist (pQueryRes);
 
 	xdb_fetch_rows (pRes);
+
+	pConn->ref_cnt++;
 
 exit:
 	xdb_rowset_clean (pRowSet);
