@@ -1270,7 +1270,7 @@ xdb_sql_filter (xdb_stmt_select_t *pStmt)
 
 		for (int i = 0; i < pStmt->pMeta->col_count; ++i) {
 			if (XDB_TOK_COUNT == pStmt->sel_cols[i].exp.exp_op) {
-				ival_col[i] = 1;
+				ival_col[i] = (pRowSet->count > 0);
 				continue;
 			}
 			if (XDB_TOK_AVG == pStmt->sel_cols[i].exp.exp_op) {
@@ -1279,10 +1279,18 @@ xdb_sql_filter (xdb_stmt_select_t *pStmt)
 			pField = pStmt->sel_cols[i].exp.op_val[1].pField;
 			switch (pField->sup_type) {
 			case XDB_TYPE_BIGINT:
-				ival_col[i] = xdb_row_getInt ((uintptr_t)pTblm->pMeta, pRow, pField->fld_id);
+				if (pRowSet->count > 0) {
+					ival_col[i] = xdb_row_getInt ((uintptr_t)pTblm->pMeta, pRow, pField->fld_id);
+				} else {
+					ival_col[i] = 0;
+				}
 				break;
 			case XDB_TYPE_DOUBLE:
-				fval_col[i] = xdb_row_getFloat ((uintptr_t)pTblm->pMeta, pRow, pField->fld_id);
+				if (pRowSet->count > 0) {
+					fval_col[i] = xdb_row_getFloat ((uintptr_t)pTblm->pMeta, pRow, pField->fld_id);
+				} else {
+					fval_col[i] = 0;
+				}
 				break;
 			}
 		}
@@ -1501,6 +1509,7 @@ xdb_sql_select (xdb_stmt_select_t *pStmt)
 				goto exit;
 			}
 			pQueryRes = pConn->pQueryRes;
+			pRes = &pQueryRes->res;
 			pCurDat = (void*)pQueryRes + offset;
 		}
 		if (0 == (pStmt->exp_count)) {
@@ -1508,9 +1517,14 @@ xdb_sql_select (xdb_stmt_select_t *pStmt)
 				memcpy (pCurDat->rowdat, pRowSet->pRowList[id].ptr, pStmt->pTblm->row_size);
 			} else {
 				void *pJoinDat = (void*)pCurDat->rowdat;
-				for (int i = 0; i < pStmt->reftbl_count; ++i) {
+				for (int i = 0; i < pStmt->reftbl_count; ++i, ++jid) {
 					int tbl_rowsize = pStmt->ref_tbl[i].pRefTblm->row_size;
-					memcpy (pJoinDat, pRowSet->pRowList[jid++].ptr, tbl_rowsize);
+					void *pPtr = pRowSet->pRowList[jid].ptr;
+					if (NULL != pPtr) {
+						memcpy (pJoinDat, pRowSet->pRowList[jid].ptr, tbl_rowsize);
+					} else {
+						memset (pJoinDat, 0, tbl_rowsize);
+					}
 					pJoinDat += tbl_rowsize;
 				}
 			}

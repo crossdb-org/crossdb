@@ -41,7 +41,7 @@ wall:
 	$(CC) -o build/xdb-cli src/xdb-cli.c -lpthread -O2 -Wall
 
 gdb:
-	$(CC) -o build/xdb-cli src/xdb-cli.c -lpthread -g
+	$(CC) -o build/xdb-cli src/xdb-cli.c -lpthread -fsanitize=address -g
 	gdb build/xdb-cli
 
 install:

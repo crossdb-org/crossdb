@@ -83,6 +83,7 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 
 	for (int i = 0; i < pTblm->fld_count; ++i) {
 		pTblm->meta_size += XDB_ALIGN4 (sizeof(xdb_col_t) + XDB_OBJ_NMLEN(&pTblm->pFields[i]) + 1);
+		pTblm->pFields[i].pTblm = pTblm;
 		xdb_objm_add (&pTblm->fld_objm, &pTblm->pFields[i]);
 	}
 

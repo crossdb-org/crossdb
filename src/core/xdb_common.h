@@ -84,6 +84,7 @@ typedef int	xdb_rowid;
 
 typedef struct xdb_field_t {
 	xdb_obj_t		obj;
+	struct xdb_tblm_t	*pTblm;
 	uint8_t			fld_type;
 	uint8_t			sup_type;
 	uint8_t			fld_decmial;

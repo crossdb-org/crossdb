@@ -49,7 +49,8 @@ typedef struct xdb_value_t {
 	uint8_t			sup_type;
 	xdb_field_t 	*pField;
 	uint8_t			reftbl_id;
-	xdb_str_t		val_str;	// raw text value
+	xdb_str_t		val_str;	// raw text value field
+	xdb_str_t		val_str2;	// raw text value	table
 	union {
 		double		fval;
 		uint64_t	uval;

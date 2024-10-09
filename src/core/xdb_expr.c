@@ -9,7 +9,7 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/.
 ******************************************************************************/
 
-const uint8_t s_XDB_TOK_pri[] =
+const uint8_t s_xdb_tok_pri[] =
 {
 	// logical
 	[XDB_TOK_OR]	= 0,
@@ -41,12 +41,12 @@ const uint8_t s_XDB_TOK_pri[] =
 int xdb_expr_eval (xdb_value_t *pOut, xdb_value_t *pExpVal, int id, int count)
 {
 	int nid;
-	int pri = s_XDB_TOK_pri[pExpVal[id+1].sup_type];
+	int pri = s_xdb_tok_pri[pExpVal[id+1].sup_type];
 
 	for (;id < count; id = nid) {
 		int nid;
 		xdb_value_t *pVal, val;
-		if ((id+3 < count) && (s_XDB_TOK_pri[pExpVal[id+3].sup_type] > pri)) {
+		if ((id+3 < count) && (s_xdb_tok_pri[pExpVal[id+3].sup_type] > pri)) {
 			val.sup_type = XDB_TYPE_BIGINT;
 			val.ival = 0;
 			nid = xdb_expr_eval (&val, pExpVal, id + 1, count);
@@ -89,6 +89,7 @@ int xdb_expr_eval (xdb_value_t *pOut, xdb_value_t *pExpVal, int id, int count)
 	}
 }
 
+#if 0
 void expr_test ()
 {
 	xdb_value_t expr[] = {
@@ -101,3 +102,4 @@ void expr_test ()
 	xdb_expr_eval (&val, expr, 0, 3);
 	printf ("%d\n", val.ival);
 }
+#endif
