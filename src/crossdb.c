@@ -61,7 +61,7 @@
 #include "admin/xdb_shell.c"
 #include "admin/xdb_backup.c"
 
-static const char* xdb_type2str(xdb_type_t tp) 
+const char* xdb_type2str(xdb_type_t tp) 
 {
 	const char *id2str[] = {
 		[XDB_TYPE_NULL     ] = "NULL",
@@ -121,6 +121,9 @@ xdb_exit ()
 
 const char* xdb_errmsg (xdb_res_t *pRes)
 {
+	if (NULL == pRes) {
+		return "";
+	}
 	return pRes->row_data ? (const char*)pRes->row_data : "OK";
 }
 

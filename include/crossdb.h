@@ -220,11 +220,14 @@ xdb_vbexec_cb (xdb_conn_t *pConn, xdb_row_callback callback, void *pArg, const c
  Result
 ***************************************/
 
-static inline xdb_col_t* 
-xdb_column_meta (uint64_t meta, uint16_t iCol)
-{
-	return (xdb_col_t*)((((uint64_t*)((xdb_meta_t*)meta)->col_list))[iCol]);
-}
+xdb_col_t* 
+xdb_column_meta (uint64_t meta, uint16_t iCol);
+
+xdb_type_t 
+xdb_column_type (uint64_t meta, uint16_t iCol);
+
+const char* 
+xdb_column_name (uint64_t meta, uint16_t iCol);
 
 xdb_row_t*
 xdb_fetch_row (xdb_res_t *pRes);
@@ -326,6 +329,9 @@ xdb_rollback (xdb_conn_t* pConn);
 
 #define XDB_CHECK(expr, action...)	if (xdb_unlikely(!(expr))) { action; }
 #define XDB_RESCHK(pRes, action...)	if (xdb_unlikely(pRes->errcode)) { fprintf (stderr, "==== ERROR %d: %s\n", pRes->errcode, xdb_errmsg(pRes)); action; }
+
+const char*
+xdb_type2str (xdb_type_t type);
 
 const char*
 xdb_errmsg (xdb_res_t *pRes);

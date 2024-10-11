@@ -879,10 +879,34 @@ xdb_row_getStr (uint64_t meta, void *pRow, uint16_t iCol, int *pLen)
 }
 #endif
 
+xdb_col_t* 
+xdb_column_meta (uint64_t meta, uint16_t iCol)
+{
+	xdb_meta_t *pMeta = (xdb_meta_t*)meta;
+	if (xdb_unlikely ((NULL == pMeta) || (pMeta->col_count <= iCol))) {
+		return NULL;
+	}
+	return (xdb_col_t*)((((uint64_t*)pMeta->col_list))[iCol]);
+}
+
+xdb_type_t 
+xdb_column_type (uint64_t meta, uint16_t iCol)
+{
+	xdb_col_t *pCol = xdb_column_meta (meta, iCol);
+	return pCol ? pCol->col_type : XDB_TYPE_NULL;
+}
+
+const char* 
+xdb_column_name (uint64_t meta, uint16_t iCol)
+{
+	xdb_col_t *pCol = xdb_column_meta (meta, iCol);
+	return pCol ? pCol->col_name : NULL;
+}
+
 int64_t xdb_column_int64 (uint64_t meta, xdb_row_t *pRow, uint16_t iCol)
 {
 	xdb_meta_t *pMeta = (xdb_meta_t*)meta;
-	if (xdb_unlikely (iCol >= pMeta->col_count)) {
+	if (xdb_unlikely ((NULL == pMeta) || (iCol >= pMeta->col_count))) {
 		return 0;
 	}
 	xdb_col_t	*pCol = ((xdb_col_t**)pMeta->col_list)[iCol];
@@ -909,7 +933,7 @@ double
 xdb_column_double (uint64_t meta, xdb_row_t *pRow, uint16_t iCol)
 {
 	xdb_meta_t *pMeta = (xdb_meta_t*)meta;
-	if (xdb_unlikely (iCol >= pMeta->col_count)) {
+	if (xdb_unlikely ((NULL == pMeta) || (iCol >= pMeta->col_count))) {
 		return 0;
 	}
 	xdb_col_t	*pCol = ((xdb_col_t**)pMeta->col_list)[iCol];
@@ -933,7 +957,7 @@ const char*
 xdb_column_str2 (uint64_t meta, xdb_row_t *pRow, uint16_t iCol, int *pLen)
 {
 	xdb_meta_t *pMeta = (xdb_meta_t*)meta;
-	if (xdb_unlikely (iCol >= pMeta->col_count)) {
+	if (xdb_unlikely ((NULL == pMeta) || (iCol >= pMeta->col_count))) {
 		return NULL;
 	}
 	xdb_col_t	*pCol = ((xdb_col_t**)pMeta->col_list)[iCol];
