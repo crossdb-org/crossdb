@@ -8,6 +8,7 @@ help:
 	@echo "make installmac           Install crossdb(lib&tool&header) to MacOS"
 	@echo "make uninstallmac         Uninstall crossdb from MacOS"
 	@echo "make example              Build and run example (need to install crossdb first)"
+	@echo "make smoketest            Build and run smoke test (need to install crossdb first)"
 	@echo "make bench                Build and run bench test (need to install crossdb first)"
 	@echo "make bench-sqlite         Build and run sqlite bench test (need to install sqlite3 first)"
 	@echo "make bench-stlmap         Build and run C++ STL Map and HashMap(unordered_map) bench test"
@@ -24,8 +25,7 @@ debug:
 	$(CC) -o build/xdb-cli src/xdb-cli.c -lpthread -g
 	cp include/crossdb.h build/
 
-.PHONY: test
-test:
+smoketest:
 	make -C test/
 
 run:

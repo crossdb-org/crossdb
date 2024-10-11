@@ -17,14 +17,43 @@
 - TCP-B
 - TCP-C
 
-## 0.7.0 <small>(2024-08-26)</small>
+## 0.x.0 <small>(2024-08-26)</small>
 
 **Features**
 **Improvements**
 **Test**
 **Bug Fixes**
-
+- Support simple SQL inner join
 -->
+
+## 0.9.0 <small>(2024-10-11)</small>
+
+**Features**
+
+- Support `LIKE` operator
+- Support `NOLOCK` mode
+- Add new APIs: `xdb_column_type` `xdb_column_name` `xdb_type2str` 
+- Add `GO` `Python` `C++` drivers
+
+**Improvements**
+
+- Optimize field lookup
+
+**Test**
+
+- Optimize `STL Map` and `HashMap(unordered_map)` benchmark test driver
+- Add `Boost` `MultiIndex` benchmark test driver
+- Add more smoke test cases
+
+**Bug Fixes**
+
+- The index was incorrectly created as the primary key
+- Update many rows with expression will set all rows to first row's value
+- Auto-completion heap buffer access overflow
+- Update transaction heap use after free
+- Wrong Aggregation function result for empty table
+- Update transaction crash issue
+- SQL syntax error
 
 ## 0.8.0 <small>(2024-09-03)</small>
 
