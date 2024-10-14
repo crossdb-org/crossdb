@@ -252,6 +252,15 @@ typedef struct {
 } xdb_idxfilter_t;
 
 typedef struct {
+	xdb_filter_t		*pFilters[XDB_MAX_MATCH_COL/4];
+	xdb_idxfilter_t 	idx_filter;
+	xdb_idxfilter_t 	*pIdxFilter;
+	uint8_t				filter_count;
+} xdb_singfilter_t;
+
+#define XDB_MAX_MATCH_OR	64
+
+typedef struct {
 	xdb_field_t			*pField[XDB_MAX_MATCH_COL];
 	xdb_field_t			*pJoinField[XDB_MAX_MATCH_COL];
 
@@ -263,11 +272,10 @@ typedef struct {
 	uint8_t				eq_bmp[(XDB_MAX_COLUMN+7)/8];
 
 	uint8_t				filter_count;
-	xdb_filter_t		*pFilters[XDB_MAX_MATCH_COL];
-	xdb_filter_t		filters[XDB_MAX_MATCH_COL];
-
-	xdb_idxfilter_t 	idx_filter;
-	xdb_idxfilter_t 	*pIdxFilter;
+	uint8_t				or_count;
+	xdb_filter_t		filters[XDB_MAX_MATCH_COL*16];
+	xdb_singfilter_t	or_list[XDB_MAX_MATCH_OR];
+	bool				bUseIdx;
 } xdb_reftbl_t;
 
 typedef struct {

@@ -160,12 +160,16 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 		case XDB_STMT_EXPLAIN:
 			{
 				xdb_stmt_select_t *pStmtSel = (xdb_stmt_select_t*)pStmt;
-				xdb_idxfilter_t 	*pIdxFilter = pStmtSel->ref_tbl[0].pIdxFilter;
-				xdb_idxm_t	*pIdxm = pIdxFilter ? pIdxFilter->pIdxm : NULL;
-				if (NULL != pIdxm) {
-					pConn->conn_msg.len = sprintf (pConn->conn_msg.msg, "Use INDEX %s", XDB_OBJ_NAME(pIdxm));
+				xdb_reftbl_t *pRefTbl = &pStmtSel->ref_tbl[0];
+				if (pRefTbl->bUseIdx) {
+					pConn->conn_msg.len = sprintf (pConn->conn_msg.msg, "Query table '%s' with INDEX ", XDB_OBJ_NAME(pRefTbl->pRefTblm));
+					for (int i = 0; i < pRefTbl->or_count; ++i) {
+						xdb_idxfilter_t 	*pIdxFilter = pRefTbl->or_list[i].pIdxFilter;
+						xdb_idxm_t	*pIdxm = pIdxFilter ? pIdxFilter->pIdxm : NULL;
+						pConn->conn_msg.len += sprintf (pConn->conn_msg.msg+pConn->conn_msg.len, " %s", XDB_OBJ_NAME(pIdxm));
+					}
 				} else {
-					pConn->conn_msg.len = sprintf (pConn->conn_msg.msg, "Scan Table");
+					pConn->conn_msg.len = sprintf (pConn->conn_msg.msg, "Scan table '%s' Table", XDB_OBJ_NAME(pRefTbl->pRefTblm));
 				}
 				pConn->conn_msg.len_type = (XDB_RET_MSG<<28) | pConn->conn_msg.len;
 			}

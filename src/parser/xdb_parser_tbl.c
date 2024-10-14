@@ -14,7 +14,7 @@ xdb_parse_field (xdb_conn_t* pConn, xdb_token_t *pTkn, xdb_stmt_tbl_t *pStmt)
 {
 	xdb_field_t *pFld = &pStmt->stmt_flds[pStmt->fld_count];
 	pFld->fld_id = pStmt->fld_count++;
-	memset (pFld->idx_fid, 0xF, sizeof(pFld->idx_fid));
+	memset (pFld->idx_fid, 0xFF, sizeof(pFld->idx_fid));
 
 	pFld->obj.nm_len = pTkn->tk_len;
 	xdb_strcpy (pFld->obj.obj_name, pTkn->token);

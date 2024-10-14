@@ -44,7 +44,6 @@ int xdb_expr_eval (xdb_value_t *pOut, xdb_value_t *pExpVal, int id, int count)
 	int pri = s_xdb_tok_pri[pExpVal[id+1].sup_type];
 
 	for (;id < count; id = nid) {
-		int nid;
 		xdb_value_t *pVal, val;
 		if ((id+3 < count) && (s_xdb_tok_pri[pExpVal[id+3].sup_type] > pri)) {
 			val.sup_type = XDB_TYPE_BIGINT;
@@ -87,6 +86,7 @@ int xdb_expr_eval (xdb_value_t *pOut, xdb_value_t *pExpVal, int id, int count)
 			}
 		}
 	}
+	return 0;
 }
 
 #if 0

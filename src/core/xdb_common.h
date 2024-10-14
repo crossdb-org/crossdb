@@ -121,6 +121,7 @@ typedef struct {
 	uint16_t		*pFldMap;
 	xdb_rowptr_t 	*pRowList;
 	xdb_rowptr_t 	rowlist[XDB_ROWLIST_CNT];
+	xdb_bmp_t		*pBmp;
 	//uint8_t		buf[xxx]; // if no lock, then cache result ?
 } xdb_rowset_t;
 

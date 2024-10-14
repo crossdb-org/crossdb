@@ -296,7 +296,7 @@ xdb_gen_db_schema (xdb_dbm_t *pDbm)
 	return 0;
 }
 
-XDB_STATIC int 
+int 
 xdb_flush_db (xdb_dbm_t *pDbm, uint32_t flags)
 {
 #if (XDB_ENABLE_WAL == 1)

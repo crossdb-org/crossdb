@@ -21,6 +21,7 @@ XDB_STATIC xdb_tblm_t * xdb_stmt_find_table (xdb_stmt_select_t *pStmt, const cha
 	return NULL;
 }
 
+#if 0
 XDB_STATIC xdb_field_t * xdb_stmt_find_field (xdb_conn_t *pConn, xdb_stmt_select_t *pStmt, const char *name, int len, int *pRefTblId)
 {
 	xdb_field_t *pField = NULL;
@@ -38,6 +39,7 @@ XDB_STATIC xdb_field_t * xdb_stmt_find_field (xdb_conn_t *pConn, xdb_stmt_select
 error:
 	return NULL;
 }
+#endif
 
 XDB_STATIC xdb_stmt_t* 
 xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
@@ -229,8 +231,13 @@ xdb_init_where_stmt (xdb_stmt_select_t *pStmt)
 	pStmt->reftbl_count 	= 0;
 #endif
 
-	pStmt->ref_tbl[0].pIdxFilter	= NULL;
-	pStmt->ref_tbl[0].filter_count  = 0;
+	pStmt->ref_tbl[0].bUseIdx = false;
+	pStmt->ref_tbl[0].filter_count = 0;
+	pStmt->ref_tbl[0].or_count = 0;
+#if 0
+	pStmt->ref_tbl[0].or_list[0].pIdxFilter	= NULL;
+	pStmt->ref_tbl[0].or_list[0].filter_count  = 0;
+#endif
 
 	pStmt->limit	= XDB_MAX_ROWS;
 	pStmt->offset	= 0;
@@ -366,6 +373,47 @@ static xdb_token_type s_XDB_TOK_opposite[] = {
 	[XDB_TOK_LIKE] = XDB_TOK_LIKE,
 };
 
+XDB_STATIC bool
+xdb_find_idx (xdb_tblm_t	*pTblm, xdb_singfilter_t *pSigFlt, uint8_t 	bmp[])
+{
+	int fid;
+	for (int i = 0; i < XDB_OBJM_COUNT(pTblm->idx_objm); ++i) {
+		xdb_idxm_t *pIdxm = XDB_OBJM_GET(pTblm->idx_objm, pTblm->idx_order[i]);
+		if (pSigFlt->filter_count < pIdxm->fld_count) {
+			continue;
+		}
+		for (fid = 0 ; fid < pIdxm->fld_count; ++fid) {
+			uint16_t fld_id = pIdxm->pFields[fid]->fld_id;
+			if (!(bmp[fld_id>>3] & (1<<(fld_id&7)))) {
+				break;
+			}
+		}
+		if (fid == pIdxm->fld_count) {
+			xdb_dbglog ("use index %s\n", XDB_OBJ_NAME(pIdxm));
+			xdb_idxfilter_t *pIdxFilter = &pSigFlt->idx_filter;
+			pIdxFilter->idx_flt_cnt = 0;
+			pIdxFilter->pIdxm = pIdxm;
+			int 		idx_id = XDB_OBJ_ID(pIdxm);
+
+			for (fid = 0; fid < pSigFlt->filter_count; ++fid) {
+				xdb_filter_t *pFltr = pSigFlt->pFilters[fid];
+				int idx_fid = pFltr->pField->idx_fid[idx_id];
+				if (idx_fid >= 0) {
+					// matched in index
+					pIdxFilter->pIdxVals[idx_fid] = &pFltr->val;
+				} else {
+					// extra filters
+					pIdxFilter->pIdxFlts[pIdxFilter->idx_flt_cnt++] = pFltr;
+				}
+			}
+			pSigFlt->pIdxFilter = pIdxFilter;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 XDB_STATIC int 
 xdb_parse_where (xdb_conn_t* pConn, xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 {
@@ -376,10 +424,17 @@ xdb_parse_where (xdb_conn_t* pConn, xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 	xdb_token_type	vtype;
 	int				vlen, flen;
 	xdb_token_type		op;
-	char 			*pVal, *pFldName, *pTblName;
+	char 			*pVal, *pFldName, *pTblName = NULL;
 	xdb_reftbl_t	*pRefTbl = &pStmt->ref_tbl[0];
 
+	pRefTbl->or_count = 1;
+	xdb_singfilter_t	*pSigFlt = &pRefTbl->or_list[0];
+	pSigFlt->filter_count = 0;
+
+	pRefTbl->bUseIdx = true;
+
 	do {
+next_filter:
 		type = xdb_next_token (pTkn);
 		if (xdb_likely (XDB_TOK_ID == type)) {
 			pFldName = pTkn->token;
@@ -442,8 +497,8 @@ xdb_parse_where (xdb_conn_t* pConn, xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 			pRefTbl = &pRefTbl[i];
 			pTblm = pRefTbl->pRefTblm;
 		}
-		xdb_filter_t *pFilter = &pRefTbl->filters[pRefTbl->filter_count];
-		pRefTbl->pFilters[pRefTbl->filter_count++] = pFilter;
+		xdb_filter_t *pFilter = &pRefTbl->filters[pRefTbl->filter_count++];
+		pSigFlt->pFilters[pSigFlt->filter_count++] = pFilter;
 		//pFilter->fld_off	= pField->fld_off;
 		//pFilter->fld_type	= pField->fld_type;
 		pFilter->pField = pField;
@@ -487,40 +542,22 @@ xdb_parse_where (xdb_conn_t* pConn, xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 			}
 		}
 		type = xdb_next_token (pTkn);
-	} while ((XDB_TOK_ID == type) && !strcasecmp (pTkn->token, "AND"));
-
-	int fid;
-	xdb_idxfilter_t *pIdxFilter = &pRefTbl->idx_filter;
-	pIdxFilter->idx_flt_cnt = 0;
-	for (int i = 0; i < XDB_OBJM_COUNT(pTblm->idx_objm); ++i) {
-		xdb_idxm_t *pIdxm = XDB_OBJM_GET(pTblm->idx_objm, pTblm->idx_order[i]);
-		if (pRefTbl->filter_count < pIdxm->fld_count) {
-			continue;
-		}
-		for (fid = 0 ; fid < pIdxm->fld_count; ++fid) {
-			uint16_t fld_id = pIdxm->pFields[fid]->fld_id;
-			if (!(bmp[fld_id>>3] & (1<<(fld_id&7)))) {
-				break;
-			}
-		}
-		if (fid == pIdxm->fld_count) {
-			//xdb_dbglog ("use index %s\n", XDB_OBJ_NAME(pIdxm));
-			pIdxFilter->pIdxm = pIdxm;
-			int 		idx_id = XDB_OBJ_ID(pIdxm);
-			for (fid = 0; fid < pRefTbl->filter_count; ++fid) {
-				xdb_filter_t *pFltr = &pRefTbl->filters[fid];
-				int idx_fid = pFltr->pField->idx_fid[idx_id];
-				if (idx_fid >= 0) {
-					// matched in index
-					pIdxFilter->pIdxVals[idx_fid] = &pFltr->val;
-				} else {
-					// extra filters
-					pIdxFilter->pIdxFlts[pIdxFilter->idx_flt_cnt++] = pFltr;
-				}
-			}
-			pRefTbl->pIdxFilter = pIdxFilter;
+		if (xdb_unlikely (XDB_TOK_ID != type)) {
 			break;
+		} else if (!strcasecmp (pTkn->token, "OR")) {
+			if (pRefTbl->bUseIdx) {
+				pRefTbl->bUseIdx = xdb_find_idx (pTblm, pSigFlt, bmp);
+			}
+			XDB_EXPECT (pRefTbl->or_count <= XDB_MAX_MATCH_OR, XDB_E_STMT, "Too many OR filters, MAX %d", XDB_MAX_MATCH_OR);
+			pSigFlt = &pRefTbl->or_list[pRefTbl->or_count++];
+			pSigFlt->filter_count = 0;
+			memset (bmp, 0, sizeof(bmp));
+			goto next_filter;
 		}
+	} while (!strcasecmp (pTkn->token, "AND"));
+
+	if (pRefTbl->bUseIdx) {
+		pRefTbl->bUseIdx = xdb_find_idx (pTblm, pSigFlt, bmp);
 	}
 
 	return type;
@@ -676,6 +713,8 @@ xdb_parse_select_cols (xdb_conn_t *pConn, xdb_stmt_select_t *pStmt, int meta_siz
 					pCol->col_type	= pVal1->pField->fld_type;
 					offset			= XDB_ALIGN4 (offset + pVal1->pField->fld_len);
 					break;
+				default:
+					break;
 				}
 			} // end agg
 
@@ -696,6 +735,7 @@ error:
 	return -1;
 }
 
+#if 0
 XDB_STATIC xdb_field_t* 
 xdb_parse_tblfldname (xdb_conn_t *pConn, xdb_stmt_select_t *pStmt, xdb_token_t *pTkn, int *pRefTblId)
 {
@@ -721,6 +761,7 @@ xdb_parse_tblfldname (xdb_conn_t *pConn, xdb_stmt_select_t *pStmt, xdb_token_t *
 error:
 	return NULL;
 }
+#endif
 
 XDB_STATIC xdb_stmt_t* 
 xdb_parse_select (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
@@ -972,7 +1013,6 @@ xdb_parse_setcol (xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 	xdb_tblm_t *pTblm = pStmt->pTblm;
 	xdb_conn_t	*pConn = pStmt->pConn;
 	xdb_token_type	type;
-	int	rc;
 	
 	do {
 		type = xdb_next_token (pTkn);

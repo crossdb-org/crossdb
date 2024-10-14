@@ -209,11 +209,13 @@ xdb_free_result (xdb_res_t *pRes);
 
 typedef int (*xdb_row_callback) (uint64_t meta, xdb_row_t *pRow, void *pArg);
 
+#if 0
 xdb_res_t*
 xdb_bexec_cb (xdb_conn_t *pConn, xdb_row_callback callback, void *pArg, const char *sql, ...);
 
 xdb_res_t*
 xdb_vbexec_cb (xdb_conn_t *pConn, xdb_row_callback callback, void *pArg, const char *sql, va_list ap);
+#endif
 
 
 /**************************************
@@ -291,6 +293,7 @@ xdb_stmt_vbexec (xdb_stmt_t *pStmt, va_list ap);
 void
 xdb_stmt_close (xdb_stmt_t *pStmt);
 
+#if 0
 xdb_res_t*
 xdb_stmt_exec_cb (xdb_stmt_t *pStmt, xdb_row_callback callback, void *pArg);
 
@@ -299,6 +302,7 @@ xdb_stmt_bexec_cb (xdb_stmt_t *pStmt, xdb_row_callback callback, void *pArg, ...
 
 xdb_res_t*
 xdb_stmt_vbexec_cb (xdb_stmt_t *pStmt, xdb_row_callback callback, void *pArg, va_list ap);
+#endif
 
 
 /**************************************
