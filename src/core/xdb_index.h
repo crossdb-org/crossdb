@@ -9,8 +9,8 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/.
 ******************************************************************************/
 
-#ifndef __XDB_INDX_H__
-#define __XDB_INDX_H__
+#ifndef __XDB_INDEX_H__
+#define __XDB_INDEX_H__
 
 typedef struct {
 	int (*idx_add) (xdb_conn_t *pConn, struct xdb_idxm_t* pIdxm, xdb_rowid new_rid, void *pRow);
@@ -56,4 +56,4 @@ xdb_idx_remRow_bmp (xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow, uint8_t *idx_d
 XDB_STATIC xdb_idxm_t* 
 xdb_find_index (xdb_tblm_t *pTblm, const char *idx_name);
 
-#endif // __XDB_INDX_H__
+#endif // __XDB_INDEX_H__

@@ -67,4 +67,13 @@ typedef struct xdb_stgmgr_t {
 
 #define XDB_ROW_VALID(pTblm,pRow)	((XDB_ROW_CTRL (pTblm->stg_mgr.pStgHdr, pRow) & 0x3) >= XDB_ROW_COMMIT)
 
+XDB_STATIC xdb_rowid 
+xdb_stg_alloc (xdb_stgmgr_t *pStgMgr, void **ppRow);
+
+XDB_STATIC int 
+xdb_stg_expand (xdb_stgmgr_t *pStgMgr);
+
+XDB_STATIC void 
+xdb_stg_free (xdb_stgmgr_t *pStgMgr, xdb_rowid rowid, void *pRow);
+
 #endif // __XDB_STORE_H__

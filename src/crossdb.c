@@ -23,6 +23,7 @@
 #include "core/xdb_hash.h"
 #include "core/xdb_sql.h"
 #include "core/xdb_sysdb.h"
+#include "core/xdb_vdata.h"
 #include "core/xdb_table.h"
 #include "core/xdb_index.h"
 #include "core/xdb_trans.h"
@@ -44,6 +45,7 @@
 #include "core/xdb_crud.c"
 #include "core/xdb_index.c"
 #include "core/xdb_hash.c"
+#include "core/xdb_vdata.c"
 #include "core/xdb_table.c"
 #include "core/xdb_trans.c"
 #include "core/xdb_conn.c"
@@ -78,8 +80,8 @@ const char* xdb_type2str(xdb_type_t tp)
 		[XDB_TYPE_TIMESTAMP] = "TIMESTAMP",
 		[XDB_TYPE_CHAR     ] = "CHAR",
 		[XDB_TYPE_BINARY   ] = "BINARY",
-		[XDB_TYPE_VCHAR    ] = "VCHAR",
-		[XDB_TYPE_VBINARY  ] = "VBINARY",
+		[XDB_TYPE_VCHAR    ] = "VARCHAR",
+		[XDB_TYPE_VBINARY  ] = "VARBINARY",
 	};
 	return tp <= XDB_ARY_LEN(id2str) ? id2str[tp] : "Unkonwn";
 }
@@ -91,7 +93,8 @@ static xdb_type_t s_xdb_prompt_type[] = {
 	[XDB_TYPE_BIGINT	]	= XDB_TYPE_BIGINT,
 	[XDB_TYPE_FLOAT	]		= XDB_TYPE_DOUBLE,
 	[XDB_TYPE_DOUBLE	]	= XDB_TYPE_DOUBLE,
-	[XDB_TYPE_CHAR	]		= XDB_TYPE_CHAR
+	[XDB_TYPE_CHAR	]		= XDB_TYPE_CHAR,
+	[XDB_TYPE_VCHAR	]		= XDB_TYPE_VCHAR
 };
 
 static bool s_xdb_bInit = false;
@@ -105,6 +108,7 @@ xdb_init ()
 #endif
 		s_xdb_bInit = true;
 	}
+	xdb_vdat_init ();
 	return XDB_OK;
 }
 

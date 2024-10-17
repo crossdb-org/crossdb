@@ -9,7 +9,7 @@ int main (int argc, char **argv)
 	XDB_CHECK (NULL != pConn, printf ("failed to create DB\n"); return -1;);
 
 	// Create Table
-	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS student (id INT PRIMARY KEY, name CHAR(16), age INT, class CHAR(16), score FLOAT, info CHAR(255))");
+	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS student (id INT PRIMARY KEY, name CHAR(16), age INT, class CHAR(16), score FLOAT, info VARCHAR(255))");
 	XDB_RESCHK(pRes, printf ("Can't create table student\n"); goto error;);
 	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS teacher (id INT PRIMARY KEY, name CHAR(16), age INT, info CHAR(255), INDEX (name))");
 	XDB_RESCHK(pRes, printf ("Can't create table teacher\n"); goto error;);

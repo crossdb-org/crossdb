@@ -76,7 +76,13 @@ xdb_open_datadir (xdb_stmt_db_t *pStmt)
 XDB_STATIC int 
 xdb_create_db (xdb_stmt_db_t *pStmt)
 {
+	xdb_conn_t		*pConn = pStmt->pConn;
+
 	if (NULL != pStmt->pDbm) {
+		if (NULL == pConn->pCurDbm) {
+			pConn->pCurDbm = pStmt->pDbm;
+			xdb_strcpy (pConn->cur_db, XDB_OBJ_NAME(pStmt->pDbm));
+		}
 		return XDB_OK;
 	}
 
@@ -84,7 +90,6 @@ xdb_create_db (xdb_stmt_db_t *pStmt)
 
 	char db_path[XDB_PATH_LEN + XDB_NAME_LEN + 1];
 	char *real_db_name = pStmt->db_name;
-	xdb_conn_t		*pConn = pStmt->pConn;
 	char *db_name = strrchr (real_db_name, '/');
 	if (NULL == db_name) {
 		db_name = strrchr (real_db_name, '\\');
@@ -168,7 +173,7 @@ xdb_create_db (xdb_stmt_db_t *pStmt)
 		pDbm->bSysDb = true;
 	}
 
-	return 0;
+	return XDB_OK;
 
 error:
 	xdb_free (pDbm);

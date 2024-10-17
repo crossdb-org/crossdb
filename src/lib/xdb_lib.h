@@ -15,7 +15,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
+#ifndef _WIN32
 #include <pthread.h>
+#endif
 #include <stdint.h>
 #include <stdbool.h>
 #include <inttypes.h>
@@ -23,13 +25,19 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #include <string.h>
 #include <stdarg.h>
 #include <time.h>
+#ifndef _WIN32
 #include <sys/time.h>
+#endif
 #include <signal.h>
+#ifndef _WIN32
 #include <dirent.h>
+#endif
 #include <fcntl.h>
 #include <assert.h>
 #include <errno.h>
@@ -58,16 +66,17 @@
 
 // Log
 #ifdef XDB_DEBUG
-#define xdb_dbglog(args...)		printf("[XDB Debug] "args)
+#define xdb_dbglog(...)			printf("[XDB Debug] " __VA_ARGS__)
 #else
-#define xdb_dbglog(args...)
+#define xdb_dbglog(...)
 #endif
 
-#define xdb_errlog(args...)		fprintf (stderr, "[XDB Error] "args)
+#define xdb_errlog(...)			fprintf (stderr, "[XDB Error] " __VA_ARGS__)
 
-#define xdb_print(args...)		printf (args)
+#define xdb_print(...)			printf (__VA_ARGS__)
 
-#define xdb_dbgprint(args...)		printf (args)
+#define xdb_dbgprint(...)		printf (__VA_ARGS__)
+
 
 // Memory
 #define xdb_malloc				malloc

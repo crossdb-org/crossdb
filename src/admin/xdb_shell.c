@@ -124,6 +124,7 @@ xdb_get_row_len (xdb_meta_t *pMeta, xdb_row_t *pRow, int *pColLen)
 			}
 			break;
 		case XDB_TYPE_CHAR:
+		case XDB_TYPE_VCHAR:
 			line = (char*)pVal;
 			do {			
 				ch = strchr (line, '\n');
@@ -152,6 +153,7 @@ xdb_fprint_row_table (FILE *pFile, xdb_meta_t *pMeta, xdb_row_t *pRow, int *pCol
 		}
 		switch (pCol[i]->col_type) {
 		case XDB_TYPE_CHAR:
+		case XDB_TYPE_VCHAR:
 			for (n=1,str=(char*)pVal; (str=strchr(str, '\n')) != NULL; str++) {
 				n++;
 			}
@@ -211,6 +213,7 @@ xdb_fprint_row_table (FILE *pFile, xdb_meta_t *pMeta, xdb_row_t *pRow, int *pCol
 					}
 					break;
 				case XDB_TYPE_CHAR:
+				case XDB_TYPE_VCHAR:
 					str = (char*)pVal;
 					for (int k = 0; k < n; ++k) {
 						ch = strchr (str, '\n');

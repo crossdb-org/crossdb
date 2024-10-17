@@ -55,14 +55,14 @@ UTEST_I_SETUP(XdbTest)
 	xdb_conn_t *pConn = xdb_open (utest_index ? "testdb" : ":memory:");
 	ASSERT_TRUE (pConn!=NULL);
 	utest_fixture->pConn = pConn;
-	xdb_res_t *pRes = xdb_exec (pConn, "CREATE TABLE student (id INT PRIMARY KEY, name CHAR(16), age TINYINT, height FLOAT, weight DOUBLE, class CHAR(16), score SMALLINT)");
-	ASSERT_EQ (pRes->errcode, XDB_OK);	
+	xdb_res_t *pRes = xdb_exec (pConn, "CREATE TABLE student (id INT PRIMARY KEY, name VARCHAR(32), age TINYINT, height FLOAT, weight DOUBLE, class CHAR(16), score SMALLINT)");
+	ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));
 }
 UTEST_I_TEARDOWN(XdbTest)
 {
 	xdb_conn_t *pConn = utest_fixture->pConn;
 	xdb_res_t *pRes = xdb_exec (pConn, "DROP TABLE student");
-	ASSERT_EQ (pRes->errcode, XDB_OK);	
+	ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));
 	xdb_close (pConn);
 }
 
@@ -71,14 +71,14 @@ UTEST_F_SETUP(XdbTest)
 	xdb_conn_t *pConn = xdb_open (":memory:");
 	ASSERT_TRUE (pConn!=NULL);
 	utest_fixture->pConn = pConn;
-	xdb_res_t *pRes = xdb_exec (pConn, "CREATE TABLE student (id INT PRIMARY KEY, name CHAR(16), age TINYINT, height FLOAT, weight DOUBLE, class CHAR(16), score SMALLINT)");
-	ASSERT_EQ (pRes->errcode, XDB_OK);	
+	xdb_res_t *pRes = xdb_exec (pConn, "CREATE TABLE student (id INT PRIMARY KEY, name VARCHAR(32), age TINYINT, height FLOAT, weight DOUBLE, class CHAR(16), score SMALLINT)");
+	ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));
 }
 UTEST_F_TEARDOWN(XdbTest)
 {
 	xdb_conn_t *pConn = utest_fixture->pConn;
 	xdb_res_t *pRes = xdb_exec (pConn, "DROP TABLE student");
-	ASSERT_EQ (pRes->errcode, XDB_OK);	
+	ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));
 	xdb_close (pConn);
 }
 
@@ -87,24 +87,24 @@ UTEST_I_SETUP(XdbTestRows)
 	xdb_conn_t *pConn = xdb_open (utest_index ? "testdb" : ":memory:");
 	ASSERT_TRUE (pConn!=NULL);
 	utest_fixture->pConn = pConn;
-	xdb_res_t *pRes = xdb_exec (pConn, "CREATE TABLE student (id INT PRIMARY KEY, name CHAR(16), age TINYINT, height FLOAT, weight DOUBLE, class CHAR(16), score SMALLINT)");
-	ASSERT_EQ (pRes->errcode, XDB_OK);	
+	xdb_res_t *pRes = xdb_exec (pConn, "CREATE TABLE student (id INT PRIMARY KEY, name VARCHAR(32), age TINYINT, height FLOAT, weight DOUBLE, class CHAR(16), score SMALLINT)");
+	ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));
 
 	pRes = xdb_bexec (pConn, "INSERT INTO student (id,name,age,height,weight,class,score) VALUES (?,?,?,?,?,?,?),(?,?,?,?,?,?,?),(?,?,?,?,?,?,?),(?,?,?,?,?,?,?),(?,?,?,?,?,?,?),(?,?,?,?,?,?,?),(?,?,?,?,?,?,?)",
 								STU_1000, STU_1001, STU_1002, STU_1003, STU_1004, STU_1005, STU_1006);
-	ASSERT_EQ (pRes->errcode, XDB_OK);	
+	ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));
 	ASSERT_EQ (pRes->affected_rows, 7);
 }
 UTEST_I_TEARDOWN(XdbTestRows)
 {
 	xdb_conn_t *pConn = utest_fixture->pConn;
 	xdb_res_t *pRes = xdb_exec (pConn, "DROP TABLE student");
-	ASSERT_EQ (pRes->errcode, XDB_OK);	
+	ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));
 	xdb_close (pConn);
 }
 
 #define STU_ID(pRow)	(*(int*)pRow[0])
-#define STU_NMAE(pRow)	((char*)pRow[1])
+#define STU_NAME(pRow)	((char*)pRow[1])
 #define STU_AGE(pRow)	(*(char*)pRow[2])
 
 #define CHECK_STUDENT(pRow, stu)	\
@@ -134,7 +134,7 @@ UTEST_I_TEARDOWN(XdbTestRows)
 do {	\
 	int count;	\
 	bool id_mark[8] = {0};	\
-	ASSERT_EQ (pRes->errcode, XDB_OK);	\
+	ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));	\
 	ASSERT_EQ (pRes->row_count, num);	\
 	for (count = 0; (pRow = xdb_fetch_row (pRes)); count++) {	\
 		int len;	\
@@ -152,7 +152,7 @@ do {	\
 #define CHECK_EXP(pRes, num, action...)	\
 	do {	\
 		int count;	\
-		ASSERT_EQ (pRes->errcode, XDB_OK);	\
+		ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));	\
 		ASSERT_EQ (pRes->row_count, num);	\
 		for (count = 0; (pRow = xdb_fetch_row (pRes)); count++) {	\
 			action; \
@@ -164,7 +164,7 @@ do {	\
 #define CHECK_QUERY_ONE(pRes, stu, action...)	\
 do {	\
 	int count;	\
-	ASSERT_EQ (pRes->errcode, XDB_OK);	\
+	ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));	\
 	ASSERT_EQ (pRes->row_count, 1);	\
 	for (count = 0; (pRow = xdb_fetch_row (pRes)); count++) {	\
 		int len;	\
@@ -177,7 +177,7 @@ do {	\
 } while (0)
 
 #define CHECK_AFFECT(pRes, num, action...)	\
-	ASSERT_EQ (pRes->errcode, XDB_OK);	\
+	ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));	\
 	ASSERT_EQ (pRes->affected_rows, num);	\
 	action;
 

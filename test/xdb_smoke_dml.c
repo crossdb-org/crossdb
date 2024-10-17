@@ -98,6 +98,16 @@ UTEST_I(XdbTestRows, query_many_id, 2)
 	CHECK_QUERY (pRes, 6, ASSERT_NE(STU_ID(pRow),1004));
 }
 
+UTEST_I(XdbTestRows, query_or, 2)
+{
+	xdb_res_t *pRes;
+	xdb_row_t *pRow;
+	xdb_conn_t *pConn = utest_fixture->pConn;
+
+	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE id>1004 OR name='jack'");
+	CHECK_QUERY (pRes, 4, ASSERT_TRUE ((STU_ID(pRow)>1004) || !strcmp(STU_NAME(pRow),"jack")));
+}
+
 UTEST_I(XdbTestRows, query_limit, 2)
 {
 	xdb_res_t *pRes;
@@ -254,13 +264,13 @@ UTEST_I(XdbTestRows, query_many_name, 2)
 	xdb_conn_t *pConn = utest_fixture->pConn;
 
 	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name='jack'");
-	CHECK_QUERY (pRes, 3, ASSERT_STREQ(STU_NMAE(pRow),"jack"));
+	CHECK_QUERY (pRes, 3, ASSERT_STREQ(STU_NAME(pRow),"jack"));
 
 	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name!='jack'");
-	CHECK_QUERY (pRes, 4, ASSERT_STRNE(STU_NMAE(pRow),"jack"));
+	CHECK_QUERY (pRes, 4, ASSERT_STRNE(STU_NAME(pRow),"jack"));
 
 	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name<>'jack'");
-	CHECK_QUERY (pRes, 4, ASSERT_STRNE(STU_NMAE(pRow),"jack"));
+	CHECK_QUERY (pRes, 4, ASSERT_STRNE(STU_NAME(pRow),"jack"));
 }
 
 UTEST_I(XdbTestRows, query_many_composite, 2)
@@ -270,7 +280,38 @@ UTEST_I(XdbTestRows, query_many_composite, 2)
 	xdb_conn_t *pConn = utest_fixture->pConn;
 
 	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name='jack' AND age>10");
-	CHECK_QUERY (pRes, 2, ASSERT_STREQ(STU_NMAE(pRow),"jack"); ASSERT_GT(STU_AGE(pRow),10));
+	CHECK_QUERY (pRes, 2, ASSERT_STREQ(STU_NAME(pRow),"jack"); ASSERT_GT(STU_AGE(pRow),10));
+}
+
+UTEST_I(XdbTestRows, query_like, 2)
+{
+	xdb_res_t *pRes;
+	xdb_row_t *pRow;
+	xdb_conn_t *pConn = utest_fixture->pConn;
+
+	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name LIKE 'jack'");
+	CHECK_QUERY (pRes, 3, ASSERT_STREQ(STU_NAME(pRow),"jack"));
+
+	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name LIKE '%ck'");
+	CHECK_QUERY (pRes, 3, ASSERT_STREQ(STU_NAME(pRow),"jack"));
+
+	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name LIKE 'j_ck'");
+	CHECK_QUERY (pRes, 3, ASSERT_STREQ(STU_NAME(pRow),"jack"));
+
+	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name LIKE 'ja%'");
+	CHECK_QUERY (pRes, 3, ASSERT_STREQ(STU_NAME(pRow),"jack"));
+
+	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name LIKE 'w%d_'");
+	CHECK_QUERY (pRes, 1, ASSERT_STREQ(STU_NAME(pRow),"wendy"));
+
+	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name LIKE 'abc'");
+	CHECK_QUERY (pRes, 0);
+
+	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE class LIKE '6-_'");
+	CHECK_QUERY (pRes, 7);
+
+	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE class LIKE '_-2'");
+	CHECK_QUERY (pRes, 2);
 }
 
 UTEST_I(XdbTestRows, query_miss, 2)
@@ -355,6 +396,26 @@ UTEST_I(XdbTestRows, update_one_fmt, 2)
 
 	pRes = xdb_pexec (pConn, "SELECT * FROM student WHERE id!=%d", 1001);
 	CHECK_QUERY(pRes, 6);
+}
+
+UTEST_I(XdbTestRows, update_char, 2)
+{
+	int len;
+	xdb_res_t *pRes;
+	xdb_row_t *pRow;
+	xdb_conn_t *pConn = utest_fixture->pConn;
+
+	pRes = xdb_pexec (pConn, "UPDATE student SET name='%s', class='%s' WHERE name='%s'", "jackson", "6-7", "jack");
+	CHECK_AFFECT (pRes, 3);
+
+	pRes = xdb_pexec (pConn, "SELECT * FROM student WHERE name='%s'", "jackson");
+	CHECK_QUERY(pRes, 3, stu.name="jackson"; stu.cls="6-7";);
+
+	pRes = xdb_bexec (pConn, "UPDATE student SET name=?, class=? WHERE name=?", "jack", "6-2", "jackson");
+	CHECK_AFFECT (pRes, 3);
+
+	pRes = xdb_bexec (pConn, "SELECT * FROM student WHERE name=?", "jack");
+	CHECK_QUERY(pRes, 3, stu.cls="6-2";);
 }
 
 UTEST_I(XdbTestRows, update_pk, 2)
@@ -510,6 +571,40 @@ UTEST_I(XdbTestRows, idx_query, 2)
 
 	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name='jack'");
 	CHECK_QUERY (pRes, 3, ASSERT_STREQ(stu.name, "jack"));
+}
+
+UTEST_I(XdbTestRows, idx_query_update, 2)
+{
+	xdb_res_t *pRes;
+	xdb_row_t *pRow;
+	xdb_conn_t *pConn = utest_fixture->pConn;
+
+	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name='jack'");
+	CHECK_QUERY (pRes, 3, ASSERT_STREQ(stu.name, "jack"));
+
+	pRes = xdb_exec (pConn, "CREATE INDEX idx_name ON student (name)");
+	ASSERT_EQ (pRes->errcode, XDB_OK);
+
+	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name='jack'");
+	CHECK_QUERY (pRes, 3, ASSERT_STREQ(stu.name, "jack"));
+
+	pRes = xdb_exec (pConn, "UPDATE student SET name='jackson' WHERE name='jack'");
+	CHECK_AFFECT (pRes, 3);
+
+	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name='jack'");
+	CHECK_QUERY (pRes, 0);
+
+	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name='jackson'");
+	CHECK_QUERY (pRes, 3, stu.name="jackson");
+
+	pRes = xdb_exec (pConn, "DELETE FROM student WHERE name='jackson' LIMIT 1");
+	CHECK_AFFECT (pRes, 1);
+
+	pRes = xdb_exec (pConn, "DROP INDEX idx_name ON student");
+	ASSERT_EQ (pRes->errcode, XDB_OK);
+
+	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name='jackson'");
+	CHECK_QUERY (pRes, 2, stu.name="jackson");
 }
 
 UTEST_I(XdbTestRows, idx_composite_query, 2)

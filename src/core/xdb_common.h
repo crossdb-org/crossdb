@@ -37,7 +37,7 @@ typedef int	xdb_rowid;
 		pConn->conn_res.errcode = code; \
 		pConn->conn_res.row_data = (uintptr_t)pConn->conn_msg.msg;	\
 		pConn->conn_msg.len = snprintf(pConn->conn_msg.msg, sizeof(pConn->conn_msg.msg)-1, errmsgfmt);	\
-		pConn->conn_msg.len_type = (XDB_RET_MSG<<28) | pConn->conn_msg.len;	\
+		pConn->conn_msg.len_type = (XDB_RET_MSG<<28) | (pConn->conn_msg.len + 7);	\
 		pConn->conn_res.data_len = pConn->conn_msg.len;
 
 #define XDB_EXPECT_BRK(expr, code, errmsgfmt...)	\
@@ -89,6 +89,7 @@ typedef struct xdb_field_t {
 	uint8_t			sup_type;
 	uint8_t			fld_decmial;
 	uint16_t		fld_id;
+	uint16_t		fld_vid;
 	uint32_t		fld_off;	
 	int				fld_len;
 	uint16_t		fld_flags;

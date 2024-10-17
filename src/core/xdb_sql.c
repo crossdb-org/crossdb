@@ -108,6 +108,7 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 			{
 				xdb_stmt_db_t *pStmtDb = (xdb_stmt_db_t*)pStmt;
 				if (NULL != pStmtDb->pDbm) {
+					xdb_commit (pConn);
 					rc = xdb_drop_db (pStmtDb->pConn, pStmtDb->pDbm);
 				}
 			}
@@ -128,7 +129,7 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 			if (XDB_OK == rc) {
 				pConn->conn_msg.len = strlen (XDB_OBJ_NAME(pConn->pCurDbm));
 				memcpy (pConn->conn_msg.msg, XDB_OBJ_NAME(pConn->pCurDbm), pConn->conn_msg.len+1);
-				pConn->conn_msg.len_type = (XDB_RET_MSG<<28) | pConn->conn_msg.len;
+				pConn->conn_msg.len_type = (XDB_RET_MSG<<28) | (pConn->conn_msg.len + 7);
 			}
 			break;
 		case XDB_STMT_CREATE_TBL:
@@ -138,6 +139,7 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 			{
 				xdb_stmt_tbl_t *pStmtTbl = (xdb_stmt_tbl_t*)pStmt;
 				if (NULL != pStmtTbl->pTblm) {
+					xdb_commit (pConn);
 					rc = xdb_drop_table (pStmtTbl->pTblm);
 				}
 			}
@@ -171,7 +173,7 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 				} else {
 					pConn->conn_msg.len = sprintf (pConn->conn_msg.msg, "Scan table '%s' Table", XDB_OBJ_NAME(pRefTbl->pRefTblm));
 				}
-				pConn->conn_msg.len_type = (XDB_RET_MSG<<28) | pConn->conn_msg.len;
+				pConn->conn_msg.len_type = (XDB_RET_MSG<<28) | (pConn->conn_msg.len + 7);
 			}
 			rc = XDB_OK;
 			break;
@@ -680,6 +682,7 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 					pVal->fval = va_arg (ap, double);
 					break;
 				case XDB_TYPE_CHAR:
+				case XDB_TYPE_VCHAR:
 					pVal->str.str = va_arg (ap, char *);
 					pVal->str.len = strlen (pVal->str.str);
 					break;
@@ -696,7 +699,7 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 			for (int i = 0; i < pStmtIns->bind_count; ++i) {
 				xdb_field_t *pFld = pStmtIns->pBind[i];
 				void		*pAddr = pStmtIns->pBindRow[i] + pFld->fld_off;
-				const 		char *str;
+				char 		*str;
 				int			len;
 				switch (pFld->fld_type) {
 				case XDB_TYPE_INT:
@@ -720,13 +723,25 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 				case XDB_TYPE_CHAR:
 					str = va_arg (ap, char *);
 					len = strlen (str);
-					if (len > pFld->fld_len) {
+					if (xdb_unlikely (len > pFld->fld_len)) {
 						XDB_SETERR(XDB_E_PARAM, "Field '%s' max len %d < input %d", XDB_OBJ_NAME(pFld), pFld->fld_len, len);
 						return &pConn->conn_res;
 					}
 					*(uint16_t*)(pAddr - 2) = len;
 					memcpy (pAddr, str, len + 1);
 					break;
+				case XDB_TYPE_VCHAR:
+					str = va_arg (ap, char *);
+					len = strlen (str);
+					if (xdb_unlikely (len > pFld->fld_len)) {
+						XDB_SETERR(XDB_E_PARAM, "Field '%s' max len %d < input %d", XDB_OBJ_NAME(pFld), pFld->fld_len, len);
+						return &pConn->conn_res;
+					} else {
+						xdb_str_t *pVstr = pStmtIns->pBindRow[i] + pStmtIns->pTblm->row_size;
+						xdb_str_t *pStr = &pVstr[pFld->fld_vid];
+						pStr->len = len;
+						pStr->str = str;
+					}
 				}
 			}
 		}

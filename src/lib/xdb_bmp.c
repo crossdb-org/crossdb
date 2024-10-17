@@ -153,7 +153,7 @@ __xdb_lv2bmp_iterate (xdb_lv2bmp_t *pLv2Bmp, uint32_t bid, xdb_bmp_cb pCb, void 
 XDB_STATIC void 
 xdb_lv2bmp_iterate (xdb_lv2bmp_t *pLv2Bmp, xdb_bmp_cb pCb, void *pArg)
 {
-	return __xdb_lv2bmp_iterate (pLv2Bmp, 0, pCb, pArg);
+	__xdb_lv2bmp_iterate (pLv2Bmp, 0, pCb, pArg);
 }
 
 XDB_STATIC void 

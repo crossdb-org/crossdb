@@ -30,6 +30,10 @@ xdb_parse_field (xdb_conn_t* pConn, xdb_token_t *pTkn, xdb_stmt_tbl_t *pStmt)
 	} else if (0 == strcasecmp (pTkn->token, "CHAR")) {
 		pFld->fld_type = XDB_TYPE_CHAR;
 		pFld->sup_type = XDB_TYPE_CHAR;
+	} else if (0 == strcasecmp (pTkn->token, "VARCHAR")) {
+		pFld->fld_type = XDB_TYPE_VCHAR;
+		pFld->sup_type = XDB_TYPE_VCHAR;
+		pFld->fld_vid = pStmt->vfld_count++;
 	} else if (0 == strcasecmp (pTkn->token, "TINYINT")) {
 		pFld->fld_type = XDB_TYPE_TINYINT;
 		pFld->sup_type = XDB_TYPE_BIGINT;
@@ -156,6 +160,7 @@ xdb_parse_create_table (xdb_conn_t* pConn, xdb_token_t *pTkn)
 	pStmt->stmt_type = XDB_STMT_CREATE_TBL;
 	pStmt->pSql = NULL;
 	pStmt->fld_count = 0;
+	pStmt->vfld_count = 0;
 	pStmt->idx_count = 0;
 	pStmt->sql = pTkn->tk_sql;
 	pStmt->pkey_idx = -1;

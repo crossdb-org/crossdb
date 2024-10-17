@@ -16,7 +16,7 @@ typedef struct xdb_str_t {
 
 #define xdb_strcpy(dst,src)			xdb_strncpy(dst, src, sizeof(dst))
 
-#define xdb_sprintf(dst, fmt...)	do { snprintf(dst, sizeof(dst), fmt); (dst)[sizeof(dst)-1] = '\0'; } while (0)
+#define xdb_sprintf(dst, ...)	do { snprintf(dst, sizeof(dst), __VA_ARGS__); (dst)[sizeof(dst)-1] = '\0'; } while (0)
 
 #ifdef _WIN32
 #define strcasecmp				_stricmp	

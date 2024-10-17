@@ -19,6 +19,13 @@ extern "C" {
 #include "xdb_token.h"
 #include "../core/xdb_expr.h"
 
+/*
+DDL: definition
+DML: manipulation
+DQL: query
+DCL: control
+*/
+
 typedef enum {
 	XDB_STMT_INVALID		= 0,
 	XDB_STMT_USE_DB			= 1,
@@ -345,6 +352,7 @@ typedef struct {
 	char 	 		*tbl_name;
 	void			*sql;
 	int				fld_count;
+	int				vfld_count;
 	int				row_size;
 	int				xoid;
 	bool			bMemory;

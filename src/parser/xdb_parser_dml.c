@@ -114,14 +114,19 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 	XDB_EXPECT (NULL != pStmt->pRowsBuf, XDB_E_MEMORY, "No memory");
 
 	uint32_t	offset = 0;
+	int 		row_vlen = 0;
+	if (pTblm->vfld_count > 0) {
+		row_vlen = pTblm->vfld_count * sizeof(xdb_str_t);
+	}
+	int row_len = XDB_ALIGN4 (pTblm->row_size + row_vlen);
 
 	// Multiple rows
 	do {
-		// TBD: increase buf if less
-		void *pRow = pStmt->pRowsBuf + offset;
-
-		if (xdb_unlikely (offset + pTblm->row_size > pStmt->buf_len)) {
-			uint32_t buf_len = pStmt->buf_len <<= 1;
+		if (xdb_unlikely (offset + row_len > pStmt->buf_len)) {
+			uint32_t buf_len;
+			do {
+				buf_len = pStmt->buf_len <<= 1;
+			} while (offset + row_len > buf_len);
 			void *pRowsBuf;
 			if (pStmt->pRowsBuf == pStmt->row_buf) {
 				pRowsBuf = xdb_malloc (buf_len);
@@ -136,8 +141,13 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 			pStmt->buf_len = buf_len;
 		}
 
+		void *pRow = pStmt->pRowsBuf + offset;
+
 		// TBD copy from default?
 		memset (pRow, 0, pTblm->row_size);
+		if (pTblm->vfld_count > 0) {
+			memset (pRow + pTblm->row_size, 0, row_vlen);
+		}
 
 		pStmt->row_offset[pStmt->row_count++] = offset;
 		type = xdb_next_token (pTkn);
@@ -145,7 +155,9 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 		XDB_EXPECT (XDB_TOK_LP == type, XDB_E_STMT, "Miss (");
 
 		// Single row values
-		int fld_seq = 0;			
+		int fld_seq = 0;
+		xdb_str_t *pVStr = pRow + pTblm->row_size, *pStr;
+
 		do {
 			type = xdb_next_token (pTkn);
 			xdb_field_t *pField = bColList ? pStmt->pFldList[fld_seq] : &pTblm->pFields[fld_seq];
@@ -189,6 +201,12 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 					memcpy (pRow+pField->fld_off, pTkn->token, pTkn->tk_len+1);
 					//xdb_dbgprint ("%s %s\n", pField->fld_name, pTkn->token);
 					break;
+				case XDB_TYPE_VCHAR:
+					XDB_EXPECT ((XDB_TOK_STR == type) && (pTkn->tk_len <= pField->fld_len), XDB_E_STMT, "Expect string <= %d", pField->fld_len);
+					pStr = &pVStr[pField->fld_vid];
+					pStr->len = pTkn->tk_len;
+					pStr->str = pTkn->token;
+					break;
 				}
 			} else if (XDB_TOK_QM == type) {
 				pStmt->pBindRow[pStmt->bind_count] = pRow;
@@ -203,8 +221,7 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 
 		XDB_EXPECT (fld_seq >= pStmt->fld_count, XDB_E_STMT, "Too few values");
 		type = xdb_next_token (pTkn);
-		offset += pTblm->row_size;
-
+		offset += row_len;
 	} while (XDB_TOK_COMMA == type);
 
 	return (xdb_stmt_t*)pStmt;
@@ -306,7 +323,7 @@ error:
 }
 
 XDB_STATIC xdb_token_type 
-xdb_parse_val (xdb_stmt_select_t *pStmt, xdb_value_t *pVal,  xdb_token_t *pTkn)
+xdb_parse_val (xdb_stmt_select_t *pStmt, xdb_field_t *pField, xdb_value_t *pVal,  xdb_token_t *pTkn)
 {
 	xdb_token_type type;
 	xdb_conn_t *pConn = pStmt->pConn;
@@ -328,7 +345,9 @@ xdb_parse_val (xdb_stmt_select_t *pStmt, xdb_value_t *pVal,  xdb_token_t *pTkn)
 		type = xdb_next_token (pTkn);
 		break;
 	case XDB_TOK_STR:
-		//XDB_EXPECT(pTkn->tk_len <= pFld->fld_len, XDB_E_STMT, "Too long string values %d > %d", pTkn->tk_len, pFld->fld_len);
+		if (NULL != pField) {
+			XDB_EXPECT(pTkn->tk_len <= pField->fld_len, XDB_E_STMT, "Too long string values %d > %d", pTkn->tk_len, pField->fld_len);
+		}
 		pVal->str.len = pTkn->tk_len;
 		pVal->str.str = pTkn->token;
 		pVal->val_type = XDB_TYPE_CHAR;
@@ -526,6 +545,7 @@ next_filter:
 				//xdb_dbgprint ("%s = %d\n", pField->fld_name.str, pFilter->val.ival);
 				break;
 			case XDB_TYPE_CHAR:
+			case XDB_TYPE_VCHAR:
 				XDB_EXPECT (XDB_TOK_STR == vtype, XDB_E_STMT, "Expect Value");
 				pFilter->val.str.len = vlen;
 				pFilter->val.str.str = pVal;
@@ -584,7 +604,7 @@ xdb_parse_select_cols (xdb_conn_t *pConn, xdb_stmt_select_t *pStmt, int meta_siz
 	pStmt->pMeta->row_size = pTblm->pMeta->row_size;
 	pStmt->pMeta->null_off = pTblm->pMeta->null_off;
 
-	xdb_col_t *pCol = pStmt->pMeta->cols;
+	xdb_col_t *pCol = (xdb_col_t*)(pStmt->pMeta + 1);
 	uint64_t *pColList = (void*)pStmt->pMeta + meta_size;
 	pStmt->pMeta->col_list = (uintptr_t)pColList;
 	if (xdb_likely (0 == pStmt->agg_count + pStmt->exp_count)) {
@@ -643,10 +663,14 @@ xdb_parse_select_cols (xdb_conn_t *pConn, xdb_stmt_select_t *pStmt, int meta_siz
 					XDB_EXPECT (pVal->pField != NULL, XDB_E_STMT, "field '%s' doesn't exist", pVal->val_str.str);
 					pCol->col_type	= pVal->pField->fld_type;
 					offset			= XDB_ALIGN4 (offset + pVal->pField->fld_len);
+					if (xdb_unlikely (XDB_TYPE_CHAR == pCol->col_type)) {
+						pCol->col_off	+= 2;
+						offset			= XDB_ALIGN4 (offset + pVal->str.len + 3);
+					}
 				} else {
 					pVal->pField	= NULL;
 					pCol->col_type	= pVal->val_type;
-					offset			= XDB_ALIGN4 (offset + ((XDB_TYPE_CHAR == pVal->val_type)? pVal->str.len + 3 : 8));
+					offset			= offset + 8;
 				}
 			} else if (pSelCol->exp.exp_op < XDB_TOK_COUNT) {
 				// exp
@@ -803,7 +827,7 @@ xdb_parse_select (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 		pSelCol->as_name.str = NULL;
 
 		pVal = &pSelCol->exp.op_val[0];
-		type = xdb_parse_val (pStmt, pVal, pTkn);
+		type = xdb_parse_val (pStmt, NULL, pVal, pTkn);
 		XDB_EXPECT2 (type >= 0);
 
 		pSelCol->exp.exp_op = XDB_TOK_NONE;
@@ -819,7 +843,7 @@ xdb_parse_select (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 			pSelCol->exp.exp_op = type;
 			xdb_next_token (pTkn);
 			pVal1 = &pSelCol->exp.op_val[1];
-			type = xdb_parse_val (pStmt, pVal1, pTkn);
+			type = xdb_parse_val (pStmt, NULL, pVal1, pTkn);
 			XDB_EXPECT2 (type >= 0);
 			nmlen = XDB_ALIGN4 (pVal->val_str.len + pVal1->val_str.len + 1 + 1);
 			pStmt->exp_count++;
@@ -944,16 +968,16 @@ xdb_parse_select (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 				XDB_EXPECT (pStmt->pMeta, XDB_E_MEMORY, "Can't alloc memory");
 				pStmt->meta_size = meta_size; // alloc
 			}
-			xdb_col_t *pCol = pStmt->pMeta->cols;
+			xdb_col_t *pCol = (xdb_col_t*)(pStmt->pMeta + 1);
 			uint64_t *pColList = (void*)pStmt->pMeta + meta_size;
 
 			int fld_count = 0, row_offset = 0;
-			void *pJoinMeta = pStmt->pMeta->cols;
+			void *pJoinMeta = (xdb_col_t*)(pStmt->pMeta + 1);
 
 			for (int jt = 0; jt < pStmt->reftbl_count; ++jt) {
 				xdb_reftbl_t *pJoin = &pStmt->ref_tbl[jt];
 				int meta_len = pJoin->pRefTblm->meta_size - sizeof(xdb_meta_t) - 4; // last 4B is 0 eof
-				memcpy (pJoinMeta, pJoin->pRefTblm->pMeta->cols, meta_len);
+				memcpy (pJoinMeta, pJoin->pRefTblm->pMeta + 1, meta_len);
 				pJoinMeta += meta_len;
 
 				if (row_offset) {
@@ -1034,11 +1058,11 @@ xdb_parse_setcol (xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 			pStmt->pBind[pStmt->bind_count++] = &pSet->exp.op_val[0];			
 			type = xdb_next_token (pTkn);
 		} else {
-			XDB_EXPECT(type<=XDB_TOK_NUM, XDB_E_STMT, "Miss ID/STR/NUM");
-			type = xdb_parse_val (pStmt, &pSet->exp.op_val[0], pTkn);
+			XDB_EXPECT (type<=XDB_TOK_NUM, XDB_E_STMT, "Miss ID/STR/NUM");
+			type = xdb_parse_val (pStmt, pField, &pSet->exp.op_val[0], pTkn);
 		}
 		pSet->exp.exp_op = XDB_TOK_NONE;
-		if (xdb_unlikely (type <= XDB_TOK_DIV && type >= XDB_TOK_ADD)) {
+		if (xdb_unlikely ((type >= XDB_TOK_ADD) && (type <= XDB_TOK_DIV))) {
 			pSet->exp.exp_op = type ;
 			type = xdb_next_token (pTkn);
 			if (xdb_unlikely (XDB_TOK_QM == type)) {
@@ -1049,7 +1073,7 @@ xdb_parse_setcol (xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 				type = xdb_next_token (pTkn);
 			} else {
 				XDB_EXPECT(type<=XDB_TOK_NUM, XDB_E_STMT, "Miss ID/STR/NUM");
-				type = xdb_parse_val (pStmt, &pSet->exp.op_val[1], pTkn);
+				type = xdb_parse_val (pStmt, NULL, &pSet->exp.op_val[1], pTkn);
 			}
 		}
 	} while (XDB_TOK_COMMA == type);
@@ -1080,6 +1104,8 @@ xdb_parse_update (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 	XDB_EXPECT(type<=XDB_TOK_STR, XDB_E_STMT, "Miss table name");
 
 	XDB_PARSE_DBTBLNAME();
+
+	pStmt->ref_tbl[0].pRefTblm = pStmt->pTblm;
 
 	if (xdb_unlikely (pStmt->pTblm->pDbm->bSysDb)) {
 		XDB_EXPECT (pConn == s_xdb_sysdb_pConn, XDB_E_CONSTRAINT, "Can't update table '%s' in system database", XDB_OBJ_NAME(pStmt->pTblm));
@@ -1133,6 +1159,8 @@ xdb_parse_delete (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 	XDB_EXPECT(type<=XDB_TOK_STR, XDB_E_STMT, "Miss table name");
 
 	XDB_PARSE_DBTBLNAME();
+
+	pStmt->ref_tbl[0].pRefTblm = pStmt->pTblm;
 
 	if (xdb_unlikely (pStmt->pTblm->pDbm->bSysDb)) {
 		XDB_EXPECT (pConn == s_xdb_sysdb_pConn, XDB_E_CONSTRAINT, "Can't delete form table '%s' in system database", XDB_OBJ_NAME(pStmt->pTblm));

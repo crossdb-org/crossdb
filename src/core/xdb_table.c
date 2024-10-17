@@ -15,16 +15,19 @@ xdb_alloc_offset (xdb_tblm_t *pTblm, uint64_t types, int len)
 	for (int i = 0; i < pTblm->fld_count; ++i) {
 		xdb_field_t *pFld = &pTblm->pFields[i];
 		int extra = 0;
+		int fld_len = pFld->fld_len;
 		if (types & (1LL<<pFld->fld_type)) {
 			if (0 == pFld->fld_len) {
-				pFld->fld_len = len;
+				fld_len = pFld->fld_len = len;
 			}
 			pFld->fld_off = pTblm->row_size;
 			if (XDB_TYPE_CHAR == pFld->fld_type) {
 				pFld->fld_off += 2;
 				extra = 2 + 1; // len(2B) + '\0'
+			} else if (XDB_TYPE_VCHAR == pFld->fld_type) {
+				fld_len = 4;
 			}
-			pTblm->row_size += pFld->fld_len + extra;
+			pTblm->row_size += fld_len + extra;
 		}
 	}
 }
@@ -72,19 +75,26 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 	XDB_RWLOCK_INIT(pTblm->stg_lock);
 
 	pTblm->fld_count = pStmt->fld_count;
+	pTblm->vfld_count = pStmt->vfld_count;
 
 	// last 2B col_len=0 to mark end of meta
 	pTblm->meta_size = sizeof(xdb_meta_t) + 4;
 
 	int flds_size = sizeof(*pTblm->pFields) * pTblm->fld_count;
-	pTblm->pFields = xdb_malloc (flds_size);
+	pTblm->pFields = xdb_malloc (flds_size + sizeof(pTblm->ppVFields) * pTblm->vfld_count);
 	XDB_EXPECT (NULL!=pTblm->pFields, XDB_E_MEMORY, "Can't alloc memory");
 	memcpy (pTblm->pFields, pStmt->stmt_flds, flds_size);
+	pTblm->ppVFields = (void*)pTblm->pFields + flds_size;
 
+	int vi = 0;
 	for (int i = 0; i < pTblm->fld_count; ++i) {
-		pTblm->meta_size += XDB_ALIGN4 (sizeof(xdb_col_t) + XDB_OBJ_NMLEN(&pTblm->pFields[i]) + 1);
-		pTblm->pFields[i].pTblm = pTblm;
-		xdb_objm_add (&pTblm->fld_objm, &pTblm->pFields[i]);
+		xdb_field_t *pField = &pTblm->pFields[i];
+		pTblm->meta_size += XDB_ALIGN4 (sizeof(xdb_col_t) + XDB_OBJ_NMLEN(pField) + 1);
+		pField->pTblm = pTblm;
+		xdb_objm_add (&pTblm->fld_objm, pField);
+		if (XDB_TYPE_VCHAR == pField->fld_type) {
+			pTblm->ppVFields[vi++] = pField;
+		}
 	}
 
 	//pTblm->tbl_fd = tbl_fd;
@@ -93,6 +103,7 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 		pTblm->row_size = 0;
 		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_BIGINT) | (1LL<<XDB_TYPE_DOUBLE), 8);
 		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_INT) | (1LL<<XDB_TYPE_FLOAT), 4);
+		xdb_alloc_offset (pTblm, (1<<XDB_TYPE_VCHAR), 4);
 		xdb_alloc_offset (pTblm, (1<<XDB_TYPE_CHAR) | (1<<XDB_TYPE_SMALLINT), 2);
 		xdb_alloc_offset (pTblm, (1<<XDB_TYPE_TINYINT), 1);
 		// TBD row_size need to add bitmap
@@ -107,7 +118,7 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 	pMeta->col_count = pTblm->fld_count;
 	pMeta->null_off  = pTblm->null_off;
 	pMeta->row_size	= pTblm->row_size;
-	xdb_col_t	*pCol = pTblm->pMeta->cols;
+	xdb_col_t	*pCol = (xdb_col_t*)(pTblm->pMeta + 1);
 	uint64_t	*pColPtr = (void*)pMeta + meta_size_align;
 	pMeta->col_list = (uintptr_t)pColPtr;
 
@@ -127,6 +138,11 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 
 	pTblm->blk_size = pTblm->row_size + 1;
 
+	// for vdata
+	if (pStmt->vfld_count) {
+		pTblm->blk_size += 1 + sizeof (xdb_rowid);
+	}
+
 	xdb_stghdr_t stg_hdr = {.stg_magic = 0xE7FCFDFB, .blk_size = pTblm->blk_size, .ctl_off = pTblm->blk_size - 1, .blk_off = XDB_OFFSET(xdb_tbl_t, pRowDat)};
 	pTblm->stg_mgr.pOps = pTblm->bMemory ? &s_xdb_store_mem_ops : &s_xdb_store_file_ops;
 	pTblm->stg_mgr.pStgHdr	= &stg_hdr;
@@ -138,6 +154,10 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 	//pDbm->pObjm[pStmt->xoid] = pTblm;
 
 	pTblm->pDbm = pDbm;
+
+	if (pStmt->vfld_count) {
+		pTblm->pVdatm = xdb_create_vdata (pTblm);
+	}
 
 #ifdef XDB_DEBUG
 	xdb_dbglog ("ok create tbl '%s' fld %d size %d\n", XDB_OBJ_NAME(pTblm), pTblm->fld_count, pTblm->row_size);
@@ -196,6 +216,8 @@ xdb_close_table (xdb_tblm_t *pTblm)
 	char path[XDB_PATH_LEN + 32];
 	xdb_sprintf (path, "%s/T%06d/xdb.dat", pDbm->db_path, XDB_OBJ_ID(pTblm));
 
+	xdb_vdata_close (pTblm->pVdatm);
+
 	xdb_stg_close (&pTblm->stg_mgr); 
 
 	xdb_free_table (pTblm);
@@ -218,9 +240,10 @@ xdb_drop_table (xdb_tblm_t *pTblm)
 		}
 	}
 
+	xdb_vdata_drop (pTblm->pVdatm);
+
 	char path[XDB_PATH_LEN + 32];
 	xdb_sprintf (path, "%s/T%06d/xdb.dat", pDbm->db_path, XDB_OBJ_ID(pTblm));
-
 	xdb_stg_drop (&pTblm->stg_mgr, path); 
 
 	if (!pTblm->bMemory) {
@@ -249,7 +272,7 @@ xdb_dump_create_table (xdb_tblm_t *pTblm, char buf[], xdb_size size, uint32_t fl
 		xdb_field_t *pFld = XDB_OBJM_GET(pTblm->fld_objm, i);
 		//len += sprintf (buf+len, "  %-*s %s", 16, XDB_OBJ_NAME(pFld), xdb_type2str (pFld->fld_type));
 		len += sprintf (buf+len, "  %-16s %s", XDB_OBJ_NAME(pFld), xdb_type2str (pFld->fld_type));
-		if (XDB_TYPE_CHAR == pFld->fld_type) {
+		if ((XDB_TYPE_CHAR == pFld->fld_type) || (XDB_TYPE_VCHAR == pFld->fld_type)) {
 			len += sprintf (buf+len, "(%d)", pFld->fld_len);
 		}
 		len += sprintf (buf+len, ",\n");

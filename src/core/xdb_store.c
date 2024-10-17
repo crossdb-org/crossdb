@@ -271,6 +271,22 @@ xdb_stg_truncate (xdb_stgmgr_t *pStgMgr, xdb_rowid new_maxid)
 	return 0;
 }
 
+XDB_STATIC int 
+xdb_stg_expand (xdb_stgmgr_t *pStgMgr)
+{
+	xdb_stghdr_t	*pStgHdr = pStgMgr->pStgHdr;
+	if (0 == pStgHdr->blk_head) {
+		if (pStgHdr->blk_maxid == pStgHdr->blk_cap) {
+			int rc = xdb_stg_truncate (pStgMgr, pStgHdr->blk_cap<<1);
+			//rc = xdb_stg_truncate (pStgMgr, pStgHdr->blk_cap+1);
+			if (rc < 0) {
+				return rc;
+			}
+		}
+	}
+	return 0;
+}
+
 XDB_STATIC xdb_rowid 
 xdb_stg_alloc (xdb_stgmgr_t *pStgMgr, void **ppRow)
 {
@@ -301,9 +317,11 @@ xdb_stg_alloc (xdb_stgmgr_t *pStgMgr, void **ppRow)
 		*ppRow = pNext;
 	}
 
-	XDB_ROW_CTRL(pStgHdr, *ppRow) = XDB_ROW_DIRTY;
+	if (pStgHdr->ctl_off > 0) {
+		XDB_ROW_CTRL(pStgHdr, *ppRow) = XDB_ROW_DIRTY;
+	}
 	pStgHdr->blk_alloc++;
-	
+
 	return rid;
 }
 
@@ -348,6 +366,9 @@ xdb_stg_open (xdb_stgmgr_t *pStgMgr, const char *file, void (*init_cb)(xdb_stgmg
 XDB_STATIC int 
 xdb_stg_close (xdb_stgmgr_t *pStgMgr)
 {
+	if (NULL == pStgMgr->pStgHdr) {
+		return XDB_OK;
+	}
 	xdb_size size = pStgMgr->pStgHdr->blk_off + pStgMgr->pStgHdr->blk_size * pStgMgr->pStgHdr->blk_cap;
 
 	int rc = pStgMgr->pOps->store_close (&pStgMgr->stg_fd, size, (void**)&pStgMgr->pStgHdr);
@@ -360,6 +381,9 @@ xdb_stg_close (xdb_stgmgr_t *pStgMgr)
 XDB_STATIC int 
 xdb_stg_drop (xdb_stgmgr_t *pStgMgr, char *file)
 {
+	if (NULL == pStgMgr->pStgHdr) {
+		return XDB_OK;
+	}
 	xdb_dbglog ("drop file %s\n", file);
 	xdb_stg_close (pStgMgr);
 	int rc = pStgMgr->pOps->store_drop (file);

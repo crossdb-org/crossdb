@@ -126,13 +126,13 @@ typedef struct {
 } xdb_res_t;
 
 typedef struct {
-	uint32_t	len_type;		// LSB 4bit are type
+	uint32_t	len_type;		// MSB 4bit are type
 	uint16_t	len;
 	char		msg[2048];
 } xdb_msg_t;
 
 typedef struct {
-	uint32_t	len_type;		// LSB 4bit are type
+	uint32_t	len_type;		// MSB 4bit are type
 	uint8_t		rowdat[];
 } xdb_rowdat_t;
 
@@ -147,14 +147,14 @@ typedef struct {
 } xdb_col_t;
 
 typedef struct {
-	uint32_t	len_type;		// LSB 4bit are type
+	uint32_t	len_type;		// MSB 4bit are type
 	uint16_t	col_count;		// 4
 	uint16_t	null_off;		// 6
 	uint16_t	row_size;		// 8
-	uint16_t	rsvd;			// 10
+	uint16_t	vdat_off;		// 10
 	uint32_t	rsvd2;			// 12
 	uint64_t	col_list;		// 16 xdb_col_t list
-	xdb_col_t	cols[];
+	//xdb_col_t	cols[];
 } xdb_meta_t;
 
 typedef struct xdb_conn_t xdb_conn_t;
@@ -327,12 +327,12 @@ xdb_rollback (xdb_conn_t* pConn);
 #define xdb_likely(x)			__builtin_expect(x, 1)
 #define xdb_unlikely(x)			__builtin_expect(x, 0)
 #else
-#define xdb_likely(x)
-#define xdb_unlikely(x)
+#define xdb_likely(x)			(x)
+#define xdb_unlikely(x)			(x)
 #endif
 
-#define XDB_CHECK(expr, action...)	if (xdb_unlikely(!(expr))) { action; }
-#define XDB_RESCHK(pRes, action...)	if (xdb_unlikely(pRes->errcode)) { fprintf (stderr, "==== ERROR %d: %s\n", pRes->errcode, xdb_errmsg(pRes)); action; }
+#define XDB_CHECK(expr, ...)	if (xdb_unlikely(!(expr))) { __VA_ARGS__; }
+#define XDB_RESCHK(pRes, ...)	if (xdb_unlikely(pRes->errcode)) { fprintf (stderr, "==== ERROR %d: %s\n", pRes->errcode, xdb_errmsg(pRes)); __VA_ARGS__; }
 
 const char*
 xdb_type2str (xdb_type_t type);

@@ -15,6 +15,7 @@
 typedef struct xdb_tblm_t {
 	xdb_obj_t		obj;
 	uint16_t		fld_count;
+	uint16_t		vfld_count;
 	uint16_t		null_off;
 	uint32_t		row_size;
 	uint32_t		blk_size;
@@ -25,11 +26,14 @@ typedef struct xdb_tblm_t {
 	struct xdb_dbm_t *pDbm;
 
 	struct	xdb_field_t *pFields;
+	struct	xdb_field_t **ppVFields;
 
 	xdb_objm_t		fld_objm;
 
 	uint32_t		meta_size;
 	xdb_meta_t		*pMeta;
+
+	xdb_vdatm_t		*pVdatm;
 
 	xdb_objm_t		idx_objm;
 

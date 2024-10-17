@@ -44,6 +44,7 @@ xdb_res2sql (FILE *pFile, xdb_res_t *pRes, const char *tbl_name, char *buf, int 
 				len += sprintf (buf+len, "%f,", *(double*)pVal);
 				break;
 			case XDB_TYPE_CHAR:
+			case XDB_TYPE_VCHAR:
 				*(buf + len++) = '\'';
 				len += xdb_str_escape (buf+len, (char*)pVal, *(uint16_t*)(pVal-2));
 				*(buf + len++) = '\'';
