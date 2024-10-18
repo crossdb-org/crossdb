@@ -22,6 +22,30 @@
 #include "xdb_sock.c"
 #endif
 
+static char s_xdb_hex_2_str[256][2];
+
+static short s_xdb_str_2_hex[256];
+
+XDB_STATIC void 
+xdb_hex_init ()
+{
+	int i, hex;
+	for (i = 0; i < 256; ++i) {
+		hex = i >> 4;
+		s_xdb_hex_2_str[i][0] = (hex)<10 ? hex+'0' : hex-10+'a';
+		hex = i & 0xF;
+		s_xdb_hex_2_str[i][1] = (hex)<10 ? hex+'0' : hex-10+'a';
+	}
+	memset (s_xdb_str_2_hex, 0xff, sizeof(s_xdb_str_2_hex));
+	for (i = 0; i < 9; ++i) {
+		s_xdb_str_2_hex['0' + i] = i;
+	}
+	for (i = 0; i < 6; ++i) {
+		s_xdb_str_2_hex['a' + i] = i + 10;
+		s_xdb_str_2_hex['A' + i] = i + 10;
+	}
+}
+
 #if 0
 XDB_STATIC void 
 xdb_hexdump (const void *addr, int len)

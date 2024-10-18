@@ -16,8 +16,8 @@ help:
 
 .PHONY: build
 build:
-	$(CC) -o build/libcrossdb.so -fPIC -shared -lpthread -O2 -Wall src/crossdb.c
-	$(CC) -o build/xdb-cli src/xdb-cli.c -lpthread -O2
+	$(CC) -o build/libcrossdb.so -fPIC -shared -lpthread -Wall src/crossdb.c
+	$(CC) -o build/xdb-cli src/xdb-cli.c -lpthread
 	cp include/crossdb.h build/
 
 debug:

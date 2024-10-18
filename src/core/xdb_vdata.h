@@ -51,7 +51,7 @@ typedef struct {
 	uint32_t vdat_len: 28, ref_cnt: 4;
 } xdb_vdathdr_t;
 
-static inline void* 
+static inline void 
 xdb_vdata_ref (xdb_vdatm_t *pVdatm, uint8_t type, xdb_rowid vid)
 {
 	xdb_vdathdr_t *pVdatHdr = xdb_vdata_get (pVdatm, type, vid);

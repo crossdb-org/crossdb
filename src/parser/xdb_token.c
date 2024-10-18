@@ -132,6 +132,23 @@ xdb_next_token (xdb_token_t *pTkn)
 parse_ch:
 	switch (ch) {
 	case XDB_TOK_ID:
+		if (xdb_unlikely ((('X' == *pTkn->tk_sql) || ('x' == *pTkn->tk_sql)) && '\''== pTkn->tk_sql[1])) {
+			char hex1, hex2;
+			pTkn->tk_sql += 2;
+			pTkn->token = pTkn->tk_sql;
+			str = pTkn->token;
+			for (; (hex1=s_xdb_str_2_hex[(uint8_t)*pTkn->tk_sql]) >= 0 && (hex2=s_xdb_str_2_hex[(uint8_t)pTkn->tk_sql[1]]) >= 0; pTkn->tk_sql+=2) {
+				*str++ = (hex1<<4) | hex2;
+			}
+			if (xdb_unlikely (*pTkn->tk_sql != '\'')) {
+				return XDB_TOK_INV;
+			}
+			pTkn->tk_len = str - pTkn->token;
+			*str = '\0';
+			pTkn->tk_type = XDB_TOK_HEX;
+			pTkn->tk_sql++;
+			return XDB_TOK_HEX;
+		}
 		pTkn->tk_type = XDB_TOK_ID;
 		pTkn->token = pTkn->tk_sql++;
 		ch = s_tok_type[(uint8_t)*pTkn->tk_sql];
@@ -149,6 +166,22 @@ parse_ch:
 		}
 		break;
 	case XDB_TOK_NUM:
+		if (('0' == *pTkn->tk_sql) && (('x' == *(pTkn->tk_sql+1)) || ('X' == *(pTkn->tk_sql+1)))) {
+			char hex1, hex2;
+			pTkn->tk_sql += 2;
+			pTkn->token = pTkn->tk_sql;
+			str = pTkn->token;
+			for (; (hex1=s_xdb_str_2_hex[(uint8_t)*pTkn->tk_sql]) >= 0 && (hex2=s_xdb_str_2_hex[(uint8_t)pTkn->tk_sql[1]]) >= 0; pTkn->tk_sql+=2) {
+				*str++ = (hex1<<4) | hex2;
+			}
+			if (xdb_unlikely (hex1 >= 0)) {
+				return XDB_TOK_INV;
+			}
+			pTkn->tk_len = str - pTkn->token;
+			*str = '\0';
+			pTkn->tk_type = XDB_TOK_HEX;
+			return XDB_TOK_HEX;
+		}
 		pTkn->tk_type = XDB_TOK_NUM;
 		pTkn->token = pTkn->tk_sql;
 		pTkn->bFloat = false;

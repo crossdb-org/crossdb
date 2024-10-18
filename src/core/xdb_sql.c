@@ -622,6 +622,7 @@ xdb_bind_float (xdb_stmt_t *pStmt, uint16_t para_id, float val)
 xdb_ret
 xdb_bind_str2 (xdb_stmt_t *pStmt, uint16_t para_id, const char *str, int len)
 {
+	xdb_ret rc = XDB_OK;
 	switch (pStmt->stmt_type) {
 	case XDB_STMT_SELECT:
 	case XDB_STMT_UPDATE:
@@ -642,19 +643,25 @@ xdb_bind_str2 (xdb_stmt_t *pStmt, uint16_t para_id, const char *str, int len)
 				return -XDB_E_PARAM;
 			}
 			xdb_field_t *pField = pStmtIns->pBind[para_id];
-			xdb_fld_setStr (pField, pStmtIns->pBindRow[para_id], str, len);
+			rc = xdb_fld_setStr (pStmt->pConn, pField, pStmtIns->pBindRow[para_id], str, len);
 		}
 		break;
 	default:
 		break;
 	}
-	return XDB_OK;
+	return rc;
 }
 
 xdb_ret
-xdb_bind_str (xdb_stmt_t *pStmt, uint16_t id, const char *str)
+xdb_bind_str (xdb_stmt_t *pStmt, uint16_t para_id, const char *str)
 {
-	return xdb_bind_str2 (pStmt, id, str, 0);
+	return xdb_bind_str2 (pStmt, para_id, str, 0);
+}
+
+xdb_ret
+xdb_bind_blob (xdb_stmt_t *pStmt, uint16_t para_id, const void *blob, int len)
+{
+	return xdb_bind_str2 (pStmt, para_id, blob, 0);
 }
 
 XDB_STATIC xdb_res_t*
@@ -686,12 +693,18 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 					pVal->str.str = va_arg (ap, char *);
 					pVal->str.len = strlen (pVal->str.str);
 					break;
+				case XDB_TYPE_BINARY:
+				case XDB_TYPE_VBINARY:
+					pVal->str.str = va_arg (ap, char *);
+					pVal->str.len = strlen (pVal->str.str);
+					break;
 				default:
 					break;
 				}
 			}
 		}
 		break;
+
 	case XDB_STMT_INSERT:
 		{
 			xdb_conn_t			*pConn = pStmt->pConn;
@@ -730,6 +743,16 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 					*(uint16_t*)(pAddr - 2) = len;
 					memcpy (pAddr, str, len + 1);
 					break;
+				case XDB_TYPE_BINARY:
+					len = va_arg (ap, int);
+					str = va_arg (ap, char *);
+					if (xdb_unlikely (len > pFld->fld_len)) {
+						XDB_SETERR(XDB_E_PARAM, "Field '%s' max len %d < input %d", XDB_OBJ_NAME(pFld), pFld->fld_len, len);
+						return &pConn->conn_res;
+					}
+					*(uint16_t*)(pAddr - 2) = len;
+					memcpy (pAddr, str, len);
+					break;
 				case XDB_TYPE_VCHAR:
 					str = va_arg (ap, char *);
 					len = strlen (str);
@@ -742,10 +765,25 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 						pStr->len = len;
 						pStr->str = str;
 					}
+					break;
+				case XDB_TYPE_VBINARY:
+					len = va_arg (ap, int);
+					str = va_arg (ap, char *);
+					if (xdb_unlikely (len > pFld->fld_len)) {
+						XDB_SETERR(XDB_E_PARAM, "Field '%s' max len %d < input %d", XDB_OBJ_NAME(pFld), pFld->fld_len, len);
+						return &pConn->conn_res;
+					} else {
+						xdb_str_t *pVstr = pStmtIns->pBindRow[i] + pStmtIns->pTblm->row_size;
+						xdb_str_t *pStr = &pVstr[pFld->fld_vid];
+						pStr->len = len;
+						pStr->str = str;
+					}
+					break;
 				}
 			}
 		}
 		break;
+
 	default:
 		break;
 	}

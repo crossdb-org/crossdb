@@ -190,19 +190,19 @@ xdb_sysdb_init ()
 	xdb_res_t *pRes = xdb_exec (pConn, "CREATE DATABASE IF NOT EXISTS system ENGINE=MEMORY");
 	XDB_RESCHK(pRes, xdb_errlog ("Can't create system database\n"));
 
-	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS columns (database CHAR(64), table CHAR(64), column CHAR(64), type CHAR(8), len INT, PRIMARY KEY (database,table,column))");
+	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS columns (database CHAR(64), table CHAR(64), column CHAR(64), type CHAR(16), len INT, PRIMARY KEY (database,table,column))");
 	// will update tables which doesn't exist yet
 	if (pRes->errcode != XDB_E_NOTFOUND) {
 		XDB_RESCHK(pRes, xdb_errlog ("Can't create system table columns\n"));
 	}
 
 	// will update indexes which doesn't exist yet
-	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS tables (database CHAR(64), table CHAR(64), engine CHAR(8), primary_key CHAR(255), total_rows INT, data_path CHAR(255), schema CHAR(16384), PRIMARY KEY (database,table))");
+	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS tables (database CHAR(64), table CHAR(64), engine CHAR(8), primary_key VARCHAR(1024), total_rows INT, data_path VARCHAR(255), schema VARCHAR(65535), PRIMARY KEY (database,table))");
 	if (pRes->errcode != XDB_E_NOTFOUND) {
 		XDB_RESCHK(pRes, xdb_errlog ("Can't create system table tables\n"));
 	}
 
-	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS indexes (database CHAR(64), table CHAR(64), idx_key CHAR(64), type CHAR(8), col_list CHAR(255), PRIMARY KEY (database,table,idx_key))");
+	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS indexes (database CHAR(64), table CHAR(64), idx_key CHAR(64), type CHAR(8), col_list VARCHAR(255), PRIMARY KEY (database,table,idx_key))");
 	XDB_RESCHK(pRes, xdb_errlog ("Can't create system table indexes\n"));
 
 	xdb_tblm_t *pTblm = xdb_find_table (s_xdb_sysdb_pConn->pCurDbm, "columns");
@@ -214,13 +214,13 @@ xdb_sysdb_init ()
 		xdb_sysdb_add_tbl (pTblm, false, false, true);
 	}
 
-	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS databases (database CHAR(64), engine CHAR(8), data_path CHAR(255), PRIMARY KEY (database))");
+	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS databases (database CHAR(64), engine CHAR(8), data_path VARCHAR(1024), PRIMARY KEY (database))");
 	XDB_RESCHK(pRes, xdb_errlog ("Can't create system table databases\n"));
 
 	xdb_sysdb_add_db (pConn->pCurDbm);
 
 	//xdb_exec (pConn, "CREATE DATABASE IF NOT EXISTS information_schema ENGINE=MEMORY");
-	//xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS SCHEMATA (catalog_name CHAR(3), schema_name CHAR(64), schema_owner CHAR(7), default_character_set_catalog CHAR(1), default_character_set_schema CHAR(1), default_character_set_name CHAR(1), sql_path CHAR(1), data_path CHAR(255), engine CHAR(8))");
+	//xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS SCHEMATA (catalog_name CHAR(3), schema_name CHAR(64), schema_owner CHAR(7), default_character_set_catalog CHAR(1), default_character_set_schema CHAR(1), default_character_set_name CHAR(1), sql_path CHAR(1), data_path VARCHAR(255), engine CHAR(8))");
 
 	return XDB_OK;
 }

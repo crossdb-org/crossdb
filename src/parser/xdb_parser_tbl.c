@@ -34,6 +34,13 @@ xdb_parse_field (xdb_conn_t* pConn, xdb_token_t *pTkn, xdb_stmt_tbl_t *pStmt)
 		pFld->fld_type = XDB_TYPE_VCHAR;
 		pFld->sup_type = XDB_TYPE_VCHAR;
 		pFld->fld_vid = pStmt->vfld_count++;
+	} else if (0 == strcasecmp (pTkn->token, "BINARY")) {
+		pFld->fld_type = XDB_TYPE_BINARY;
+		pFld->sup_type = XDB_TYPE_BINARY;
+	} else if (0 == strcasecmp (pTkn->token, "VARBINARY")) {
+		pFld->fld_type = XDB_TYPE_VBINARY;
+		pFld->sup_type = XDB_TYPE_VBINARY;
+		pFld->fld_vid = pStmt->vfld_count++;
 	} else if (0 == strcasecmp (pTkn->token, "TINYINT")) {
 		pFld->fld_type = XDB_TYPE_TINYINT;
 		pFld->sup_type = XDB_TYPE_BIGINT;

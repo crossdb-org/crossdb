@@ -135,6 +135,10 @@ xdb_get_row_len (xdb_meta_t *pMeta, xdb_row_t *pRow, int *pColLen)
 				line = ch + 1;
 			} while (NULL != ch);
 			break;
+		case XDB_TYPE_BINARY:
+		case XDB_TYPE_VBINARY:
+			pColLen[i] = 2 + *(uint16_t*)(pVal-2) * 2;
+			break;
 		}
 	}
 }
@@ -166,8 +170,9 @@ xdb_fprint_row_table (FILE *pFile, xdb_meta_t *pMeta, xdb_row_t *pRow, int *pCol
 
 	for (int n = 0; n < line; ++n) {
 		fputc ('|', pFile);
-		for (int i = 0; i < pMeta->col_count; ++i) {			
-			char 	*str = "", buf[1024], *ch = NULL;
+		for (int i = 0; i < pMeta->col_count; ++i) {
+			int 	plen = 0;
+			char 	*str = "", *ch = NULL;
 			fputc (' ', pFile);
 			void *pVal = (void*)((uint64_t*)pRow[i]);
 			if (NULL == pVal) {
@@ -178,38 +183,32 @@ xdb_fprint_row_table (FILE *pFile, xdb_meta_t *pMeta, xdb_row_t *pRow, int *pCol
 				switch (pCol[i]->col_type) {
 				case XDB_TYPE_INT:
 					if (0 == n) {
-						snprintf (buf, sizeof(buf), "%d", *(int32_t*)pVal);
-						str = buf;
+						plen = fprintf (pFile, "%d", *(int32_t*)pVal);
 					}
 					break;
 				case XDB_TYPE_TINYINT:
 					if (0 == n) {
-						snprintf (buf, sizeof(buf), "%d", *(int8_t*)pVal);
-						str = buf;
+						plen = fprintf (pFile, "%d", *(int8_t*)pVal);
 					}
 					break;
 				case XDB_TYPE_SMALLINT:
 					if (0 == n) {
-						snprintf (buf, sizeof(buf), "%d", *(int16_t*)pVal);
-						str = buf;
+						plen = fprintf (pFile, "%d", *(int16_t*)pVal);
 					}
 					break;
 				case XDB_TYPE_BIGINT:
 					if (0 == n) {
-						snprintf (buf, sizeof(buf), "%"PRIi64, *(int64_t*)pVal);
-						str = buf;
+						plen = fprintf (pFile, "%"PRIi64, *(int64_t*)pVal);
 					}
 					break;
 				case XDB_TYPE_FLOAT:
 					if (0 == n) {
-						snprintf (buf, sizeof(buf), "%f", *(float*)pVal);
-						str = buf;
+						plen = fprintf (pFile, "%f", *(float*)pVal);
 					}
 					break;
 				case XDB_TYPE_DOUBLE:
 					if (0 == n) {
-						snprintf (buf, sizeof(buf), "%f", *(double*)pVal);
-						str = buf;
+						plen = fprintf (pFile, "%f", *(double*)pVal);
 					}
 					break;
 				case XDB_TYPE_CHAR:
@@ -232,12 +231,21 @@ xdb_fprint_row_table (FILE *pFile, xdb_meta_t *pMeta, xdb_row_t *pRow, int *pCol
 							*ch = '\0';
 						}
 					}
+					plen = fprintf (pFile, "%s", str);
+					break;
+				case XDB_TYPE_BINARY:
+				case XDB_TYPE_VBINARY:
+					if (0 == n) {
+						plen += fprintf (pFile, "0x");
+						for (int h = 0; h < *(uint16_t*)(pVal-2); ++h) {
+							plen += fprintf (pFile, "%c%c", s_xdb_hex_2_str[((uint8_t*)pVal)[h]][0], s_xdb_hex_2_str[((uint8_t*)pVal)[h]][1]);
+						}
+					}
 					break;
 				}
 			}
 
-			fprintf (pFile, "%s", str);
-			xdb_print_char (pFile, ' ', pColLen[i] + 1 - strlen(str));
+			xdb_print_char (pFile, ' ', pColLen[i] + 1 - plen);
 
 			fputc ('|', pFile);
 			if (ch != NULL) {

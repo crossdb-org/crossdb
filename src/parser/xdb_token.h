@@ -13,6 +13,7 @@ typedef enum {
 	XDB_TOK_ERR = -1, // make enum signed
 	XDB_TOK_ID = 0,	// normal char
 	XDB_TOK_STR,	// ' " `
+	XDB_TOK_HEX,	//
 	XDB_TOK_NUM,	// 0-9, 0xA-Z,a-z 
 	XDB_TOK_ESC,	/* \ */
 	XDB_TOK_SP,		// \t \n \r sp

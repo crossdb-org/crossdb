@@ -21,10 +21,10 @@ xdb_alloc_offset (xdb_tblm_t *pTblm, uint64_t types, int len)
 				fld_len = pFld->fld_len = len;
 			}
 			pFld->fld_off = pTblm->row_size;
-			if (XDB_TYPE_CHAR == pFld->fld_type) {
+			if ((XDB_TYPE_CHAR == pFld->fld_type) || (XDB_TYPE_BINARY == pFld->fld_type)) {
 				pFld->fld_off += 2;
 				extra = 2 + 1; // len(2B) + '\0'
-			} else if (XDB_TYPE_VCHAR == pFld->fld_type) {
+			} else if ((XDB_TYPE_VCHAR == pFld->fld_type) || (XDB_TYPE_VBINARY == pFld->fld_type)) {
 				fld_len = 4;
 			}
 			pTblm->row_size += fld_len + extra;
@@ -92,7 +92,7 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 		pTblm->meta_size += XDB_ALIGN4 (sizeof(xdb_col_t) + XDB_OBJ_NMLEN(pField) + 1);
 		pField->pTblm = pTblm;
 		xdb_objm_add (&pTblm->fld_objm, pField);
-		if (XDB_TYPE_VCHAR == pField->fld_type) {
+		if ((XDB_TYPE_VCHAR == pField->fld_type) || (XDB_TYPE_VBINARY == pField->fld_type)) {
 			pTblm->ppVFields[vi++] = pField;
 		}
 	}
@@ -103,9 +103,9 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 		pTblm->row_size = 0;
 		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_BIGINT) | (1LL<<XDB_TYPE_DOUBLE), 8);
 		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_INT) | (1LL<<XDB_TYPE_FLOAT), 4);
-		xdb_alloc_offset (pTblm, (1<<XDB_TYPE_VCHAR), 4);
-		xdb_alloc_offset (pTblm, (1<<XDB_TYPE_CHAR) | (1<<XDB_TYPE_SMALLINT), 2);
-		xdb_alloc_offset (pTblm, (1<<XDB_TYPE_TINYINT), 1);
+		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_VCHAR) | (1LL<<XDB_TYPE_VBINARY), 4);
+		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_CHAR) | (1LL<<XDB_TYPE_BINARY) | (1LL<<XDB_TYPE_SMALLINT), 2);
+		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_TINYINT), 1);
 		// TBD row_size need to add bitmap
 		pTblm->row_size  = XDB_ALIGN4 (pTblm->row_size);
 	}
@@ -272,7 +272,8 @@ xdb_dump_create_table (xdb_tblm_t *pTblm, char buf[], xdb_size size, uint32_t fl
 		xdb_field_t *pFld = XDB_OBJM_GET(pTblm->fld_objm, i);
 		//len += sprintf (buf+len, "  %-*s %s", 16, XDB_OBJ_NAME(pFld), xdb_type2str (pFld->fld_type));
 		len += sprintf (buf+len, "  %-16s %s", XDB_OBJ_NAME(pFld), xdb_type2str (pFld->fld_type));
-		if ((XDB_TYPE_CHAR == pFld->fld_type) || (XDB_TYPE_VCHAR == pFld->fld_type)) {
+		if ((XDB_TYPE_CHAR == pFld->fld_type) || (XDB_TYPE_VCHAR == pFld->fld_type) ||
+			(XDB_TYPE_BINARY == pFld->fld_type) || (XDB_TYPE_VBINARY == pFld->fld_type)) {
 			len += sprintf (buf+len, "(%d)", pFld->fld_len);
 		}
 		len += sprintf (buf+len, ",\n");

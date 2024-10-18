@@ -50,6 +50,17 @@ xdb_res2sql (FILE *pFile, xdb_res_t *pRes, const char *tbl_name, char *buf, int 
 				*(buf + len++) = '\'';
 				*(buf + len++) = ',';
 				break;
+			case XDB_TYPE_BINARY:
+			case XDB_TYPE_VBINARY:
+				*(buf + len++) = 'X';
+				*(buf + len++) = '\'';
+				for (int h = 0; h < *(uint16_t*)(pVal-2); ++h) {
+					*(buf + len++) = s_xdb_hex_2_str[((uint8_t*)pVal)[h]][0];
+					*(buf + len++) = s_xdb_hex_2_str[((uint8_t*)pVal)[h]][1];
+				}
+				*(buf + len++) = '\'';
+				*(buf + len++) = ',';
+				break;
 			}
 		}
 		buf[--len] = '\0';

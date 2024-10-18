@@ -252,6 +252,9 @@ xdb_column_str (uint64_t meta, xdb_row_t *pRow, uint16_t iCol);
 const char*
 xdb_column_str2 (uint64_t meta, xdb_row_t *pRow, uint16_t iCol, int *pLen);
 
+const void*
+xdb_column_blob (uint64_t meta, xdb_row_t *pRow, uint16_t iCol, int *pLen);
+
 
 /**************************************
  Prepared Statment

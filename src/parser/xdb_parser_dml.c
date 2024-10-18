@@ -207,6 +207,18 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 					pStr->len = pTkn->tk_len;
 					pStr->str = pTkn->token;
 					break;
+				case XDB_TYPE_BINARY:
+					XDB_EXPECT (((XDB_TOK_STR == type) || (XDB_TOK_HEX == type)) && (pTkn->tk_len <= pField->fld_len), XDB_E_STMT, "Expect binary <= %d", pField->fld_len);
+					*(uint16_t*)(pRow+pField->fld_off-2) = pTkn->tk_len;
+					memcpy (pRow+pField->fld_off, pTkn->token, pTkn->tk_len+1);
+					//xdb_dbgprint ("%s %s\n", pField->fld_name, pTkn->token);
+					break;
+				case XDB_TYPE_VBINARY:
+					XDB_EXPECT (((XDB_TOK_STR == type) || (XDB_TOK_HEX == type)) && (pTkn->tk_len <= pField->fld_len), XDB_E_STMT, "Expect binary <= %d", pField->fld_len);
+					pStr = &pVStr[pField->fld_vid];
+					pStr->len = pTkn->tk_len;
+					pStr->str = pTkn->token;
+					break;
 				}
 			} else if (XDB_TOK_QM == type) {
 				pStmt->pBindRow[pStmt->bind_count] = pRow;
@@ -345,6 +357,7 @@ xdb_parse_val (xdb_stmt_select_t *pStmt, xdb_field_t *pField, xdb_value_t *pVal,
 		type = xdb_next_token (pTkn);
 		break;
 	case XDB_TOK_STR:
+	case XDB_TOK_HEX:
 		if (NULL != pField) {
 			XDB_EXPECT(pTkn->tk_len <= pField->fld_len, XDB_E_STMT, "Too long string values %d > %d", pTkn->tk_len, pField->fld_len);
 		}
@@ -552,6 +565,14 @@ next_filter:
 				pFilter->val.val_type = XDB_TYPE_CHAR;
 				//xdb_dbgprint ("%s = %s\n", pField->fld_name.str, pFilter->val.str.str);
 				break;
+			case XDB_TYPE_BINARY:
+			case XDB_TYPE_VBINARY:
+				XDB_EXPECT (((XDB_TOK_STR == vtype) || (XDB_TOK_HEX == vtype)), XDB_E_STMT, "Expect Value");
+				pFilter->val.str.len = vlen;
+				pFilter->val.str.str = pVal;
+				pFilter->val.val_type = XDB_TYPE_BINARY;
+				//xdb_dbgprint ("%s = %s\n", pField->fld_name.str, pFilter->val.str.str);
+				break;
 			case XDB_TYPE_FLOAT:
 			case XDB_TYPE_DOUBLE:
 				XDB_EXPECT (XDB_TOK_NUM == vtype, XDB_E_STMT, "Expect Value");
@@ -663,7 +684,7 @@ xdb_parse_select_cols (xdb_conn_t *pConn, xdb_stmt_select_t *pStmt, int meta_siz
 					XDB_EXPECT (pVal->pField != NULL, XDB_E_STMT, "field '%s' doesn't exist", pVal->val_str.str);
 					pCol->col_type	= pVal->pField->fld_type;
 					offset			= XDB_ALIGN4 (offset + pVal->pField->fld_len);
-					if (xdb_unlikely (XDB_TYPE_CHAR == pCol->col_type)) {
+					if (xdb_unlikely ((XDB_TYPE_CHAR == pCol->col_type) || (XDB_TYPE_BINARY == pCol->col_type))) {
 						pCol->col_off	+= 2;
 						offset			= XDB_ALIGN4 (offset + pVal->str.len + 3);
 					}

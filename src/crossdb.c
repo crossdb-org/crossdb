@@ -79,8 +79,8 @@ const char* xdb_type2str(xdb_type_t tp)
 		[XDB_TYPE_DOUBLE   ] = "DOUBLE",
 		[XDB_TYPE_TIMESTAMP] = "TIMESTAMP",
 		[XDB_TYPE_CHAR     ] = "CHAR",
-		[XDB_TYPE_BINARY   ] = "BINARY",
 		[XDB_TYPE_VCHAR    ] = "VARCHAR",
+		[XDB_TYPE_BINARY   ] = "BINARY",
 		[XDB_TYPE_VBINARY  ] = "VARBINARY",
 	};
 	return tp <= XDB_ARY_LEN(id2str) ? id2str[tp] : "Unkonwn";
@@ -94,7 +94,9 @@ static xdb_type_t s_xdb_prompt_type[] = {
 	[XDB_TYPE_FLOAT	]		= XDB_TYPE_DOUBLE,
 	[XDB_TYPE_DOUBLE	]	= XDB_TYPE_DOUBLE,
 	[XDB_TYPE_CHAR	]		= XDB_TYPE_CHAR,
-	[XDB_TYPE_VCHAR	]		= XDB_TYPE_VCHAR
+	[XDB_TYPE_VCHAR	]		= XDB_TYPE_VCHAR,
+	[XDB_TYPE_BINARY ]		= XDB_TYPE_BINARY,
+	[XDB_TYPE_VBINARY ]		= XDB_TYPE_VBINARY
 };
 
 static bool s_xdb_bInit = false;
@@ -109,6 +111,7 @@ xdb_init ()
 		s_xdb_bInit = true;
 	}
 	xdb_vdat_init ();
+	xdb_hex_init ();
 	return XDB_OK;
 }
 
