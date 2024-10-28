@@ -226,6 +226,15 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 			pStmt->stmt_type = XDB_STMT_DUMP_DB;
 			pStmt->pSql = NULL;
 			break;
+		case XDB_STMT_DUMP_WAL:
+			xdb_wal_dump (pConn->pCurDbm);
+			break;
+		case XDB_STMT_FLUSH_DB:
+			xdb_flush_db (pConn->pCurDbm, 0);
+			break;
+		case XDB_STMT_REPAIR_DB:
+			xdb_repair_db (pConn->pCurDbm, 0);
+			break;
 		case XDB_STMT_HELP:
 			break;
 		default:

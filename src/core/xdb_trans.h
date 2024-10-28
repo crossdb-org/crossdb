@@ -24,6 +24,7 @@ typedef struct xdb_dbTrans_t {
 	xdb_lv2bmp_t	tbl_wrlocks;
 	xdb_lv2bmp_t	tbl_rdlocks;
 	xdb_lv2bmp_t	tbl_rows;
+	uint64_t		commit_len;
 	xdb_tblTrans_t	*pTblTrans[];
 } xdb_dbTrans_t;
 

@@ -59,7 +59,6 @@ typedef enum {
 	XDB_STMT_CREATE_DB 		= 30,
 	XDB_STMT_ALTER_DB,
 	XDB_STMT_DROP_DB,
-	XDB_STMT_REPAIR_DB,
 	XDB_STMT_OPEN_DB,
 	XDB_STMT_OPEN_DATADIR,
 	XDB_STMT_CLOSE_DB,
@@ -133,6 +132,9 @@ typedef enum {
 	XDB_STMT_EXPLAIN		= 110,
 	XDB_STMT_SET,
 	XDB_STMT_AUTH,
+	XDB_STMT_REPAIR_DB,
+	XDB_STMT_FLUSH_DB,
+	XDB_STMT_DUMP_WAL,
 
 	// Backup Restore
 	XDB_STMT_BACKUP			= 200,
@@ -204,6 +206,7 @@ typedef struct {
 	char				*idx_name;
 	char				idxName[XDB_NAME_LEN+1];
 	bool				bUnique;
+	bool				bPrimary;
 	xdb_idx_type		idx_type;
 	int					xoid;
 	struct xdb_tblm_t	*pTblm;

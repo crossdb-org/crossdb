@@ -16,8 +16,10 @@ typedef struct xdb_tblm_t {
 	xdb_obj_t		obj;
 	uint16_t		fld_count;
 	uint16_t		vfld_count;
-	uint16_t		null_off;
+	uint16_t		null_bytes;
 	uint32_t		row_size;
+	uint32_t		vtype_off;
+	uint32_t		null_off;
 	uint32_t		blk_size;
 
 	bool			bMemory;
@@ -27,8 +29,11 @@ typedef struct xdb_tblm_t {
 
 	struct	xdb_field_t *pFields;
 	struct	xdb_field_t **ppVFields;
+	uint8_t			*pNullBytes;
 
 	xdb_objm_t		fld_objm;
+
+	xdb_objm_t		trig_objm[9];
 
 	uint32_t		meta_size;
 	xdb_meta_t		*pMeta;
@@ -68,6 +73,9 @@ xdb_find_field (xdb_tblm_t *pTblm, const char *fld_name, int len)
 {
 	return xdb_objm_get2 (&pTblm->fld_objm, fld_name, len);
 }
+
+XDB_STATIC int 
+xdb_repair_table (xdb_tblm_t *pTblm, uint32_t flags);
 
 XDB_STATIC int 
 xdb_close_table (xdb_tblm_t *pTblm);

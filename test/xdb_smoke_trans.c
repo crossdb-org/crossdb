@@ -195,7 +195,7 @@ UTEST_I(XdbTestRows, trans_commit_dup, 2)
 	CHECK_QUERY (pRes, 1, stu.age+=1);	
 
 	pRes = xdb_exec (pConn, "UPDATE student SET id=1001 WHERE id=1007");
-	CHECK_AFFECT (pRes, 0);
+	ASSERT_NE (pRes->errcode, XDB_OK);
 
 	pRes = xdb_exec (pConn, "DELETE FROM student WHERE id=1007");
 	CHECK_AFFECT (pRes, 1);
@@ -228,7 +228,7 @@ UTEST_I(XdbTestRows, trans_rollback_dup, 2)
 	CHECK_QUERY (pRes, 1, stu.age+=1);	
 
 	pRes = xdb_exec (pConn, "UPDATE student SET id=1001 WHERE id=1007");
-	CHECK_AFFECT (pRes, 0);
+	ASSERT_NE (pRes->errcode, XDB_OK);
 
 	pRes = xdb_exec (pConn, "DELETE FROM student WHERE id=1007");
 	CHECK_AFFECT (pRes, 1);

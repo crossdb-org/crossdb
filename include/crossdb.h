@@ -28,19 +28,19 @@ extern "C" {
 ******************************************************************************/
 
 typedef enum {
-	XDB_OK,
-	XDB_ERROR,
-	XDB_E_PARAM,
-	XDB_E_STMT,
-	XDB_E_NODB,
-	XDB_E_NOTFOUND,
-	XDB_E_EXISTS,
-	XDB_E_FULL,
-	XDB_E_CONSTRAINT,
-	XDB_E_AUTH,
-	XDB_E_MEMORY,
-	XDB_E_FILE,
-	XDB_E_SOCK,
+	XDB_OK			= 0,
+	XDB_ERROR		= 1,
+	XDB_E_PARAM		= 2,
+	XDB_E_STMT		= 3,
+	XDB_E_NODB		= 4,
+	XDB_E_NOTFOUND	= 5,
+	XDB_E_EXISTS	= 6,
+	XDB_E_FULL		= 7,
+	XDB_E_CONSTRAINT= 8,
+	XDB_E_AUTH		= 9,
+	XDB_E_MEMORY	= 10,
+	XDB_E_FILE		= 11,
+	XDB_E_SOCK		= 12,
 } xdb_errno_e;
 
 // return - value of xdb_errno_e
@@ -139,21 +139,28 @@ typedef struct {
 typedef struct {
 	uint16_t	col_len;		// colum total len
 	uint8_t		col_type;		// 2 xdb_type_t
-	uint8_t		col_rsvd;		// 3
+	uint8_t		col_dtid;		// 3
 	uint32_t	col_off;		// 4
-	uint16_t	col_rsvd2;		// 8
-	uint8_t		col_nmlen;		// 10
-	char		col_name[];		// 11
+	uint16_t	col_flags;		// 10
+	uint16_t	col_vid;		// 8
+	uint8_t		col_decimal;	// 12
+	uint8_t		col_charset;	// 12
+	uint8_t		col_nmlen;		// 13
+	char		col_name[];		// 14
 } xdb_col_t;
 
 typedef struct {
 	uint32_t	len_type;		// MSB 4bit are type
 	uint16_t	col_count;		// 4
-	uint16_t	null_off;		// 6
-	uint16_t	row_size;		// 8
-	uint16_t	vdat_off;		// 10
-	uint32_t	rsvd2;			// 12
-	uint64_t	col_list;		// 16 xdb_col_t list
+	uint16_t	col_vcount;		// 6
+	uint16_t	cols_off;		// 8
+	uint16_t	rsvd;			// 10
+	uint32_t	row_size;		// 12
+	uint32_t	null_off;		// 16
+	uint32_t	rsvd2;			// 20
+	uint64_t	col_list;		// 24 xdb_col_t list after is head(u16),next(u16)
+	uint16_t	tbl_nmlen;		// 32 list of db.tbl;db.tbl;db.tbl
+	char		tbl_name[];
 	//xdb_col_t	cols[];
 } xdb_meta_t;
 

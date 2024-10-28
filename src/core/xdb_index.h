@@ -21,12 +21,14 @@ typedef struct {
 	int (*idx_close) (struct xdb_idxm_t* pIdxm);
 	int (*idx_drop) (struct xdb_idxm_t* pIdxm);
 	int (*idx_sync) (struct xdb_idxm_t* pIdxm);
+	int (*idx_init) (struct xdb_idxm_t* pIdxm);
 } xdb_idx_ops;
 
 typedef struct xdb_idxm_t {
 	xdb_obj_t		obj;
 	struct xdb_tblm_t *pTblm;
 	xdb_idx_type	idx_type;
+	bool			bPrimary;
 	bool			bUnique;
 	int				fld_count;
 	xdb_field_t		*pFields[XDB_MAX_MATCH_COL];

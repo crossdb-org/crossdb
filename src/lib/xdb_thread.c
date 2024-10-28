@@ -78,12 +78,6 @@ xdb_rwlock_wrunlock(xdb_rwlock_t *rwl)
 
 typedef pthread_t xdb_thread_t;
 
-static inline int 
-xdb_create_thread (xdb_thread_t *pThread, const void *pAttr, void *(*start_routine) (void *), void *pArg)
-{
-	return pthread_create (pThread, pAttr, start_routine, pArg);
-}
-
 #else
 #include <windows.h>
 typedef DWORD pthread_t;
@@ -95,3 +89,9 @@ pthread_create(pthread_t *thread, const void *attr, void *(*start_routine) (void
 	return 0;
 }
 #endif
+
+static inline int 
+xdb_create_thread (xdb_thread_t *pThread, const void *pAttr, void *(*start_routine) (void *), void *pArg)
+{
+	return pthread_create (pThread, pAttr, start_routine, pArg);
+}

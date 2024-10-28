@@ -340,10 +340,18 @@ xdb_parse_dump (xdb_conn_t* pConn, xdb_token_t *pTkn)
 				return xdb_parse_dump_db (pConn, pTkn);
 			}
 			break;
+		case 'W':
+		case 'w':
+			if (!strcasecmp (pTkn->token, "WAL")) {
+				xdb_stmt_t *pStmt = &pConn->stmt_union.stmt;
+				pStmt->stmt_type = XDB_STMT_DUMP_WAL;
+				return pStmt;
+			}
+			break;
 		}
 	}
 
-	XDB_SETERR (XDB_E_STMT, "Unknown close object '%s'", pTkn->token);
+	XDB_SETERR (XDB_E_STMT, "Unknown dump object '%s'", pTkn->token);
 	return NULL;
 }
 
@@ -497,6 +505,10 @@ xdb_sql_parse (xdb_conn_t* pConn, char **ppSql, bool bPStmt)
 				pStmt = &pConn->stmt_union.stmt;
 				pStmt->stmt_type = XDB_STMT_ROLLBACK;
 				pStmt->pSql = NULL;
+			} else if (! strcasecmp (token.token, "REPAIR")) {
+				pStmt = &pConn->stmt_union.stmt;
+				pStmt->stmt_type = XDB_STMT_REPAIR_DB;
+				pStmt->pSql = NULL;
 			} else {
 				goto error;
 			}
@@ -514,6 +526,17 @@ xdb_sql_parse (xdb_conn_t* pConn, char **ppSql, bool bPStmt)
 		case 'o':
 			if (! strcasecmp (token.token, "OPEN")) {
 				pStmt = xdb_parse_open (pConn, &token);
+			} else {
+				goto error;
+			}
+			break;
+
+		case 'F':
+		case 'f':
+			if (! strcasecmp (token.token, "FLUSH")) {
+				pStmt = &pConn->stmt_union.stmt;
+				pStmt->stmt_type = XDB_STMT_FLUSH_DB;
+				pStmt->pSql = NULL;
 			} else {
 				goto error;
 			}

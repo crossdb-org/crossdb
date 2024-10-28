@@ -81,6 +81,9 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 
 	bool bColList = false;
 
+	uint8_t		null_bmp[(XDB_MAX_COLUMN+7)>>3];
+	memset (null_bmp, 0, XDB_ALIGN8(pTblm->null_bytes));
+
 	if (XDB_TOK_LP == type) {
 		bColList = true;
 		// col list
@@ -90,6 +93,7 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 				xdb_field_t *pField = xdb_find_field (pTblm, pTkn->token, pTkn->tk_len);
 				XDB_EXPECT (pField != NULL, XDB_E_STMT, "field '%s' doesn't exist", pTkn->token);
 				pStmt->pFldList[pStmt->fld_count++] = pField;
+				XDB_SET_NOTNULL (null_bmp, pField->fld_id);
 		 	} else {
 		 		break;
 		 	}
@@ -145,6 +149,8 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 
 		// TBD copy from default?
 		memset (pRow, 0, pTblm->row_size);
+		uint8_t	*pNull = pRow + pTblm->null_off;
+		memcpy (pNull, null_bmp, pTblm->null_bytes);
 		if (pTblm->vfld_count > 0) {
 			memset (pRow + pTblm->row_size, 0, row_vlen);
 		}
@@ -164,61 +170,65 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 			XDB_EXPECT (++fld_seq <= pStmt->fld_count, XDB_E_STMT, "Too many values");
 
 			if (type <= XDB_TOK_NUM) {
-				switch (pField->fld_type) {
-				case XDB_TYPE_INT:
-					XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
-					*(int32_t*)(pRow+pField->fld_off) = atoi (pTkn->token);
-					//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
-					break;
-				case XDB_TYPE_BIGINT:
-					XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
-					*(int64_t*)(pRow+pField->fld_off) = atoll (pTkn->token);
-					//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
-					break;
-				case XDB_TYPE_TINYINT:
-					XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
-					*(int8_t*)(pRow+pField->fld_off) = atoi (pTkn->token);
-					//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
-					break;
-				case XDB_TYPE_SMALLINT:
-					XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
-					*(int16_t*)(pRow+pField->fld_off) = atoi (pTkn->token);
-					//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
-					break;
-				case XDB_TYPE_FLOAT:
-					XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
-					*(float*)(pRow+pField->fld_off) = atof (pTkn->token);
-					//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
-					break;
-				case XDB_TYPE_DOUBLE:
-					XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
-					*(double*)(pRow+pField->fld_off) = atof (pTkn->token);
-					//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
-					break;
-				case XDB_TYPE_CHAR:
-					XDB_EXPECT ((XDB_TOK_STR == type) && (pTkn->tk_len <= pField->fld_len), XDB_E_STMT, "Expect string <= %d", pField->fld_len);
-					*(uint16_t*)(pRow+pField->fld_off-2) = pTkn->tk_len;
-					memcpy (pRow+pField->fld_off, pTkn->token, pTkn->tk_len+1);
-					//xdb_dbgprint ("%s %s\n", pField->fld_name, pTkn->token);
-					break;
-				case XDB_TYPE_VCHAR:
-					XDB_EXPECT ((XDB_TOK_STR == type) && (pTkn->tk_len <= pField->fld_len), XDB_E_STMT, "Expect string <= %d", pField->fld_len);
-					pStr = &pVStr[pField->fld_vid];
-					pStr->len = pTkn->tk_len;
-					pStr->str = pTkn->token;
-					break;
-				case XDB_TYPE_BINARY:
-					XDB_EXPECT (((XDB_TOK_STR == type) || (XDB_TOK_HEX == type)) && (pTkn->tk_len <= pField->fld_len), XDB_E_STMT, "Expect binary <= %d", pField->fld_len);
-					*(uint16_t*)(pRow+pField->fld_off-2) = pTkn->tk_len;
-					memcpy (pRow+pField->fld_off, pTkn->token, pTkn->tk_len+1);
-					//xdb_dbgprint ("%s %s\n", pField->fld_name, pTkn->token);
-					break;
-				case XDB_TYPE_VBINARY:
-					XDB_EXPECT (((XDB_TOK_STR == type) || (XDB_TOK_HEX == type)) && (pTkn->tk_len <= pField->fld_len), XDB_E_STMT, "Expect binary <= %d", pField->fld_len);
-					pStr = &pVStr[pField->fld_vid];
-					pStr->len = pTkn->tk_len;
-					pStr->str = pTkn->token;
-					break;
+				if ((xdb_unlikely (XDB_TOK_ID == type) && !strcasecmp(pTkn->token, "NULL"))) {
+					XDB_SET_NULL (pNull, pField->fld_id);
+				} else {
+					switch (pField->fld_type) {
+					case XDB_TYPE_INT:
+						XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
+						*(int32_t*)(pRow+pField->fld_off) = atoi (pTkn->token);
+						//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
+						break;
+					case XDB_TYPE_BIGINT:
+						XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
+						*(int64_t*)(pRow+pField->fld_off) = atoll (pTkn->token);
+						//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
+						break;
+					case XDB_TYPE_TINYINT:
+						XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
+						*(int8_t*)(pRow+pField->fld_off) = atoi (pTkn->token);
+						//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
+						break;
+					case XDB_TYPE_SMALLINT:
+						XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
+						*(int16_t*)(pRow+pField->fld_off) = atoi (pTkn->token);
+						//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
+						break;
+					case XDB_TYPE_FLOAT:
+						XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
+						*(float*)(pRow+pField->fld_off) = atof (pTkn->token);
+						//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
+						break;
+					case XDB_TYPE_DOUBLE:
+						XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
+						*(double*)(pRow+pField->fld_off) = atof (pTkn->token);
+						//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
+						break;
+					case XDB_TYPE_CHAR:
+						XDB_EXPECT ((XDB_TOK_STR == type) && (pTkn->tk_len <= pField->fld_len), XDB_E_STMT, "Expect string <= %d", pField->fld_len);
+						*(uint16_t*)(pRow+pField->fld_off-2) = pTkn->tk_len;
+						memcpy (pRow+pField->fld_off, pTkn->token, pTkn->tk_len+1);
+						//xdb_dbgprint ("%s %s\n", pField->fld_name, pTkn->token);
+						break;
+					case XDB_TYPE_VCHAR:
+						XDB_EXPECT ((XDB_TOK_STR == type) && (pTkn->tk_len <= pField->fld_len), XDB_E_STMT, "Expect string <= %d", pField->fld_len);
+						pStr = &pVStr[pField->fld_vid];
+						pStr->len = pTkn->tk_len;
+						pStr->str = pTkn->token;
+						break;
+					case XDB_TYPE_BINARY:
+						XDB_EXPECT (((XDB_TOK_STR == type) || (XDB_TOK_HEX == type)) && (pTkn->tk_len <= pField->fld_len), XDB_E_STMT, "Expect binary <= %d", pField->fld_len);
+						*(uint16_t*)(pRow+pField->fld_off-2) = pTkn->tk_len;
+						memcpy (pRow+pField->fld_off, pTkn->token, pTkn->tk_len+1);
+						//xdb_dbgprint ("%s %s\n", pField->fld_name, pTkn->token);
+						break;
+					case XDB_TYPE_VBINARY:
+						XDB_EXPECT (((XDB_TOK_STR == type) || (XDB_TOK_HEX == type)) && (pTkn->tk_len <= pField->fld_len), XDB_E_STMT, "Expect binary <= %d", pField->fld_len);
+						pStr = &pVStr[pField->fld_vid];
+						pStr->len = pTkn->tk_len;
+						pStr->str = pTkn->token;
+						break;
+					}
 				}
 			} else if (XDB_TOK_QM == type) {
 				pStmt->pBindRow[pStmt->bind_count] = pRow;
@@ -228,6 +238,12 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 			}
 			type = xdb_next_token (pTkn);
 		} while (XDB_TOK_COMMA == type);
+
+		int null_u64 = XDB_ALIGN8(pTblm->null_bytes) >> 3;
+		for (int i = 0; i < null_u64; ++i) {
+			uint64_t nullL = ((uint64_t*)pNull)[i], nullR = ((uint64_t*)pTblm->pNullBytes)[i];
+			XDB_EXPECT ((nullL&nullR) == nullR, XDB_E_STMT, "Expect NOT NULL fields with valid value");
+		}
 
 		XDB_EXPECT (XDB_TOK_RP == type, XDB_E_STMT, "Miss )");
 
@@ -612,7 +628,7 @@ xdb_parse_select_cols (xdb_conn_t *pConn, xdb_stmt_select_t *pStmt, int meta_siz
 {
 	xdb_tblm_t		*pTblm = pStmt->pTblm;
 
-	meta_size += sizeof (xdb_col_t) * pStmt->col_count;
+	meta_size += sizeof (xdb_col_t) * pStmt->col_count + pTblm->pMeta->tbl_nmlen + 1;
 	meta_size = XDB_ALIGN8 (meta_size);
 	if (meta_size + pStmt->col_count * 8 <= sizeof (pStmt->set_flds)) {
 		pStmt->pMeta = (void*)pStmt->set_flds;
@@ -624,8 +640,10 @@ xdb_parse_select_cols (xdb_conn_t *pConn, xdb_stmt_select_t *pStmt, int meta_siz
 	pStmt->pMeta->col_count = pStmt->col_count;
 	pStmt->pMeta->row_size = pTblm->pMeta->row_size;
 	pStmt->pMeta->null_off = pTblm->pMeta->null_off;
+	pStmt->pMeta->cols_off	= pTblm->pMeta->cols_off;
+	memcpy (&pStmt->pMeta->tbl_nmlen, &pTblm->pMeta->tbl_nmlen, pTblm->pMeta->tbl_nmlen+2);
 
-	xdb_col_t *pCol = (xdb_col_t*)(pStmt->pMeta + 1);
+	xdb_col_t *pCol = (void*)pStmt->pMeta + pStmt->pMeta->cols_off;
 	uint64_t *pColList = (void*)pStmt->pMeta + meta_size;
 	pStmt->pMeta->col_list = (uintptr_t)pColList;
 	if (xdb_likely (0 == pStmt->agg_count + pStmt->exp_count)) {
@@ -645,7 +663,7 @@ xdb_parse_select_cols (xdb_conn_t *pConn, xdb_stmt_select_t *pStmt, int meta_siz
 			xdb_field_t *pField = xdb_find_field (pTblmRef, pFld->str, pFld->len);
 			XDB_EXPECT (pField != NULL, XDB_E_STMT, "field '%s' doesn't exist", pFld->str);
 			xdb_col_t		*pColTbl = ((xdb_col_t**)pTblmRef->pMeta->col_list)[pField->fld_id];
-			
+
 			*pCol = *pColTbl;
 			if (NULL == pName->str) {
 				pName = pFld;
@@ -655,6 +673,7 @@ xdb_parse_select_cols (xdb_conn_t *pConn, xdb_stmt_select_t *pStmt, int meta_siz
 			}
 			memcpy (pCol->col_name, pName->str, pName->len + 1);
 			pColList[i] = (uintptr_t)pCol;
+			//printf ("%p[%d]=%p\n", pColList, i, pCol);
 			pCol = (void*)pCol + pCol->col_len;
 		}
 	} else {
@@ -768,8 +787,9 @@ xdb_parse_select_cols (xdb_conn_t *pConn, xdb_stmt_select_t *pStmt, int meta_siz
 			pCol = (void*)pCol + pCol->col_len;
 		}
 
+		pStmt->pMeta->null_off = offset;
+		offset = XDB_ALIGN4(offset + ((pStmt->col_count+7)>>3) + 2);
 		pStmt->pMeta->row_size = offset;
-
 	}
 
 	pStmt->pMeta->len_type = meta_size | (XDB_RET_META<<28);
@@ -1016,8 +1036,10 @@ xdb_parse_select (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 //xdb_dbgprint ("col %d row size %d meta len %d colptr %p %p %d\n", pStmt->col_count, row_size, meta_size, pColList, pCol, (int)((void*)pCol-(void*)pStmt->pMeta));
 			pStmt->pMeta->len_type = meta_size | (XDB_RET_META<<28);
 			pStmt->pMeta->col_count = pStmt->col_count;
+			pStmt->pMeta->null_off = row_size;
+			row_size += ((pStmt->pMeta->col_count+7)>>3) + 2;
+			row_size = XDB_ALIGN4(row_size);
 			pStmt->pMeta->row_size = row_size;
-			pStmt->pMeta->null_off = 0;
 			pStmt->pMeta->col_list = (uintptr_t)pColList;
 		}
 	} else {

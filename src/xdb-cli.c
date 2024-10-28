@@ -9,6 +9,7 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/.
 ******************************************************************************/
 
+#define XDB_CLI
 #include "crossdb.c"
 
 int main (int argc, char **argv)

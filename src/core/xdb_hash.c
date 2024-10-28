@@ -174,14 +174,14 @@ xdb_hash_add (xdb_conn_t *pConn, xdb_idxm_t* pIdxm, xdb_rowid new_rid, void *pRo
 			void *pRowDb = XDB_IDPTR(pStgMgr, rid);
 			bool eq = xdb_row_isequal2 (pIdxm->pTblm, pRow, pRowDb, pIdxm->pFields, pIdxm->fld_count);
 			if (eq) {
-				if (pIdxm->bUnique && xdb_row_valid (pConn, pIdxm->pTblm, pRowDb, rid)) {
+				if (pIdxm->bUnique && pConn && xdb_row_valid (pConn, pIdxm->pTblm, pRowDb, rid)) {
 					goto error;
 				}
 				break;
 			}
 		}
 		if (rid) {
-			if (pIdxm->bUnique) {
+			if (pIdxm->bUnique && pConn) {
 				for (sid = pTopNode->sibling; sid > 0; sid = pSibNode->next) {
 					pSibNode = &pHashNode[sid];
 					void *pRowDb = XDB_IDPTR(pStgMgr, sid);
@@ -472,7 +472,7 @@ xdb_hash_create (xdb_idxm_t *pIdxm)
 	char path[XDB_PATH_LEN + 32];
 	xdb_sprintf (path, "%s/T%06d/I%02d.idx", pTblm->pDbm->db_path, XDB_OBJ_ID(pTblm), XDB_OBJ_ID(pIdxm));
 
-	xdb_stghdr_t stg_hdr = {.stg_magic = 0xE7FCFDFB, .blk_flags=1, .blk_size = sizeof(xdb_hashNode_t), 
+	xdb_stghdr_t stg_hdr = {.stg_magic = 0xE7FCFDFB, .blk_flags=XDB_STG_NOALLOC, .blk_size = sizeof(xdb_hashNode_t), 
 							.ctl_off = 0, .blk_off = XDB_OFFSET(xdb_hashHdr_t, hash_node)};
 	pIdxm->stg_mgr.pOps = pTblm->stg_mgr.pOps;
 	pIdxm->stg_mgr.pStgHdr	= &stg_hdr;
@@ -484,7 +484,7 @@ xdb_hash_create (xdb_idxm_t *pIdxm)
 	xdb_sprintf (path, "%s/T%06d/I%02d.hash", pTblm->pDbm->db_path, XDB_OBJ_ID(pTblm), XDB_OBJ_ID(pIdxm));
 
 	// don't manage, clear when expand
-	xdb_stghdr_t stg_hdr2 = {.stg_magic = 0xE7FCFDFB, .blk_flags=0x3, .blk_size = sizeof(xdb_rowid), 
+	xdb_stghdr_t stg_hdr2 = {.stg_magic = 0xE7FCFDFB, .blk_flags=XDB_STG_NOALLOC|XDB_STG_CLEAR, .blk_size = sizeof(xdb_rowid), 
 							.ctl_off = 0, .blk_off = XDB_OFFSET(xdb_hashSlot_t, hash_slot)};
 	pIdxm->stg_mgr2.pOps = pTblm->stg_mgr.pOps;
 	pIdxm->stg_mgr2.pStgHdr	= &stg_hdr2;
@@ -505,6 +505,18 @@ xdb_hash_create (xdb_idxm_t *pIdxm)
 }
 
 XDB_STATIC int 
+xdb_hash_init (xdb_idxm_t *pIdxm)
+{
+	pIdxm->pHashHdr->row_count	= 0;
+	pIdxm->pHashHdr->node_count	= 0;
+	pIdxm->pHashHdr->slot_count = 0;
+	pIdxm->pHashHdr->old_count	= 0;
+	pIdxm->pHashHdr->rehash_count = 0;
+	memset (pIdxm->pHashSlot, 0, sizeof(xdb_rowid) * XDB_STG_CAP(&pIdxm->stg_mgr2));
+	return XDB_OK;
+}
+
+XDB_STATIC int 
 xdb_hash_sync (xdb_idxm_t *pIdxm)
 {
 	return 0;
@@ -518,5 +530,6 @@ static xdb_idx_ops s_xdb_hash_ops = {
 	.idx_create = xdb_hash_create,
 	.idx_drop 	= xdb_hash_drop,
 	.idx_close 	= xdb_hash_close,
+	.idx_init	= xdb_hash_init,
 	.idx_sync	= xdb_hash_sync
 };

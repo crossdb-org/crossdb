@@ -18,6 +18,7 @@
 #include "core/xdb_common.h"
 #include "parser/xdb_stmt.h"
 #include "core/xdb_store.h"
+#include "core/xdb_wal.h"
 #include "core/xdb_db.h"
 #include "core/xdb_crud.h"
 #include "core/xdb_hash.h"
@@ -27,15 +28,14 @@
 #include "core/xdb_table.h"
 #include "core/xdb_index.h"
 #include "core/xdb_trans.h"
+#include "core/xdb_trigger.h"
 #if (XDB_ENABLE_SERVER == 1)
 #include "server/xdb_server.h"
 #endif
 #include "core/xdb_conn.h"
 #include "admin/xdb_shell.h"
 #include "admin/xdb_backup.h"
-#if (XDB_ENABLE_WAL == 1)
 #include "core/xdb_wal.h"
-#endif
 
 #include "parser/xdb_parser.c"
 #include "core/xdb_expr.c"
@@ -48,20 +48,24 @@
 #include "core/xdb_vdata.c"
 #include "core/xdb_table.c"
 #include "core/xdb_trans.c"
+#include "core/xdb_trigger.c"
 #include "core/xdb_conn.c"
 #if (XDB_ENABLE_SERVER == 1)
 #include "server/xdb_client.c"
 #include "server/xdb_server.c"
 #endif
 #include "core/xdb_sql.c"
-#if (XDB_ENABLE_WAL == 1)
 #include "core/xdb_wal.c"
-#endif
 #if (XDB_ENABLE_JNI == 1)
 #include "jni/xdb_jni.c"
 #endif
 #include "admin/xdb_shell.c"
 #include "admin/xdb_backup.c"
+
+static bool s_xdb_vdat[XDB_TYPE_MAX] = {
+	[XDB_TYPE_VBINARY  ] = true,
+	[XDB_TYPE_VCHAR    ] = true
+};
 
 const char* xdb_type2str(xdb_type_t tp) 
 {
@@ -99,7 +103,7 @@ static xdb_type_t s_xdb_prompt_type[] = {
 	[XDB_TYPE_VBINARY ]		= XDB_TYPE_VBINARY
 };
 
-static bool s_xdb_bInit = false;
+static volatile bool s_xdb_bInit = false;
 
 int 
 xdb_init ()
@@ -112,6 +116,8 @@ xdb_init ()
 	}
 	xdb_vdat_init ();
 	xdb_hex_init ();
+	xdb_bgtask_init ();
+	
 	return XDB_OK;
 }
 
@@ -120,6 +126,9 @@ xdb_exit ()
 {
 	// Close all opened DBs
 	s_xdb_bInit = false;
+	while (s_xdb_bg_run) {
+		xdb_yield ();
+	}
 	xdb_close_all_db (NULL);
 	xdb_sysdb_exit ();
 

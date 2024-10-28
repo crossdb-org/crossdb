@@ -77,22 +77,53 @@ typedef int	xdb_rowid;
 
 #define XDB_CONNCODE(pConn)		pConn->conn_res.errcode
 
+//#define XDB_LOG_FLAGS	(XDB_LOG_DB|XDB_LOG_TBL|XDB_LOG_WAL)
+#ifndef XDB_LOG_FLAGS
+#define XDB_LOG_FLAGS	0
+#endif
+
+#define XDB_LOG_DB		(1<<0)
+#define XDB_LOG_TBL		(1<<1)
+#define XDB_LOG_IDX		(1<<2)
+#define XDB_LOG_HASH	(1<<3)
+#define XDB_LOG_SQL		(1<<6)
+#define XDB_LOG_CRUD	(1<<7)
+#define XDB_LOG_STG		(1<<9)
+#define XDB_LOG_TRANS	(1<<10)
+#define XDB_LOG_WAL		(1<<11)
+
+#define XDB_IS_NOTNULL(pNull,bits)	(((uint8_t*)(pNull))[bits>>3] & (1<<(bits&7)))
+#define XDB_SET_NOTNULL(pNull,bits)	(((uint8_t*)(pNull))[bits>>3] |= (1<<(bits&7)))
+#define XDB_SET_NULL(pNull,bits)	(((uint8_t*)(pNull))[bits>>3] &= ~(1<<(bits&7)))
+
+static bool s_xdb_vdat[XDB_TYPE_MAX];
+
 
 /******************************************************************************
 	Types
 ******************************************************************************/
+
+typedef enum {
+	XDB_FLD_NOTNULL = 1<<0,
+	XDB_FLD_PRIKEY 	= 1<<1,
+	XDB_FLD_UNIKEY	= 1<<2,
+	XDB_FLD_MULKEY	= 1<<3,
+	XDB_FLD_BINARY 	= 1<<7,
+} xdb_fld_flag_e;
 
 typedef struct xdb_field_t {
 	xdb_obj_t		obj;
 	struct xdb_tblm_t	*pTblm;
 	uint8_t			fld_type;
 	uint8_t			sup_type;
-	uint8_t			fld_decmial;
+	uint16_t		fld_flags;
+	uint8_t			fld_decimal;
+	uint8_t			fld_charset;
 	uint16_t		fld_id;
 	uint16_t		fld_vid;
-	uint32_t		fld_off;	
+	uint32_t		fld_off;
 	int				fld_len;
-	uint16_t		fld_flags;
+	uint8_t			fld_idxnum;
 	int8_t			idx_fid[XDB_MAX_MATCH_COL];
 	uint64_t		idx_bmp;
 } xdb_field_t;
@@ -126,7 +157,7 @@ typedef struct {
 	//uint8_t		buf[xxx]; // if no lock, then cache result ?
 } xdb_rowset_t;
 
-static bool s_xdb_bInit;
+static volatile bool s_xdb_bInit;
 
 int 
 xdb_init ();

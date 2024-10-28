@@ -13,13 +13,12 @@ XDB_STATIC int
 xdb_parse_field (xdb_conn_t* pConn, xdb_token_t *pTkn, xdb_stmt_tbl_t *pStmt)
 {
 	xdb_field_t *pFld = &pStmt->stmt_flds[pStmt->fld_count];
-	pFld->fld_id = pStmt->fld_count++;
+	memset (pFld, 0, sizeof (*pFld));
 	memset (pFld->idx_fid, 0xFF, sizeof(pFld->idx_fid));
-
+	pFld->fld_id = pStmt->fld_count++;
 	pFld->obj.nm_len = pTkn->tk_len;
 	xdb_strcpy (pFld->obj.obj_name, pTkn->token);
 	XDB_OBJ_ID(pFld) = pFld->fld_id;
-	pFld->fld_len = 0;
 	pFld->fld_off = -1;
 
 	xdb_token_type type = xdb_next_token (pTkn);
@@ -30,17 +29,21 @@ xdb_parse_field (xdb_conn_t* pConn, xdb_token_t *pTkn, xdb_stmt_tbl_t *pStmt)
 	} else if (0 == strcasecmp (pTkn->token, "CHAR")) {
 		pFld->fld_type = XDB_TYPE_CHAR;
 		pFld->sup_type = XDB_TYPE_CHAR;
+		pFld->fld_len = 1;
 	} else if (0 == strcasecmp (pTkn->token, "VARCHAR")) {
 		pFld->fld_type = XDB_TYPE_VCHAR;
 		pFld->sup_type = XDB_TYPE_VCHAR;
 		pFld->fld_vid = pStmt->vfld_count++;
+		pFld->fld_len = 65535;
 	} else if (0 == strcasecmp (pTkn->token, "BINARY")) {
 		pFld->fld_type = XDB_TYPE_BINARY;
 		pFld->sup_type = XDB_TYPE_BINARY;
+		pFld->fld_len = 1;
 	} else if (0 == strcasecmp (pTkn->token, "VARBINARY")) {
 		pFld->fld_type = XDB_TYPE_VBINARY;
 		pFld->sup_type = XDB_TYPE_VBINARY;
 		pFld->fld_vid = pStmt->vfld_count++;
+		pFld->fld_len = 65535;
 	} else if (0 == strcasecmp (pTkn->token, "TINYINT")) {
 		pFld->fld_type = XDB_TYPE_TINYINT;
 		pFld->sup_type = XDB_TYPE_BIGINT;
@@ -68,6 +71,15 @@ xdb_parse_field (xdb_conn_t* pConn, xdb_token_t *pTkn, xdb_stmt_tbl_t *pStmt)
 		XDB_EXPECT (XDB_TOK_RP == type, XDB_E_STMT, "Miss )");
 		type = xdb_next_token (pTkn);
 	}
+	if ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "COLLATE")) {
+		type = xdb_next_token (pTkn);
+		if ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "BINARY")) {
+			pFld->fld_flags |= XDB_FLD_BINARY;
+		} else {
+			XDB_EXPECT ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "NOCASE"), XDB_E_STMT, "Expect COLLATE {BINARY | NOCASE}");
+		}
+		type = xdb_next_token (pTkn);
+	}
 
 	do {
 		if ((XDB_TOK_COMMA == type) || (XDB_TOK_RP == type)) {
@@ -86,11 +98,13 @@ xdb_parse_field (xdb_conn_t* pConn, xdb_token_t *pTkn, xdb_stmt_tbl_t *pStmt)
 				if (!strcasecmp (idx_type, "PRIMARY")) {
 					XDB_EXPECT ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "KEY"), XDB_E_STMT, "PRIMARY Miss KEY");
 					type = xdb_next_token (pTkn);
+					pFld->fld_flags |= XDB_FLD_NOTNULL;
 				}
 				XDB_EXPECT (pStmt->pkey_idx < 0, XDB_E_STMT, "Duplicate PRIMARY KEY");
 				pStmt->pkey_idx = pStmt->idx_count - 1;
 				pStmtIdx->idx_name = "PRIMARY";
 				pStmtIdx->bUnique = true;
+				pStmtIdx->bPrimary = true;
 			} else {
 				pStmtIdx->bUnique = true;
 				if ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "KEY")) {
@@ -104,6 +118,11 @@ xdb_parse_field (xdb_conn_t* pConn, xdb_token_t *pTkn, xdb_stmt_tbl_t *pStmt)
 			}
 			pStmtIdx->fld_count = 1;
 			pStmtIdx->idx_col[0] = XDB_OBJ_NAME(pFld);
+		} else if (0 == strcasecmp (pTkn->token, "NOT")) {
+			type = xdb_next_token (pTkn);
+			XDB_EXPECT ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "NULL"), XDB_E_STMT, "Expect NOT NULL");
+			pFld->fld_flags |= XDB_FLD_NOTNULL;
+			type = xdb_next_token (pTkn);
 		} else if (0 == strcasecmp (pTkn->token, "XOFFSET")) {
 			type = xdb_next_token (pTkn);
 			XDB_EXPECT (XDB_TOK_NUM == type, XDB_E_STMT, "Miss offset value");
@@ -193,6 +212,7 @@ xdb_parse_create_table (xdb_conn_t* pConn, xdb_token_t *pTkn)
 				pStmt->pkey_idx = pStmt->idx_count - 1;
 				pStmtIdx->idx_name = "PRIMARY";
 				pStmtIdx->bUnique = true;
+				pStmtIdx->bPrimary = true;
 				type = xdb_next_token (pTkn);
 			} else if (!strcasecmp (idx_type, "UNIQUE")) {
 				pStmtIdx->bUnique = true;

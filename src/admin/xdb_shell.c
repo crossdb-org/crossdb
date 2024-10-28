@@ -177,7 +177,7 @@ xdb_fprint_row_table (FILE *pFile, xdb_meta_t *pMeta, xdb_row_t *pRow, int *pCol
 			void *pVal = (void*)((uint64_t*)pRow[i]);
 			if (NULL == pVal) {
 				if (0 == n) {
-					str = "NULL";
+					plen = fprintf (pFile, "NULL");
 				}
 			} else {
 				switch (pCol[i]->col_type) {

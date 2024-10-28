@@ -215,7 +215,7 @@ xdb_stg_free (xdb_stgmgr_t *pStgMgr, xdb_rowid rowid, void *pRow)
 	
 	if (pStgHdr->ctl_off) {
 		// mark free
-		XDB_ROW_CTRL(pStgHdr,pNext) = 0;
+		XDB_ROW_CTRL(pStgHdr,pNext) = XDB_ROW_FREE;
 	}
 	*pNext = 0;
 	if (pStgHdr->blk_tail) {
@@ -265,7 +265,7 @@ xdb_stg_truncate (xdb_stgmgr_t *pStgMgr, xdb_rowid new_maxid)
 	pStgHdr->blk_cap = new_maxid;
 	pStgMgr->pBlkDat = (void*)pStgHdr + pStgHdr->blk_off;
 	pStgMgr->pBlkDat1 = pStgMgr->pBlkDat - pStgHdr->blk_size;
-	if ((newsize > oldsize) && (pStgHdr->blk_flags & 0x2)) {
+	if ((newsize > oldsize) && (pStgHdr->blk_flags & XDB_STG_CLEAR)) {
 		memset ((void*)pStgMgr->pStgHdr + oldsize, 0, newsize - oldsize);
 	}
 	return 0;
@@ -291,7 +291,7 @@ XDB_STATIC xdb_rowid
 xdb_stg_alloc (xdb_stgmgr_t *pStgMgr, void **ppRow)
 {
 	int rc;
-	if (pStgMgr->pStgHdr->blk_flags & 1) {
+	if (pStgMgr->pStgHdr->blk_flags & XDB_STG_NOALLOC) {
 		return -1;
 	}
 	xdb_stghdr_t	*pStgHdr = pStgMgr->pStgHdr;
@@ -325,8 +325,16 @@ xdb_stg_alloc (xdb_stgmgr_t *pStgMgr, void **ppRow)
 	return rid;
 }
 
+XDB_STATIC void 
+xdb_stg_init (xdb_stgmgr_t *pStgMgr)
+{
+	pStgMgr->pStgHdr->blk_head = 0;
+	pStgMgr->pStgHdr->blk_tail = 0;
+	pStgMgr->pStgHdr->blk_alloc = 0;
+}
+
 XDB_STATIC int 
-xdb_stg_open (xdb_stgmgr_t *pStgMgr, const char *file, void (*init_cb)(xdb_stgmgr_t *pStgMgr, void *pArg), void *pArg)
+xdb_stg_open (xdb_stgmgr_t *pStgMgr, const char *file, void (*init_cb)(xdb_stgmgr_t *pStgMgr, void *pArg, xdb_size fsize), void *pArg)
 {
 	xdb_stghdr_t	*pStgHdr = pStgMgr->pStgHdr;
 	xdb_size fsize = 0, size;
@@ -352,12 +360,12 @@ xdb_stg_open (xdb_stgmgr_t *pStgMgr, const char *file, void (*init_cb)(xdb_stgmg
 	if (0 == fsize) {
 		memset (pStgMgr->pStgHdr, 0, pStgHdr->blk_off);
 		memcpy (pStgMgr->pStgHdr, pStgHdr, sizeof(xdb_stghdr_t));
-		if (pStgHdr->blk_flags & 0x2) {
+		if (pStgHdr->blk_flags & XDB_STG_CLEAR) {
 			memset (pStgMgr->pBlkDat, 0, pStgHdr->blk_cap * pStgHdr->blk_size);
 		}
-		if (init_cb != NULL) {
-			init_cb (pStgMgr, pArg);
-		}
+	}
+	if (init_cb != NULL) {
+		init_cb (pStgMgr, pArg, fsize);
 	}
 
 	return XDB_OK;
@@ -396,6 +404,9 @@ xdb_stg_drop (xdb_stgmgr_t *pStgMgr, char *file)
 XDB_STATIC int 
 xdb_stg_sync (xdb_stgmgr_t *pStgMgr, xdb_size offset, xdb_size size, bool bAsync)
 {
+	if (NULL == pStgMgr->pStgHdr) {
+		return XDB_OK;
+	}
 	int rc = pStgMgr->pOps->store_sync (pStgMgr->stg_fd, size, (void*)pStgMgr->pStgHdr + offset, bAsync);	
 	if (rc < 0) {
 		return rc;

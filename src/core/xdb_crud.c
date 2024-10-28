@@ -9,20 +9,18 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/.
 ******************************************************************************/
 
-#define XDB_IS_NULL(pNull,bits)	(pNull[bits>>3] & (1<<(bits&7)))
-
 static inline xdb_rowid
-xdb_row_vdata_info (xdb_tblm_t *pTblm, void *pRow, uint8_t *pType)
+xdb_row_vdata_info (uint32_t row_size, void *pRow, uint8_t *pType)
 {
-	*pType = *(uint8_t*)(pRow + pTblm->row_size);
-	return *(xdb_rowid*)(pRow + pTblm->row_size + 1);
+	*pType = *(uint8_t*)(pRow + row_size - 1);
+	return *(xdb_rowid*)(pRow + row_size);
 }
 
 static inline void*
 xdb_row_vdata_get (xdb_tblm_t *pTblm, void *pRow)
 {
 	uint8_t type;
-	xdb_rowid vid = xdb_row_vdata_info (pTblm, pRow, &type);
+	xdb_rowid vid = xdb_row_vdata_info (pTblm->row_size, pRow, &type);
 	return vid ? xdb_vdata_get (pTblm->pVdatm, type, vid) : NULL;
 }
 
@@ -34,7 +32,7 @@ xdb_fld_vdata_get (xdb_field_t *pField, void *pRow)
 		return NULL;
 	}
 	uint8_t type;
-	xdb_rowid vid = xdb_row_vdata_info (pField->pTblm, pRow, &type);
+	xdb_rowid vid = xdb_row_vdata_info (pField->pTblm->row_size, pRow, &type);
 	if (xdb_unlikely (0 == vid)) {
 		return NULL;
 	}
@@ -46,8 +44,8 @@ static inline void*
 xdb_row_vdata_get2 (xdb_tblm_t *pTblm, void *pRow)
 {
 	uint8_t type;
-	xdb_rowid vid = xdb_row_vdata_info (pTblm, pRow, &type);
-	if (vid > 0) {
+	xdb_rowid vid = xdb_row_vdata_info (pTblm->row_size, pRow, &type);
+	if (XDB_VTYPE_OK(type)) {
 		xdb_vdata_expand (pTblm->pVdatm, type);
 		return xdb_vdata_get (pTblm->pVdatm, type, vid);
 	}
@@ -58,8 +56,8 @@ static inline void
 xdb_row_vdata_free (xdb_tblm_t *pTblm, void *pRow)
 {
 	uint8_t type;
-	xdb_rowid vid = xdb_row_vdata_info (pTblm, pRow, &type);
-	if (vid > 0) {
+	xdb_rowid vid = xdb_row_vdata_info (pTblm->row_size, pRow, &type);
+	if (XDB_VTYPE_OK(type)) {
 		xdb_vdata_free (pTblm->pVdatm, type, vid);
 	}
 }
@@ -74,7 +72,7 @@ static inline void xdb_get_rowptr (xdb_meta_t *pMeta, void *pRow, xdb_row_t *pRo
 	} else {
 		uint8_t *pNull = (uint8_t*)(pRow + pMeta->null_off);
 		for (int i = 0; i < pMeta->col_count; ++i) {
-			if (!XDB_IS_NULL(pNull,i)) {
+			if (XDB_IS_NOTNULL(pNull,i)) {
 				pRowPtr[i] = (uintptr_t)(pRow + pColBase[i]->col_off);
 			} else {
 				pRowPtr[i] = 0;
@@ -102,7 +100,7 @@ xdb_fetch_rows (xdb_res_t* pRes)
 			void		*pRow = pRowDat->rowdat;
 			if (xdb_likely (0 == pMeta->null_off)) {
 				for (int i = 0; i < pMeta->col_count; ++i, ++pRowFld) {
-					if (xdb_unlikely ((XDB_TYPE_VCHAR == pColBase[i]->col_type) || (XDB_TYPE_VBINARY == pColBase[i]->col_type))) {
+					if (xdb_unlikely (s_xdb_vdat[pColBase[i]->col_type])) {
 						int voff = *(int*)(pRow + pColBase[i]->col_off);
 						if (voff) {
 							*pRowFld =  (uintptr_t) (pRow + pMeta->row_size + voff);
@@ -116,8 +114,8 @@ xdb_fetch_rows (xdb_res_t* pRes)
 			} else {
 				uint8_t *pNull = (uint8_t*)(pRow + pMeta->null_off);
 				for (int i = 0; i < pMeta->col_count; ++i, ++pRowFld) {
-					if (!XDB_IS_NULL(pNull,i)) {
-						if (xdb_unlikely ((XDB_TYPE_VCHAR == pColBase[i]->col_type) || (XDB_TYPE_VBINARY == pColBase[i]->col_type))) {
+					if (XDB_IS_NOTNULL(pNull,i)) {
+						if (xdb_unlikely (s_xdb_vdat[pColBase[i]->col_type])) {
 							int voff = *(int*)(pRow + pColBase[i]->col_off);
 							if (voff) {
 								*pRowFld =	(uintptr_t) (pRow + pMeta->row_size + voff);
@@ -638,6 +636,10 @@ xdb_row_and_match (xdb_tblm_t *pTblm, void *pRow, xdb_filter_t **pFilters, int c
 XDB_STATIC void 
 xdb_row_getval (void *pRow, xdb_value_t *pVal)
 {
+	if (!(pVal->pField->fld_flags & XDB_FLD_NOTNULL) && !XDB_IS_NOTNULL(pRow+pVal->pField->pTblm->null_off, pVal->pField->fld_id)) {
+		pVal->val_type = pVal->sup_type = XDB_TYPE_NULL;
+		return;
+	}
 	void *pFldPtr = pRow + pVal->pField->fld_off;
 	void *pVdat;
 	switch (pVal->pField->fld_type) {
@@ -1412,6 +1414,54 @@ int xdb_print_row (uint64_t meta, xdb_row_t *pRow, int format)
 	return xdb_fprint_row (stdout, meta, pRow, format);
 }
 
+int xdb_fprint_dbrow (FILE *pFile, xdb_tblm_t *pTblm, void *pDbRow, int format)
+{
+	for (int i = 0; i < pTblm->fld_count; ++i) {
+		xdb_field_t *pField = &pTblm->pFields[i];
+		void *pVal = pDbRow + pField->fld_off;
+		if (NULL == pVal) {
+			fprintf (pFile, "%s=NULL ", XDB_OBJ_NAME(pField));
+			continue;
+		}
+		switch (pField->fld_type) {
+		case XDB_TYPE_INT:
+			fprintf (pFile, "%s=%d ", XDB_OBJ_NAME(pField), *(int32_t*)pVal);
+			break;
+		case XDB_TYPE_TINYINT:
+			fprintf (pFile, "%s=%d ", XDB_OBJ_NAME(pField), *(int8_t*)pVal);
+			break;
+		case XDB_TYPE_SMALLINT:
+			fprintf (pFile, "%s=%d ", XDB_OBJ_NAME(pField), *(int16_t*)pVal);
+			break;
+		case XDB_TYPE_BIGINT:
+			fprintf (pFile, "%s=%"PRIi64" ", XDB_OBJ_NAME(pField), *(int64_t*)pVal);
+			break;
+		case XDB_TYPE_FLOAT:
+			fprintf (pFile, "%s=%f ", XDB_OBJ_NAME(pField), *(float*)pVal);
+			break;
+		case XDB_TYPE_DOUBLE:
+			fprintf (pFile, "%s=%f ", XDB_OBJ_NAME(pField), *(double*)pVal);
+			break;
+		case XDB_TYPE_VCHAR:
+			pVal = xdb_fld_vdata_get (pField, pDbRow);
+			// fall through
+		case XDB_TYPE_CHAR:
+			fprintf (pFile, "%s='%s' ", XDB_OBJ_NAME(pField), (char*)pVal);
+			break;
+		case XDB_TYPE_VBINARY:
+			pVal = xdb_fld_vdata_get (pField, pDbRow);
+		case XDB_TYPE_BINARY:
+			fprintf (pFile, "%s=X' ", XDB_OBJ_NAME(pField));
+			for (int h = 0; h < *(uint16_t*)(pVal-2); ++h) {
+				fprintf (pFile, "%c%c", s_xdb_hex_2_str[((uint8_t*)pVal)[h]][0], s_xdb_hex_2_str[((uint8_t*)pVal)[h]][1]);
+			}
+			fprintf (pFile, "' ");
+			break;
+		}
+	}
+	return 0;
+}
+
 XDB_STATIC void 
 xdb_rowset_init (xdb_rowset_t *pRowSet)
 {
@@ -1805,8 +1855,11 @@ xdb_sql_filter (xdb_stmt_select_t *pStmt)
 		pRowSet->count = 1;
 		pRowSet->pRowList[0].ptr = pStmt->agg_buf;
 		pRow = pRowSet->pRowList[0].ptr;
+		*((uint8_t*)pRow + pStmt->pMeta->row_size - 1) = XDB_VTYPE_NONE;
+		uint8_t *pNull = pRow + pStmt->pMeta->null_off;
 
 		for (int i = 0; i < pStmt->pMeta->col_count; ++i) {
+			XDB_SET_NOTNULL (pNull, i);
 			pField = pStmt->sel_cols[i].exp.op_val[1].pField;
 			switch (pStmt->sel_cols[i].exp.exp_op) {
 				case XDB_TOK_AVG:
@@ -1904,6 +1957,18 @@ error:
 		pCurDat = (void*)pQueryRes + offset;	\
 	}
 
+#define XDB_RES_ALLOC2()	\
+	if (pQueryRes->buf_free < pCurDat->len_type) {	\
+		pRes = xdb_queryres_realloc (pConn, pQueryRes->buf_len<<1);	\
+		if (NULL != pRes) {	\
+			goto exit;	\
+		}	\
+		pQueryRes = pConn->pQueryRes;	\
+		pRes = &pQueryRes->res;	\
+		pCurDat = (void*)pQueryRes + offset;	\
+		pNull = (void*)pCurDat + pStmt->pMeta->null_off;	\
+	}
+
 XDB_STATIC xdb_res_t* 
 xdb_sql_select (xdb_stmt_select_t *pStmt)
 {
@@ -1966,12 +2031,13 @@ xdb_sql_select (xdb_stmt_select_t *pStmt)
 			if (xdb_likely (1 == pStmt->reftbl_count)) {
 				void *pPtr = pRowSet->pRowList[id].ptr;
 				memcpy (pCurDat->rowdat, pPtr, pStmt->pTblm->row_size);
+				*((uint8_t*)pCurDat->rowdat + pStmt->pTblm->vtype_off) = XDB_VTYPE_DATA;
 				if (pStmt->pTblm->pVdatm != NULL) {
 					uint8_t 	type; 
-					xdb_rowid 	vid = xdb_row_vdata_info (pStmt->pTblm, pPtr, &type);
-					if (vid > 0) {
+					xdb_rowid 	vid = xdb_row_vdata_info (pStmt->pMeta->row_size, pPtr, &type);
+					if (XDB_VTYPE_OK(type)) {
 						void *pVdat = xdb_vdata_get (pStmt->pTblm->pVdatm, type, vid);
-						int vlen = ((xdb_vdathdr_t*)pVdat)->vdat_len;
+						int vlen = *(uint32_t*)pVdat & XDB_VDAT_LENMASK;
 						pCurDat->len_type += vlen;
 						XDB_RES_ALLOC();
 						memcpy (pCurDat->rowdat + pStmt->pTblm->row_size, pVdat + 4, vlen);
@@ -1993,21 +2059,28 @@ xdb_sql_select (xdb_stmt_select_t *pStmt)
 		} else {
 			void *pRow = pRowSet->pRowList[id].ptr;
 			int voff = 0, vlen;
+			uint8_t *pNull = (void*)pCurDat->rowdat + pStmt->pMeta->null_off;
 			for (int i = 0 ; i < pStmt->pMeta->col_count; ++i) {
 				xdb_col_t	*pCol = ((xdb_col_t**)pStmt->pMeta->col_list)[i];
 				xdb_exp_t 		*pExp = &pStmt->sel_cols[i].exp;
 				xdb_value_t 	*pVal;
-				xdb_value_t 	res_val; 				
+				xdb_value_t 	res_val;
 				pVal = xdb_exp_eval (&res_val, pExp, pRow);
+				if (XDB_TYPE_NULL == pVal->val_type) {
+					XDB_SET_NULL (pNull, i);
+					continue;
+				}
+				XDB_SET_NOTNULL (pNull, i);
 				xdb_type_t sup_type = s_xdb_prompt_type[pCol->col_type];
 				if (xdb_unlikely (sup_type != pVal->sup_type)) {
 					xdb_convert_val (pVal, sup_type);
 				}
-				if (xdb_unlikely ((XDB_TYPE_VCHAR == pCol->col_type) || (XDB_TYPE_VBINARY == pCol->col_type))) {
+				*((uint8_t*)pCurDat->rowdat + row_size - 1) = XDB_VTYPE_DATA;
+				if (xdb_unlikely (s_xdb_vdat[pCol->col_type])) {
 					*(int*)((void*)pCurDat->rowdat + pCol->col_off) = voff + 2;
 					vlen = XDB_ALIGN4 (pVal->str.len + 3);
 					pCurDat->len_type += vlen;
-					XDB_RES_ALLOC();
+					XDB_RES_ALLOC2();
 					void *pVdat = (void*)pCurDat->rowdat + row_size + voff;
 					*(uint16_t*)pVdat = pVal->str.len;
 					memcpy (pVdat + 2, pVal->str.str, pVal->str.len + 1);
@@ -2042,14 +2115,31 @@ exit:
 	return pRes;
 }
 
+XDB_STATIC void
+__xdb_fetch_row (xdb_tblm_t *pTblm, void *pRow, uint64_t pRowFld[])
+{
+	for (int i = 0; i < pTblm->fld_count; ++i, ++pRowFld) {
+		if (xdb_unlikely (s_xdb_vdat[pTblm->pFields[i].fld_type])) {
+			int voff = *(int*)(pRow + pTblm->pFields[i].fld_off);
+			if (voff) {
+				*pRowFld =	(uintptr_t) (pRow + pTblm->row_size + voff);
+			} else {
+				*pRowFld = 0;
+			}
+		} else {
+			*pRowFld =	(uintptr_t)(pRow + pTblm->pFields[i].fld_off);
+		}
+	}
+}
+
 XDB_STATIC xdb_rowid 
-xdb_row_insert (xdb_conn_t *pConn, xdb_tblm_t *pTblm, void *pRow)
+xdb_row_insert (xdb_conn_t *pConn, xdb_tblm_t *pTblm, void *pRow, int bUpdOrRol)
 {
 	xdb_stgmgr_t	*pStgMgr = &pTblm->stg_mgr;
 
 	void *pRowDb;
 	xdb_rowid vid = 0;
-	uint8_t type = 0;
+	uint8_t vtype = XDB_VTYPE_NONE;
 	xdb_rowid rid = xdb_stg_alloc (pStgMgr, &pRowDb);
 	if (xdb_unlikely (rid <= 0)) {
 		xdb_dbglog ("No space");
@@ -2058,6 +2148,17 @@ xdb_row_insert (xdb_conn_t *pConn, xdb_tblm_t *pTblm, void *pRow)
 	//xdb_dbglog ("alloc %d max%d\n", rid, XDB_STG_CAP(pStgMgr));
 
 	memcpy (pRowDb, pRow, pTblm->row_size);
+
+	uint64_t	flds_ptr[XDB_MAX_COLUMN];
+	int			bef_trig_cnt = XDB_OBJM_COUNT(pTblm->trig_objm[XDB_TRIG_BEF_INS]);
+	int			aft_trig_cnt = XDB_OBJM_COUNT(pTblm->trig_objm[XDB_TRIG_AFT_INS]);
+	int			trig_cnt = bef_trig_cnt + aft_trig_cnt;
+	if (xdb_unlikely (trig_cnt && !bUpdOrRol)) {
+		__xdb_fetch_row (pTblm, pRow, flds_ptr);
+		if (bef_trig_cnt) {
+			xdb_call_trigger (pConn, pTblm, XDB_TRIG_BEF_INS, flds_ptr, flds_ptr);
+		}
+	}
 
 	if (pTblm->pVdatm != NULL) {
 		int vlen = 0;
@@ -2071,11 +2172,8 @@ xdb_row_insert (xdb_conn_t *pConn, xdb_tblm_t *pTblm, void *pRow)
 		}
 		void *pVdat;
 		if (vlen > 0) {
-			vid = xdb_vdata_alloc (pConn, pTblm->pVdatm, &type, &pVdat, vlen+4);
-			*(uint8_t*)(pRowDb + pTblm->row_size) = type;
-			xdb_vdathdr_t *pVdatHdr = pVdat;
-			pVdatHdr->ref_cnt = 1;
-			pVdatHdr->vdat_len = vlen;
+			vid = xdb_vdata_alloc (pTblm->pVdatm, &vtype, &pVdat, vlen+4);
+			*(uint32_t*)pVdat = (0x8 << XDB_VDAT_LENBITS) | vlen; // b1000
 			pVdat += 4; // skip tot vdat len
 			int offset = 0;
 			for (int i = 0; i < pTblm->vfld_count; ++i) {
@@ -2093,47 +2191,71 @@ xdb_row_insert (xdb_conn_t *pConn, xdb_tblm_t *pTblm, void *pRow)
 				offset += vlen;
 			}
 		}
-		*(xdb_rowid*)(pRowDb + pTblm->row_size + 1) = vid;
+		*(xdb_rowid*)(pRowDb + pTblm->row_size) = vid;
 	}
+
+	*(uint8_t*)(pRowDb + pTblm->vtype_off) = vtype;
 
 	if (xdb_likely (pTblm->bMemory && pConn->bAutoTrans)) {
 		// Fast insert
 		// alloc set dirty ^ XDB_ROW_TRANS => XDB_ROW_COMMIT
-		*((uint8_t*)pRowDb+pStgMgr->pStgHdr->ctl_off) ^= XDB_ROW_TRANS;
+		XDB_ROW_CTRL (pStgMgr->pStgHdr, pRowDb) &= XDB_ROW_MASK;
+		XDB_ROW_CTRL (pStgMgr->pStgHdr, pRowDb) |= XDB_ROW_COMMIT;
 		int rc = xdb_idx_addRow (pConn, pTblm, rid, pRowDb);
 		if (xdb_unlikely (XDB_OK != rc)) {
 			xdb_stg_free (pStgMgr, rid, pRowDb);
 			rid = -1;
 		}
 	} else {
-		*((uint8_t*)pRowDb+pStgMgr->pStgHdr->ctl_off) |= XDB_ROW_TRANS;
+		XDB_ROW_CTRL (pStgMgr->pStgHdr, pRowDb) |= XDB_ROW_TRANS;
 
 		int rc = xdb_idx_addRow (pConn, pTblm, rid, pRowDb);
 		if (xdb_likely (XDB_OK == rc)) {
 			xdb_trans_addrow (pConn, pTblm, rid, true);
 		} else {
 			xdb_stg_free (pStgMgr, rid, pRowDb);
-			if (vid > 0) {
-				xdb_vdata_free (pTblm->pVdatm, type, vid);
+			if (XDB_VTYPE_OK(vtype)) {
+				xdb_vdata_free (pTblm->pVdatm, vtype, vid);
 			}
 			rid = -1;
 		}
 	}
 
+	if (xdb_unlikely (aft_trig_cnt && !bUpdOrRol)) {
+		xdb_call_trigger (pConn, pTblm, XDB_TRIG_AFT_INS, flds_ptr, flds_ptr);
+	}
+
 	return rid;
 }
 
+static inline void 
+__xdb_row_delete (xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow)
+{
+	xdb_idx_remRow (pTblm, rid, pRow);
+	if (pTblm->vfld_count > 0) {
+		xdb_row_vdata_free (pTblm, pRow);
+	}
+	xdb_stg_free (&pTblm->stg_mgr, rid, pRow);
+}
+
 XDB_STATIC int 
-xdb_row_delete (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow)
+xdb_row_delete (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow, int bUpdOrRol)
 {
 	uint8_t ctrl = XDB_ROW_CTRL (pTblm->stg_mgr.pStgHdr, pRow) & XDB_ROW_MASK;
 
-	if (xdb_likely ((pTblm->bMemory && pConn->bAutoTrans) || (XDB_ROW_TRANS == ctrl))) {
-		xdb_idx_remRow (pTblm, rid, pRow);
-		if (pTblm->vfld_count > 0) {
-			xdb_row_vdata_free (pTblm, pRow);
+	uint64_t	flds_ptr[XDB_MAX_COLUMN];
+	int			bef_trig_cnt = XDB_OBJM_COUNT(pTblm->trig_objm[XDB_TRIG_BEF_DEL]);
+	int			aft_trig_cnt = XDB_OBJM_COUNT(pTblm->trig_objm[XDB_TRIG_AFT_DEL]);
+	int			trig_cnt = bef_trig_cnt + aft_trig_cnt;
+	if (xdb_unlikely (trig_cnt && !bUpdOrRol)) {
+		__xdb_fetch_row (pTblm, pRow, flds_ptr);
+		if (bef_trig_cnt) {
+			xdb_call_trigger (pConn, pTblm, XDB_TRIG_BEF_DEL, flds_ptr, flds_ptr);
 		}
-		xdb_stg_free (&pTblm->stg_mgr, rid, pRow);
+	}
+
+	if (xdb_likely ((pTblm->bMemory && pConn->bAutoTrans) || (XDB_ROW_TRANS == ctrl))) {
+		__xdb_row_delete (pTblm, rid, pRow);
 		if (xdb_unlikely (XDB_ROW_TRANS == ctrl)) {
 			// del from new row list
 			xdb_trans_delrow (pConn, pTblm, rid);
@@ -2141,6 +2263,10 @@ xdb_row_delete (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow)
 	} else {
 		// add to dlt row list
 		xdb_trans_addrow (pConn, pTblm, rid, false);
+	}
+
+	if (xdb_unlikely (aft_trig_cnt && !bUpdOrRol)) {
+		xdb_call_trigger (pConn, pTblm, XDB_TRIG_AFT_DEL, flds_ptr, flds_ptr);
 	}
 
 	return 0;
@@ -2181,10 +2307,30 @@ xdb_row_update (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow,
 		bCopy = true;
 	}
 
+	uint64_t	old_flds_ptr[XDB_MAX_COLUMN];
+	uint64_t	new_flds_ptr[XDB_MAX_COLUMN];
+	uint64_t	upd_flds_ptr[XDB_MAX_COLUMN];
+	int			bef_trig_cnt = XDB_OBJM_COUNT(pTblm->trig_objm[XDB_TRIG_BEF_UPD]);
+	int			aft_trig_cnt = XDB_OBJM_COUNT(pTblm->trig_objm[XDB_TRIG_AFT_UPD]);
+	int			trig_cnt = bef_trig_cnt + aft_trig_cnt;
+
+	if (xdb_unlikely (trig_cnt)) {
+		__xdb_fetch_row (pTblm, pRow, old_flds_ptr);
+		__xdb_fetch_row (pTblm, pUpdRow, new_flds_ptr);
+		memcpy (upd_flds_ptr, old_flds_ptr, pTblm->fld_count * 8);
+	}
+
 	for (int i = 0; i < set_count; ++i) {
 		xdb_field_t 	*pField = set_flds[i].pField;
 		idx_bmp |= pField->idx_bmp;
+		if (xdb_unlikely (trig_cnt)) {
+			upd_flds_ptr[pField->fld_id] = new_flds_ptr[pField->fld_id];
+		}
 	}
+	if (xdb_unlikely (bef_trig_cnt)) {
+		xdb_call_trigger (pConn, pTblm, XDB_TRIG_BEF_UPD, upd_flds_ptr, old_flds_ptr);
+	}
+
 	if (xdb_unlikely (idx_bmp)) {
 		for (int i = 0; i < XDB_OBJM_COUNT (pTblm->idx_objm); ++i) {
 			xdb_idxm_t *pIdxm = XDB_OBJM_GET (pTblm->idx_objm, pTblm->idx_order[i]);
@@ -2201,7 +2347,7 @@ xdb_row_update (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow,
 				}
 				xdb_rowid rid2 = pIdxm->pIdxOps->idx_query2 (pConn, pIdxm, pUpdRow);
 				if (xdb_unlikely ((rid2 > 0) && (rid2 != rid))) {
-					return -XDB_E_EXISTS;
+					XDB_EXPECT ((rid2 == rid) || (0 == rid2), XDB_E_EXISTS, "Duplicate entry");
 				}
 			}
 		}
@@ -2218,27 +2364,50 @@ xdb_row_update (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow,
 			XDB_EXPECT (pUpdRow != NULL, XDB_E_MEMORY, "Can't alloc memory");
 			xdb_row_set (pTblm, pUpdRow, set_flds, set_count);
 		}
-		uint8_t type;
+		uint8_t type = XDB_VTYPE_NONE;
 		xdb_rowid vid = 0;
 		if (pTblm->vfld_count > 0) {
-			vid = xdb_row_vdata_info (pTblm, pRow, &type);
-			if (vid > 0) {
+			vid = xdb_row_vdata_info (pTblm->row_size, pRow, &type);
+			if (XDB_VTYPE_OK(type)) {
 				// old vdata ptr is shared by new upd row, so need to hold in case free
 				xdb_vdata_ref (pTblm->pVdatm, type, vid);
 			}
 		}
-		xdb_row_delete (pConn, pTblm, rid, pRow);
-		xdb_row_insert (pConn, pTblm, pUpdRow);	
-		if (vid > 0) {
+		xdb_row_delete (pConn, pTblm, rid, pRow, 1);
+		xdb_row_insert (pConn, pTblm, pUpdRow, 1);	
+		if (XDB_VTYPE_OK(type)) {
 			xdb_vdata_free (pTblm->pVdatm, type, vid);
 		}
-		XDB_BUF_FREE (pUpdRow);
 	}
+
+	if (xdb_unlikely (aft_trig_cnt)) {
+		xdb_call_trigger (pConn, pTblm, XDB_TRIG_AFT_UPD, upd_flds_ptr, old_flds_ptr);
+	}
+
+	XDB_BUF_FREE (pUpdRow);
 
 	return 0;
 
 error:
+	XDB_BUF_FREE (pUpdRow);
 	return - XDB_CONNCODE (pConn);
+}
+
+static inline void 
+xdb_mark_dirty (xdb_tblm_t *pTblm)
+{
+	if (xdb_unlikely (!pTblm->bMemory)) {
+		xdb_stghdr_t *pStgHdr = pTblm->stg_mgr.pStgHdr;
+		if (xdb_unlikely (!pStgHdr->blk_dirty)) {
+			pStgHdr->blk_dirty = true;
+			xdb_stg_sync (&pTblm->stg_mgr, 0, 4094, true);
+		}
+		pStgHdr = pTblm->pDbm->stg_mgr.pStgHdr;
+		if (xdb_unlikely (!pStgHdr->blk_dirty)) {
+			pStgHdr->blk_dirty = true;
+			xdb_stg_sync (&pTblm->pDbm->stg_mgr, 0, 4094, true);
+		}
+	}
 }
 
 XDB_STATIC xdb_rowid 
@@ -2251,12 +2420,18 @@ xdb_sql_insert (xdb_stmt_insert_t *pStmt)
 
 	xdb_wrlock_tblstg (pTblm);
 
+	xdb_mark_dirty (pTblm);
+
 	for (int i = 0 ; i < pStmt->row_count; ++i) {
 		void *pRow = pStmt->pRowsBuf + pStmt->row_offset[i];
-		xdb_rowid rid = xdb_row_insert (pConn, pTblm, pRow);
+		xdb_rowid rid = xdb_row_insert (pConn, pTblm, pRow, 0);
 		if (rid > 0) {
 			count ++;
 		}
+	}
+
+	if (count) {
+		xdb_mark_dirty (pTblm);
 	}
 
 	xdb_wrunlock_tblstg (pTblm);
@@ -2280,6 +2455,8 @@ xdb_sql_update (xdb_stmt_select_t *pStmt)
 
 	xdb_wrlock_tblstg (pTblm);
 
+	xdb_mark_dirty (pTblm);
+
 	xdb_rowset_t	*pRowSet = &pConn->row_set;
 	xdb_sql_filter (pStmt);
 	pRes->affected_rows = pRowSet->count;
@@ -2296,6 +2473,10 @@ xdb_sql_update (xdb_stmt_select_t *pStmt)
 	
 	xdb_rowset_clean (pRowSet);
 
+	if (count) {
+		xdb_mark_dirty (pTblm);
+	}
+
 	xdb_wrunlock_tblstg (pTblm);
 
 	return count;
@@ -2311,19 +2492,25 @@ xdb_sql_delete (xdb_stmt_select_t *pStmt)
 
 	xdb_wrlock_tblstg (pTblm);
 
+	xdb_mark_dirty (pTblm);
+
 	xdb_rowset_t	*pRowSet = &pConn->row_set;
 	xdb_sql_filter (pStmt);
 	pRes->affected_rows = pRowSet->count;
 
 	for (xdb_rowid id = 0 ; id < pRowSet->count; ++id) {
 		xdb_rowptr_t *pRow = &pRowSet->pRowList[id];
-		int rc = xdb_row_delete (pConn, pTblm, pRow->rid, pRow->ptr);
+		int rc = xdb_row_delete (pConn, pTblm, pRow->rid, pRow->ptr, 0);
 		if (0 == rc) {
 			count ++;
 		}
 	}
 
 	xdb_rowset_clean (pRowSet);
+
+	if (count) {
+		xdb_mark_dirty (pTblm);
+	}
 
 	xdb_wrunlock_tblstg (pTblm);
 

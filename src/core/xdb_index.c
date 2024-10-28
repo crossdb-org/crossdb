@@ -120,12 +120,21 @@ xdb_create_index (xdb_stmt_idx_t *pStmt, bool bCreateTbl)
 	pIdxm->fld_count = pStmt->fld_count;
 	pIdxm->idx_type = pStmt->idx_type;
 	pIdxm->bUnique = pStmt->bUnique;
+	pIdxm->bPrimary = pStmt->bPrimary;
 
 	for (int i = 0; i < pIdxm->fld_count; ++i) {
 		pIdxm->pFields[i] = xdb_find_field (pStmt->pTblm, pStmt->idx_col[i], 0);
 		XDB_EXPECT (pIdxm->pFields[i] != NULL, XDB_E_STMT, "Can't find field '%s'", pStmt->idx_col[i]);
 		pIdxm->pFields[i]->idx_fid[XDB_OBJ_ID(pIdxm)] = i;
 		pIdxm->pFields[i]->idx_bmp |= (1<<XDB_OBJ_ID(pIdxm));
+		if (pIdxm->bPrimary) {
+			pIdxm->pFields[i]->fld_flags |= (XDB_FLD_NOTNULL | XDB_FLD_PRIKEY);
+		} else if  (pIdxm->bUnique) {
+			pIdxm->pFields[i]->fld_flags |= XDB_FLD_UNIKEY;
+		}
+		if (++pIdxm->pFields[i]->fld_idxnum > 1) {
+			pIdxm->pFields[i]->fld_flags |= XDB_FLD_MULKEY;
+		}
 	}
 
 	pIdxm->pIdxOps = s_xdb_idx_ops[pIdxm->idx_type];
@@ -232,8 +241,27 @@ xdb_dump_create_index ()
 }
 #endif
 
-XDB_STATIC int 
-xdb_flush_index (xdb_idxm_t *pIdxm)
+XDB_STATIC void 
+xdb_flush_index (xdb_tblm_t *pTblm)
 {
-	return pIdxm->pIdxOps->idx_sync (pIdxm);
+	int count = XDB_OBJM_MAX(pTblm->idx_objm);
+	for (int i = 0; i < count; ++i) {
+		xdb_idxm_t *pIdxm = XDB_OBJM_GET(pTblm->idx_objm, i);
+		if (NULL != pIdxm) {
+			pIdxm->pIdxOps->idx_sync (pIdxm);
+		}
+	}
 }
+
+XDB_STATIC void 
+xdb_init_index (xdb_tblm_t *pTblm)
+{
+	int count = XDB_OBJM_MAX(pTblm->idx_objm);
+	for (int i = 0; i < count; ++i) {
+		xdb_idxm_t *pIdxm = XDB_OBJM_GET(pTblm->idx_objm, i);
+		if (NULL != pIdxm) {
+			pIdxm->pIdxOps->idx_init (pIdxm);
+		}
+	}
+}
+

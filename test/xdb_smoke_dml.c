@@ -448,7 +448,7 @@ UTEST_I(XdbTestRows, update_pk_dup, 2)
 	xdb_conn_t *pConn = utest_fixture->pConn;
 
 	pRes = xdb_exec (pConn, "UPDATE student SET id=1002 WHERE id=1001");
-	CHECK_AFFECT (pRes, 0);
+	ASSERT_NE (pRes->errcode, XDB_OK);
 
 	pRes = xdb_exec (pConn, "SELECT * FROM student");
 	CHECK_QUERY (pRes, 7);	

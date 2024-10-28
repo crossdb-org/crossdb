@@ -9,6 +9,12 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/.
 ******************************************************************************/
 
+#if XDB_LOG_FLAGS & XDB_LOG_DB
+#define xdb_dblog(...)	xdb_print(...)
+#else
+#define xdb_dblog(...)
+#endif
+
 static xdb_objm_t	s_xdb_db_list;
 
 static char			s_xdb_datadir[XDB_PATH_LEN + 1];
@@ -132,7 +138,7 @@ xdb_create_db (xdb_stmt_db_t *pStmt)
 	XDB_EXPECT (NULL!=pDbm, XDB_E_MEMORY, "Can't alloc memory");
 	pDbm->bMemory = pStmt->bMemory;
 
-	xdb_stghdr_t stg_hdr = {.stg_magic = 0xE7FCFDFB, .blk_flags=1, .blk_size = sizeof(xdb_dbobj_t), 
+	xdb_stghdr_t stg_hdr = {.stg_magic = 0xE7FCFDFB, .blk_flags=XDB_STG_NOALLOC, .blk_size = sizeof(xdb_dbobj_t), 
 							.ctl_off = 0, .blk_off = XDB_OFFSET(xdb_db_t, dbobj)};
 	pDbm->stg_mgr.pOps = pDbm->bMemory ? &s_xdb_store_mem_ops : &s_xdb_store_file_ops;
 	pDbm->stg_mgr.pStgHdr	= &stg_hdr;
@@ -154,6 +160,10 @@ xdb_create_db (xdb_stmt_db_t *pStmt)
 	xdb_strcpy (XDB_OBJ_NAME(pDbm), db_name);
 	XDB_OBJ_ID(pDbm) = -1;
 
+	XDB_RWLOCK_INIT(pDbm->wal_lock);
+
+	xdb_wal_create (pConn, pDbm);
+
 	xdb_objm_add (&s_xdb_db_list, pDbm);
 
 	if (NULL == pConn->pCurDbm) {
@@ -167,11 +177,24 @@ xdb_create_db (xdb_stmt_db_t *pStmt)
 		}
 	}
 
+	if (pDbm->stg_mgr.pStgHdr->blk_dirty || pDbm->stg_mgr.pStgHdr->blk_inflush) {
+#ifdef XDB_WAL
+		#ifdef XDB_CLI
+		xdb_errlog ("'%s' is broken, run 'REPAIR DATABASE to repaire DB'\n", XDB_OBJ_NAME(pDbm));
+		#else
+		xdb_errlog ("Database '%s' was broken, repaire now\n", XDB_OBJ_NAME(pDbm));
+		xdb_repair_db (pDbm, 0);
+		#endif
+#endif
+	}
+
 	if (strcmp (XDB_OBJ_NAME(pDbm), "system")) {
 		xdb_sysdb_add_db (pDbm);
 	} else {
 		pDbm->bSysDb = true;
 	}
+
+	pDbm->bReady = true;
 
 	return XDB_OK;
 
@@ -186,7 +209,12 @@ xdb_close_db (xdb_conn_t *pConn, xdb_dbm_t *pDbm)
 	char path[XDB_PATH_LEN + 32];
 	xdb_sprintf (path, "%s/xdb.db", pDbm->db_path);
 
-	xdb_dbglog ("------ close db '%s' ------\n", XDB_OBJ_NAME(pDbm));
+	xdb_dblog ("------ close db '%s' ------\n", XDB_OBJ_NAME(pDbm));
+
+	pDbm->bReady = false;
+	xdb_yield ();
+
+	xdb_flush_db (pDbm, 0);
 
 	int count = XDB_OBJM_MAX(pDbm->db_objm);
 	for (int i = 0; i < count; ++i) {
@@ -195,6 +223,8 @@ xdb_close_db (xdb_conn_t *pConn, xdb_dbm_t *pDbm)
 			xdb_close_table (pTblm);
 		}
 	}
+
+	xdb_wal_close (pDbm);
 
 	xdb_stg_close (&pDbm->stg_mgr);
 
@@ -235,6 +265,8 @@ xdb_drop_db (xdb_conn_t *pConn, xdb_dbm_t *pDbm)
 	}
 
 	xdb_stg_drop (&pDbm->stg_mgr, path);
+
+	xdb_wal_drop (pDbm);
 
 	xdb_objm_del (&s_xdb_db_list, pDbm);
 
@@ -301,39 +333,69 @@ xdb_gen_db_schema (xdb_dbm_t *pDbm)
 	return 0;
 }
 
-int 
+XDB_STATIC int 
 xdb_flush_db (xdb_dbm_t *pDbm, uint32_t flags)
 {
-#if (XDB_ENABLE_WAL == 1)
+	if (NULL == pDbm || pDbm->bMemory) {
+		return XDB_OK;
+	}
+	if (pDbm->stg_mgr.pStgHdr->blk_inflush) {
+		return XDB_OK;
+	}
+	xdb_dblog ("Flush DB '%s'\n", XDB_OBJ_NAME(pDbm));
+
+	pDbm->stg_mgr.pStgHdr->blk_inflush = true;
+
 	// Switch wal if has commit, then flush tables, afterward backup wal can be recycled
 	bool bSwitch = xdb_wal_switch (pDbm);
-#endif
 
 	// flush tables
 	int count = XDB_OBJM_MAX(pDbm->db_objm);
 	for (int i = 0; i < count; ++i) {
 		xdb_tblm_t *pTblm = XDB_OBJM_GET(pDbm->db_objm, i);
-		if (NULL != pTblm) {
+		if ((NULL != pTblm) && pTblm->stg_mgr.pStgHdr->blk_dirty) {
 			xdb_flush_table (pTblm, flags);
 		}
 	}
 
-#if (XDB_ENABLE_WAL == 1)
 	// flush backup wal if switched
 	if (bSwitch) {
 		xdb_wal_wrlock (pDbm);
 		__xdb_wal_flush (pDbm->pWalmBak, false);
-		if (pDbm->pWalm->pWal->commit_size > sizeof (xdb_wal_t)) {
+		if (XDB_WAL_PTR(pDbm->pWalm)->commit_size > sizeof (xdb_wal_t)) {
 			// Mark for next round flush
-			pDbm->db_dirty = true;
+			pDbm->stg_mgr.pStgHdr->blk_dirty = true;
 		}
 		xdb_wal_wrunlock (pDbm);
 
 		// fsync may take long time, so do it out of wal lock
-		xdb_stg_sync (pDbm->pWalm,    0, 0, false);
-		xdb_stg_sync (pDbm->pWalmBak, 0, 0, false);
+		xdb_stg_sync (&pDbm->pWalm->stg_mgr,    0, 0, false);
+		xdb_stg_sync (&pDbm->pWalmBak->stg_mgr, 0, 0, false);
 	}
-#endif
+
+	pDbm->stg_mgr.pStgHdr->blk_inflush = false;
 
 	return 0;
+}
+
+XDB_STATIC xdb_ret
+xdb_repair_db (xdb_dbm_t *pDbm, int flags)
+{
+	// Lock DB
+	xdb_print ("=== Begin Repair Database %s ===\n", XDB_OBJ_NAME (pDbm));
+
+	// check all tables
+	int count = XDB_OBJM_MAX(pDbm->db_objm);
+	for (int i = 0; i < count; ++i) {
+		xdb_tblm_t *pTblm = XDB_OBJM_GET(pDbm->db_objm, i);
+		if ((NULL != pTblm) && (pTblm->stg_mgr.pStgHdr->blk_dirty || pTblm->stg_mgr.pStgHdr->blk_inflush)) {
+			xdb_repair_table (pTblm, flags);
+		}
+	}
+
+	xdb_wal_redo (pDbm);
+
+	xdb_print ("=== End Recover database %s ===\n", XDB_OBJ_NAME (pDbm));
+
+	return XDB_OK;
 }

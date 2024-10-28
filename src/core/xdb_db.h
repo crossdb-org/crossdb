@@ -19,18 +19,14 @@ typedef struct xdb_dbm_t {
 	xdb_stgmgr_t	stg_mgr;
 	bool			bMemory;
 	bool			bSysDb;
+	bool			bReady;
 	xdb_lockmode_t	lock_mode;
-	bool			db_dirty;
 
-#ifdef XDB_EANBLE_WAL
-	xdb_walm_t 			wal_mgmt1;
-	xdb_walm_t 			wal_mgmt2;
+	xdb_walm_t 			wal_mgr[2];
 	xdb_walm_t 			*pWalm;
 	xdb_walm_t 			*pWalmBak;
-	xdb_walrow_t		*pWalRow;
-#endif
 
-	xdb_rwlock_t	wal_lock;
+	xdb_rwlock_t		wal_lock;
 } xdb_dbm_t;
 
 typedef struct xdb_dbobj_t {
@@ -47,5 +43,55 @@ typedef struct xdb_db_t {
 
 XDB_STATIC xdb_dbm_t* 
 xdb_find_db (const char *name);
+
+XDB_STATIC xdb_ret
+xdb_repair_db (xdb_dbm_t *pDbm, int flags);
+
+XDB_STATIC int 
+xdb_flush_db (xdb_dbm_t *pDbm, uint32_t flags);
+
+static inline int 
+xdb_wal_rdlock (struct xdb_dbm_t *pDbm) 
+{
+	if (xdb_likely (XDB_LOCK_THREAD == pDbm->lock_mode)) {
+		xdb_rwlock_rdlock (&pDbm->wal_lock);
+	} else if (XDB_LOCK_PROCESS == pDbm->lock_mode) {
+		xdb_file_rdlock (pDbm->stg_mgr.stg_fd, 1, 1);
+	}
+	return XDB_OK;
+}
+
+static inline int 
+xdb_wal_rdunlock (struct xdb_dbm_t *pDbm) 
+{
+	if (xdb_likely (XDB_LOCK_THREAD == pDbm->lock_mode)) {
+		xdb_rwlock_rdunlock (&pDbm->wal_lock);
+	} else if (XDB_LOCK_PROCESS == pDbm->lock_mode) {
+		return xdb_file_unlock (pDbm->stg_mgr.stg_fd, 1, 1);
+	}
+	return XDB_OK;
+}
+
+static inline int 
+xdb_wal_wrlock (struct xdb_dbm_t *pDbm) 
+{
+	if (xdb_likely (XDB_LOCK_THREAD == pDbm->lock_mode)) {
+		xdb_rwlock_wrlock (&pDbm->wal_lock);
+	} else if (XDB_LOCK_PROCESS == pDbm->lock_mode) {
+		return xdb_file_wrlock (pDbm->stg_mgr.stg_fd, 1, 1);
+	}
+	return XDB_OK;
+}
+
+static inline int 
+xdb_wal_wrunlock (struct xdb_dbm_t *pDbm) 
+{
+	if (xdb_likely (XDB_LOCK_THREAD == pDbm->lock_mode)) {
+		xdb_rwlock_wrunlock (&pDbm->wal_lock);
+	} else if (XDB_LOCK_PROCESS == pDbm->lock_mode) {
+		return xdb_file_unlock (pDbm->stg_mgr.stg_fd, 1, 1);
+	}
+	return XDB_OK;
+}
 
 #endif // __XDB_DB_H__

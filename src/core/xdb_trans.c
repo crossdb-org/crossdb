@@ -9,6 +9,12 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/.
 ******************************************************************************/
 
+#if XDB_LOG_FLAGS & XDB_LOG_TRANS
+#define xdb_translog(...)	xdb_print(...)
+#else
+#define xdb_translog(...)
+#endif
+
 XDB_STATIC bool 
 xdb_trans_getrow (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, bool bNew)
 {
@@ -33,7 +39,7 @@ xdb_trans_addrow (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, bool bNew
 	int db_xoid = XDB_OBJ_ID(pTblm->pDbm);
 	int tbl_xoid = XDB_OBJ_ID(pTblm);
 
-	xdb_dbglog ("%s %d from '%s'\n", bNew?"add new":"del old", rid, XDB_OBJ_NAME(pTblm));
+	xdb_translog ("%s %d from '%s'\n", bNew?"add new":"del old", rid, XDB_OBJ_NAME(pTblm));
 
 	xdb_dbTrans_t	*pDbTrans  = pConn->pDbTrans[db_xoid];
 	xdb_tblTrans_t	*pTblTrans = pDbTrans->pTblTrans[tbl_xoid];
@@ -61,7 +67,7 @@ xdb_trans_delrow (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid)
 	int db_xoid  = XDB_OBJ_ID(pTblm->pDbm);
 	int tbl_xoid = XDB_OBJ_ID(pTblm);
 
-	xdb_dbglog ("del new %d from '%s'\n", rid, XDB_OBJ_NAME(pTblm));
+	xdb_translog ("del new %d from '%s'\n", rid, XDB_OBJ_NAME(pTblm));
 
 	xdb_dbTrans_t	*pDbTrans = pConn->pDbTrans[db_xoid];
 	xdb_tblTrans_t	*pTblTrans = pDbTrans->pTblTrans[tbl_xoid];
@@ -111,7 +117,7 @@ xdb_rdlock_table (xdb_conn_t *pConn, xdb_tblm_t *pTblm)
 		return XDB_OK;
 	}
 
-	xdb_dbglog ("read lock table '%s'\n", XDB_OBJ_NAME(pTblm));
+	xdb_translog ("read lock table '%s'\n", XDB_OBJ_NAME(pTblm));
 
 	if (XDB_LOCK_THREAD == pTblm->lock_mode) {
 		xdb_rwlock_rdlock (&pTblm->tbl_lock);
@@ -131,7 +137,7 @@ error:
 XDB_STATIC int 
 xdb_rdunlock_table (xdb_tblm_t *pTblm) 
 {
-	xdb_dbglog ("read unlock table '%s'\n", XDB_OBJ_NAME(pTblm));
+	xdb_translog ("read unlock table '%s'\n", XDB_OBJ_NAME(pTblm));
 
 	if (XDB_LOCK_THREAD == pTblm->lock_mode) {
 		xdb_rwlock_rdunlock (&pTblm->tbl_lock);
@@ -171,7 +177,7 @@ xdb_wrlock_table (xdb_conn_t *pConn, xdb_tblm_t *pTblm)
 		xdb_lv2bmp_clr (&pDbTrans->tbl_rdlocks, tbl_xoid);
 	}
 
-	xdb_dbglog ("write lock table '%s'\n", XDB_OBJ_NAME(pTblm));
+	xdb_translog ("write lock table '%s'\n", XDB_OBJ_NAME(pTblm));
 
 	if (XDB_LOCK_THREAD == pTblm->lock_mode) {
 		xdb_rwlock_wrlock (&pTblm->tbl_lock);
@@ -190,7 +196,7 @@ error:
 XDB_STATIC int 
 xdb_wrunlock_table (xdb_tblm_t *pTblm) 
 {
-	xdb_dbglog ("write unlock table '%s'\n", XDB_OBJ_NAME(pTblm));
+	xdb_translog ("write unlock table '%s'\n", XDB_OBJ_NAME(pTblm));
 
 	if (XDB_LOCK_THREAD == pTblm->lock_mode) {
 		xdb_rwlock_wrunlock (&pTblm->tbl_lock);
@@ -226,7 +232,7 @@ xdb_trans_db_unlock (uint32_t did, void *pArg)
 	xdb_dbTrans_t *pDbTrans = pConn->pDbTrans[did];
 	xdb_dbm_t *pDbm = XDB_OBJM_GET(s_xdb_db_list, did);
 
-	xdb_dbglog ("  unlock db %s\n", XDB_OBJ_NAME(pDbm));
+	xdb_translog ("  unlock db %s\n", XDB_OBJ_NAME(pDbm));
 
 	xdb_lv2bmp_iterate (&pDbTrans->tbl_wrlocks, xdb_trans_tbl_wrunlock, pDbm);
 	xdb_lv2bmp_iterate (&pDbTrans->tbl_rdlocks, xdb_trans_tbl_rdunlock, pDbm);
@@ -242,11 +248,12 @@ xdb_trans_newrow_commit (uint32_t rid, void *pArg)
 	xdb_tblTrans_t	*pTblTrans = pArg;
 	xdb_stgmgr_t	*pStgMgr = &pTblTrans->pTblm->stg_mgr;
 
-	xdb_dbglog ("      commit new row %d\n", rid);
+	xdb_translog ("      commit new row %d\n", rid);
 
 	xdb_rowid *pRow = XDB_IDPTR(pStgMgr, rid);
 	// change TRANS->COMMIT
-	XDB_ROW_CTRL (pStgMgr->pStgHdr, pRow) &= ~1LL;
+	XDB_ROW_CTRL (pStgMgr->pStgHdr, pRow) &= ~XDB_ROW_MASK;
+	XDB_ROW_CTRL (pStgMgr->pStgHdr, pRow) |= XDB_ROW_COMMIT;
 
 	return XDB_OK;
 }
@@ -257,7 +264,7 @@ xdb_trans_delrow_commit (uint32_t rid, void *pArg)
 	xdb_tblTrans_t	*pTblTrans = pArg;
 	xdb_stgmgr_t	*pStgMgr = &pTblTrans->pTblm->stg_mgr;
 
-	xdb_dbglog ("      commit del row %d\n", rid);
+	xdb_translog ("      commit del row %d\n", rid);
 
 	xdb_rowid *pRow = XDB_IDPTR(pStgMgr, rid);
 
@@ -276,13 +283,17 @@ xdb_trans_tbl_commit (uint32_t tid, void *pArg)
 	xdb_dbTrans_t *pDbTrans = pArg;
 	xdb_tblTrans_t	*pTblTrans = pDbTrans->pTblTrans[tid];
 
-	xdb_dbglog ("    commit table '%s'\n", XDB_OBJ_NAME(pTblTrans->pTblm));
+	xdb_translog ("    commit table '%s'\n", XDB_OBJ_NAME(pTblTrans->pTblm));
+
+	xdb_mark_dirty (pTblTrans->pTblm);
 
 	// iterate new rows -> commit
 	xdb_bmp_iterate (&pTblTrans->new_rows, xdb_trans_newrow_commit, pTblTrans);
 
 	// iterate del rows -> delete
 	xdb_bmp_iterate (&pTblTrans->del_rows, xdb_trans_delrow_commit, pTblTrans);
+
+	xdb_mark_dirty (pTblTrans->pTblm);
 
 	xdb_tbltrans_init (pTblTrans);
 
@@ -296,7 +307,7 @@ xdb_trans_db_commit (uint32_t did, void *pArg)
 	xdb_dbTrans_t *pDbTrans = pConn->pDbTrans[did];
 #ifdef XDB_DEBUG
 	xdb_dbm_t *pDbm = XDB_OBJM_GET(s_xdb_db_list, did);
-	xdb_dbglog ("  commit db '%s'\n", XDB_OBJ_NAME(pDbm));
+	xdb_translog ("  commit db '%s'\n", XDB_OBJ_NAME(pDbm));
 #endif
 	xdb_lv2bmp_iterate (&pDbTrans->tbl_rows, xdb_trans_tbl_commit, pDbTrans);
 
@@ -322,12 +333,10 @@ xdb_commit (xdb_conn_t *pConn)
 	if (xdb_unlikely (!pConn->bInTrans)) {
 		return XDB_OK;
 	}
-	xdb_dbglog ("commit transaction %s\n", pConn->bAutoTrans ? "AUTO" : "");
+	xdb_translog ("commit transaction %s\n", pConn->bAutoTrans ? "AUTO" : "");
 
-#if (XDB_ENABLE_WAL == 1)
 	// write wal for each DB
 	xdb_lv2bmp_iterate (&pConn->dbTrans_bmp, xdb_trans_db_wal, pConn);
-#endif
 
 	// commit each DB
 	xdb_lv2bmp_iterate (&pConn->dbTrans_bmp, xdb_trans_db_commit, pConn);
@@ -344,9 +353,13 @@ xdb_trans_tbl_rollback (uint32_t tid, void *pArg)
 	xdb_dbTrans_t *pDbTrans = pArg;
 	xdb_tblTrans_t	*pTblTrans = pDbTrans->pTblTrans[tid];
 
+	xdb_mark_dirty (pTblTrans->pTblm);
+
 	// iterate new rows, -> delete
 	xdb_bmp_iterate (&pTblTrans->new_rows, xdb_trans_delrow_commit, pTblTrans);
 	// iterate del rows -> just free bmp
+
+	xdb_mark_dirty (pTblTrans->pTblm);
 
 	xdb_tbltrans_init (pTblTrans);
 
@@ -376,7 +389,7 @@ xdb_rollback (xdb_conn_t *pConn)
 		return XDB_OK;
 	}
 
-	xdb_dbglog ("rollback transaction\n");
+	xdb_translog ("rollback transaction\n");
 
 	xdb_lv2bmp_iterate (&pConn->dbTrans_bmp, xdb_trans_db_rollback, pConn);
 	
@@ -393,7 +406,7 @@ xdb_begin2 (xdb_conn_t *pConn, bool bAutoCommit)
 		return -pRes->errcode;
 	}
 	
-	xdb_dbglog ("begin transaction %s\n", bAutoCommit ? "AUTO" : "");
+	xdb_translog ("begin transaction %s\n", bAutoCommit ? "AUTO" : "");
 
 	if (xdb_unlikely (pConn->bInTrans)) {
 		xdb_commit (pConn);
@@ -429,5 +442,36 @@ xdb_trans_free (xdb_conn_t *pConn)
 		xdb_free (pDbTrans);		
 	}
 	
+	return XDB_OK;
+}
+
+static volatile uint64_t	s_xdb_bg_run = 0;
+static uint32_t	s_xdb_bg_flush = 0;
+static uint32_t	s_xdb_flush_period = 1;
+
+void* xdb_bg_task (void *data)
+{
+	sleep (10);
+	while (s_xdb_bInit) {
+		sleep (s_xdb_flush_period);
+		s_xdb_bg_run++;
+		for (int i = 0; i < XDB_OBJM_MAX(s_xdb_db_list); ++i) {
+			xdb_dbm_t *pDbm = XDB_OBJM_GET(s_xdb_db_list, i);
+			if (s_xdb_bInit && (NULL != pDbm) && pDbm->bReady && pDbm->stg_mgr.pStgHdr->blk_dirty) {
+				xdb_translog ("XDB BGTask run %d flush %s\n", s_xdb_bg_run, XDB_OBJ_NAME(pDbm));
+				xdb_flush_db (pDbm, 0);
+				s_xdb_bg_flush++;
+			}
+		}
+	}
+
+	s_xdb_bg_run = 0;
+	return NULL;	
+}
+
+//static xdb_thread_t s_xdb_bg_tid;
+XDB_STATIC xdb_ret xdb_bgtask_init ()
+{
+//	xdb_create_thread (&s_xdb_bg_tid, NULL, xdb_bg_task, NULL);
 	return XDB_OK;
 }

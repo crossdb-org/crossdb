@@ -12,6 +12,14 @@
 #ifndef __XDB_VDATA_H__
 #define __XDB_VDATA_H__
 
+#define XDB_VTYPE_NONE		255 // NO vdata
+//#define XDB_VTYPE_VID		
+#define XDB_VTYPE_DATA		254	// vdata is after row
+#define XDB_VTYPE_PTR		253 // vdata is in ptr array
+#define XDB_VTYPE_MAX		76 // vdata is in ptr array
+
+#define XDB_VTYPE_OK(type)	(type<XDB_VTYPE_MAX)
+
 typedef struct {
 	uint16_t 	cap;
 	uint16_t 	len;
@@ -30,7 +38,7 @@ typedef struct xdb_vdatm_t {
 } xdb_vdatm_t;
 
 XDB_STATIC xdb_rowid
-xdb_vdata_alloc (xdb_conn_t *pConn, xdb_vdatm_t *pVdatm, uint8_t *pType, void **ppVdatDb, int len);
+xdb_vdata_alloc (xdb_vdatm_t *pVdatm, uint8_t *pType, void **ppVdatDb, int len);
 
 XDB_STATIC void 
 xdb_vdata_close (xdb_vdatm_t *pVdatm);
@@ -47,28 +55,30 @@ xdb_vdata_get (xdb_vdatm_t *pVdatm, uint8_t type, xdb_rowid vid)
 	return XDB_IDPTR(&pVdatm->stg_mgr[type], vid);
 }
 
-typedef struct {
-	uint32_t vdat_len: 28, ref_cnt: 4;
-} xdb_vdathdr_t;
+// MSB=1 is for use/free mark, next 3b is refcnt
+#define XDB_VDAT_LENBITS	28
+#define XDB_VDAT_LENMASK	((1<<XDB_VDAT_LENBITS) - 1)
 
 static inline void 
 xdb_vdata_ref (xdb_vdatm_t *pVdatm, uint8_t type, xdb_rowid vid)
 {
-	xdb_vdathdr_t *pVdatHdr = xdb_vdata_get (pVdatm, type, vid);
-	pVdatHdr->ref_cnt++;
+	uint32_t *pVdat = xdb_vdata_get (pVdatm, type, vid);
+	if (xdb_likely (pVdat != NULL)) {
+		*pVdat += (1<<XDB_VDAT_LENBITS);
+	}
 }
 
 static inline void
 xdb_vdata_free (xdb_vdatm_t *pVdatm, uint8_t type, xdb_rowid vid)
 {
 	xdb_stgmgr_t *pStgMgr = &pVdatm->stg_mgr[type];
-	xdb_vdathdr_t *pVdatHdr = XDB_IDPTR(pStgMgr, vid);
+	uint32_t *pVdat = XDB_IDPTR(pStgMgr, vid);
 
-	if (pVdatHdr->ref_cnt  <= 1) {
+	if (*pVdat  <= 8) { // b1000
 		//xdb_print ("free t %d v %d\n", type, vid);
-		xdb_stg_free (pStgMgr, vid, pVdatHdr);
+		xdb_stg_free (pStgMgr, vid, pVdat);
 	} else {
-		--pVdatHdr->ref_cnt;
+		*pVdat -= (1<<XDB_VDAT_LENBITS);
 	}
 }
 
