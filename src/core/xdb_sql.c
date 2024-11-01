@@ -692,18 +692,11 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 				case XDB_TYPE_INT:
 				case XDB_TYPE_SMALLINT:
 				case XDB_TYPE_TINYINT:
+				case XDB_TYPE_BOOL:
 					pVal->ival = va_arg (ap, int);
 					break;
-				case XDB_TYPE_BOOL:
-					str = va_arg (ap, char *);
-					if (!strcasecmp(str, "true")) {
-						pVal->ival = 1;
-					} else {
-						XDB_EXPECT (!strcasecmp(str, "false"), XDB_E_STMT, "Expect TRUE/FALSE");
-						pVal->ival = 0;
-					}
-					break;
 				case XDB_TYPE_BIGINT:
+				case XDB_TYPE_TIMESTAMP:
 					pVal->ival = va_arg (ap, int64_t);
 					break;
 				case XDB_TYPE_FLOAT:
@@ -741,18 +734,11 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 					*(int16_t*)pAddr = va_arg (ap, int);
 					break;
 				case XDB_TYPE_TINYINT:
+				case XDB_TYPE_BOOL:
 					*(int8_t*)pAddr = va_arg (ap, int);
 					break;
-				case XDB_TYPE_BOOL:
-					str = va_arg (ap, char *);
-					if (!strcasecmp(str, "true")) {
-						*(int8_t*)pAddr = 1;
-					} else {
-						XDB_EXPECT (!strcasecmp(str, "false"), XDB_E_STMT, "Expect TRUE/FALSE");
-						*(int8_t*)pAddr = 0;
-					}
-					break;
 				case XDB_TYPE_BIGINT:
+				case XDB_TYPE_TIMESTAMP:
 					*(int64_t*)pAddr = va_arg (ap, int64_t);
 					break;
 				case XDB_TYPE_FLOAT:
@@ -818,8 +804,8 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 
 	return xdb_stmt_exec (pStmt);
 
-error:
-	return &pConn->conn_res;	
+//error:
+//	return &pConn->conn_res;	
 }
 
 xdb_res_t*

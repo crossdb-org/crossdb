@@ -128,7 +128,7 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 	pTblm->row_size = pStmt->row_size;
 	if (pStmt->row_size < 1) {
 		pTblm->row_size = 0;
-		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_BIGINT) | (1LL<<XDB_TYPE_DOUBLE), 8);
+		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_BIGINT) | (1LL<<XDB_TYPE_DOUBLE)| (1LL<<XDB_TYPE_TIMESTAMP), 8);
 		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_INT) | (1LL<<XDB_TYPE_FLOAT), 4);
 		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_VCHAR) | (1LL<<XDB_TYPE_VBINARY), 4);
 		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_CHAR) | (1LL<<XDB_TYPE_BINARY) | (1LL<<XDB_TYPE_SMALLINT), 2);

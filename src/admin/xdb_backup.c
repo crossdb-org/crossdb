@@ -38,6 +38,7 @@ xdb_res2sql (FILE *pFile, xdb_res_t *pRes, const char *tbl_name, char *buf, int 
 				len += sprintf (buf+len, "%d,", *(int16_t*)pVal);
 				break;
 			case XDB_TYPE_BIGINT:
+			case XDB_TYPE_TIMESTAMP:
 				len += sprintf (buf+len, "%"PRIi64",", *(int64_t*)pVal);
 				break;
 			case XDB_TYPE_FLOAT:

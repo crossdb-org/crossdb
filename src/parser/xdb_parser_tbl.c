@@ -56,6 +56,9 @@ xdb_parse_field (xdb_conn_t* pConn, xdb_token_t *pTkn, xdb_stmt_tbl_t *pStmt)
 	} else if (0 == strcasecmp (pTkn->token, "BIGINT")) {
 		pFld->fld_type = XDB_TYPE_BIGINT;
 		pFld->sup_type = XDB_TYPE_BIGINT;
+	} else if (0 == strcasecmp (pTkn->token, "TIMESTAMP")) {
+		pFld->fld_type = XDB_TYPE_TIMESTAMP;
+		pFld->sup_type = XDB_TYPE_BIGINT;
 	} else if (0 == strcasecmp (pTkn->token, "FLOAT")) {
 		pFld->fld_type = XDB_TYPE_FLOAT;
 		pFld->sup_type = XDB_TYPE_DOUBLE;

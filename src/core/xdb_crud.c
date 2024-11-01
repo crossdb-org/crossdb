@@ -249,6 +249,7 @@ xdb_row_isequal (xdb_tblm_t *pTblm, void *pRow, xdb_field_t **ppFields, xdb_valu
 			}
 			break;
 		case XDB_TYPE_BIGINT:
+		case XDB_TYPE_TIMESTAMP:
 			if (pValue->ival != *(int64_t*)pFldVal) {
 				return false;
 			}
@@ -314,6 +315,7 @@ xdb_row_isequal2 (xdb_tblm_t *pTblm, void *pRowL, void *pRowR, xdb_field_t **ppF
 			}
 			break;
 		case XDB_TYPE_BIGINT:
+		case XDB_TYPE_TIMESTAMP:
 			if (*(int64_t*)pFldValL != *(int64_t*)pFldValR) {
 				return false;
 			}
@@ -405,6 +407,7 @@ xdb_row_cmp (const void *pRowL, const void *pRowR, const xdb_field_t **ppFields,
 			}
 			break;
 		case XDB_TYPE_BIGINT:
+		case XDB_TYPE_TIMESTAMP:
 			cmp = *(int64_t*)pRowValL - *(int64_t*)pRowValR;
 			if (cmp) {
 				*pCount = i;
@@ -481,6 +484,7 @@ xdb_row_and_match (xdb_tblm_t *pTblm, void *pRow, xdb_filter_t **pFilters, int c
 			value.val_type = XDB_TYPE_BIGINT;
 			break;
 		case XDB_TYPE_BIGINT:
+		case XDB_TYPE_TIMESTAMP:
 			value.ival = *(int64_t*)pVal;
 			value.val_type = XDB_TYPE_BIGINT;
 			break;
@@ -661,6 +665,7 @@ xdb_row_getval (void *pRow, xdb_value_t *pVal)
 		pVal->sup_type = XDB_TYPE_BIGINT;
 		break;
 	case XDB_TYPE_BIGINT:
+	case XDB_TYPE_TIMESTAMP:
 		pVal->ival = *(int64_t*)pFldPtr;
 		pVal->sup_type = XDB_TYPE_BIGINT;
 		break;
@@ -797,6 +802,7 @@ xdb_col_set2 (void *pColPtr, xdb_type_t col_type, xdb_value_t *pVal)
 		*(int32_t*)(pColPtr) = pVal->ival;
 		break;
 	case XDB_TYPE_BIGINT:
+	case XDB_TYPE_TIMESTAMP:
 		*(int64_t*)(pColPtr) = pVal->ival;
 		break;
 	case XDB_TYPE_BOOL:
@@ -831,6 +837,7 @@ xdb_col_set (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pField, xdb_value_t *pV
 		*(int32_t*)(pColPtr) = pVal->ival;
 		break;
 	case XDB_TYPE_BIGINT:
+	case XDB_TYPE_TIMESTAMP:
 		*(int64_t*)(pColPtr) = pVal->ival;
 		break;
 	case XDB_TYPE_BOOL:
@@ -899,6 +906,7 @@ xdb_row_hash (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pFields[], int count)
 			hash = *(int32_t*)ptr;
 			break;
 		case XDB_TYPE_BIGINT:
+		case XDB_TYPE_TIMESTAMP:
 			hash = *(int64_t*)ptr;
 			break;
 		case XDB_TYPE_BOOL:
@@ -965,6 +973,7 @@ xdb_row_hash2 (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pFields[], int count)
 			hash = *(int32_t*)ptr;
 			break;
 		case XDB_TYPE_BIGINT:
+		case XDB_TYPE_TIMESTAMP:
 			hash = *(int64_t*)ptr;
 			break;
 		case XDB_TYPE_BOOL:
@@ -1096,6 +1105,7 @@ xdb_row_getInt (uint64_t meta, void *pRow, uint16_t iCol)
 	case XDB_TYPE_INT:
 		return *(int32_t*)pVal;
 	case XDB_TYPE_BIGINT:
+	case XDB_TYPE_TIMESTAMP:
 		return *(int64_t*)pVal;
 	case XDB_TYPE_BOOL:
 	case XDB_TYPE_TINYINT:
@@ -1115,6 +1125,7 @@ xdb_fld_setInt (void *pAddr, xdb_type_t type, int64_t val)
 		*(int32_t*)pAddr = val;
 		break;
 	case XDB_TYPE_BIGINT:
+	case XDB_TYPE_TIMESTAMP:
 		*(int64_t*)pAddr = val;
 		break;
 	case XDB_TYPE_BOOL:
@@ -1287,6 +1298,7 @@ int64_t xdb_column_int64 (uint64_t meta, xdb_row_t *pRow, uint16_t iCol)
 	case XDB_TYPE_INT:
 		return *(int32_t*)pRow[iCol];
 	case XDB_TYPE_BIGINT:
+	case XDB_TYPE_TIMESTAMP:
 		return *(int64_t*)pRow[iCol];
 	case XDB_TYPE_BOOL:
 	case XDB_TYPE_TINYINT:
@@ -1419,6 +1431,24 @@ int xdb_fprint_row (FILE *pFile, uint64_t meta, xdb_row_t *pRow, int format)
 			}
 			fprintf (pFile, "' ");
 			break;
+		case XDB_TYPE_TIMESTAMP:
+			{
+				struct tm tm_val;
+				int		millsec = *(int64_t*)pVal%1000000;
+				time_t time_val = (time_t)*(int64_t*)pVal/1000000;
+				char	buf[32];
+				localtime_r(&time_val, &tm_val);
+				int len = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", &tm_val);
+				if (millsec) {
+					if (millsec%1000) {
+						len += sprintf (buf+len, ".%06d", millsec);
+					} else {
+						len += sprintf (buf+len, ".%03d", millsec/1000);
+					}
+				}
+				fprintf (pFile, "%s='%s' ", pCol[i]->col_name, buf);
+			}
+			break;
 		}
 	}
 	return 0;
@@ -1453,6 +1483,24 @@ int xdb_fprint_dbrow (FILE *pFile, xdb_tblm_t *pTblm, void *pDbRow, int format)
 			break;
 		case XDB_TYPE_BIGINT:
 			fprintf (pFile, "%s=%"PRIi64" ", XDB_OBJ_NAME(pField), *(int64_t*)pVal);
+			break;
+		case XDB_TYPE_TIMESTAMP:
+			{
+				struct tm tm_val;
+				int		millsec = *(int64_t*)pVal%1000000;
+				time_t time_val = (time_t)*(int64_t*)pVal/1000000;
+				char	buf[32];
+				localtime_r(&time_val, &tm_val);
+				int len = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", &tm_val);
+				if (millsec) {
+					if (millsec%1000) {
+						len += sprintf (buf+len, ".%06d", millsec);
+					} else {
+						len += sprintf (buf+len, ".%03d", millsec/1000);
+					}
+				}
+				fprintf (pFile, "%s='%s' ", XDB_OBJ_NAME(pField), buf);
+			}
 			break;
 		case XDB_TYPE_FLOAT:
 			fprintf (pFile, "%s=%f ", XDB_OBJ_NAME(pField), *(float*)pVal);
@@ -2203,6 +2251,24 @@ xdb_sprint_field (xdb_field_t *pField, void *pRow, char *buf)
 			*(buf + len++) = s_xdb_hex_2_str[((uint8_t*)pVal)[h]][1];
 		}
 		*(buf + len++) = '\'';
+		break;
+	case XDB_TYPE_TIMESTAMP:
+		{
+			struct tm tm_val;
+			int 	millsec = *(int64_t*)pVal%1000000;
+			time_t time_val = (time_t)*(int64_t*)pVal/1000000;
+			localtime_r(&time_val, &tm_val);
+			*(buf + len++) = '\'';
+			len += strftime(buf+len, 32, "%Y-%m-%dT%H:%M:%S", &tm_val);
+			if (millsec) {
+				if (millsec%1000) {
+					len += sprintf (buf+len, ".%06d", millsec);
+				} else {
+					len += sprintf (buf+len, ".%03d", millsec/1000);
+				}
+			}
+			*(buf + len++) = '\'';
+		}
 		break;
 	}
 

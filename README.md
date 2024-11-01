@@ -24,7 +24,7 @@ It is designed for high-performance scenarios where the main memory can hold the
 - Supports multi-column indexes.
 - Supports exact match, leftmost match (TBD), and range match (TBD).
 - Supports standard ACID transactions.
-- Supports WAL for OnDisk storage (TBD).
+- Supports WAL for OnDisk storage.
 - Supports multiple threads and multiple processes access.
 - Supports table-level read-write locks.
 - Supports Reader-Writer MVCC (write transaction doesn't block read transactions).

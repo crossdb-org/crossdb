@@ -41,6 +41,47 @@ error:
 }
 #endif
 
+XDB_STATIC int64_t 
+xdb_timestamp_scanf (const char *time_str)
+{
+	struct tm tm;
+	uint32_t n, mm = 0, dd = 0, yy = 0, HH = 0, MM = 0, SS = 0, SubSec = 0;
+	uint64_t time_val;
+	char	pad[6];
+
+	n = sscanf(time_str, "%u%c%u%c%u%c%u%c%u%c%u%c%u", &yy, &pad[0], &mm, &pad[1], &dd, &pad[2], &HH, &pad[3], &MM, &pad[4], &SS, &pad[4], &SubSec);
+
+	if (1 == n) {
+		return yy;
+	}
+
+	tm.tm_mon = mm - 1;
+	tm.tm_mday = dd;
+	tm.tm_year = yy - 1900;
+
+	tm.tm_hour = HH;
+	tm.tm_min = MM;
+	tm.tm_sec = SS;
+	tm.tm_isdst = -1;  // Daylight saving time auto set by system
+
+	time_val = mktime(&tm);
+
+	if (SubSec > 0) {
+		char *dot = strrchr (time_str, '.');
+		if (dot) {
+			switch (strlen(dot)-1) {
+			case 1: SubSec *= 100000; break;
+			case 2: SubSec *= 10000; break;
+			case 3: SubSec *= 1000; break;
+			case 4: SubSec *= 100; break;
+			case 5: SubSec *= 10; break;			
+			}
+		}
+	}
+
+	return time_val*1000000 + SubSec;
+}
+
 XDB_STATIC xdb_stmt_t* 
 xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 {
@@ -180,6 +221,12 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 						*(int32_t*)(pRow+pField->fld_off) = atoi (pTkn->token);
 						//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
 						break;
+					case XDB_TYPE_TIMESTAMP:
+						if (XDB_TOK_STR == type) {
+							*(int64_t*)(pRow+pField->fld_off) = xdb_timestamp_scanf (pTkn->token);
+							break;
+						}
+						// fall through
 					case XDB_TYPE_BIGINT:
 						XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
 						*(int64_t*)(pRow+pField->fld_off) = atoll (pTkn->token);
@@ -573,6 +620,13 @@ next_filter:
 			pStmt->pBind[pStmt->bind_count++] = &pFilter->val;
 		} else {
 			switch (pField->fld_type) {
+			case XDB_TYPE_TIMESTAMP:
+				if (XDB_TOK_STR == vtype) {
+					pFilter->val.ival = xdb_timestamp_scanf (pVal);
+					pFilter->val.val_type = XDB_TYPE_BIGINT;
+					break;
+				}
+				// fall through
 			case XDB_TYPE_INT:
 			case XDB_TYPE_BIGINT:
 			case XDB_TYPE_TINYINT:
