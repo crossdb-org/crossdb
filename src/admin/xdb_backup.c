@@ -28,6 +28,9 @@ xdb_res2sql (FILE *pFile, xdb_res_t *pRes, const char *tbl_name, char *buf, int 
 			case XDB_TYPE_INT:
 				len += sprintf (buf+len, "%d,", *(int32_t*)pVal);
 				break;
+			case XDB_TYPE_BOOL:
+				len += sprintf (buf+len, "%s,", *(int8_t*)pVal ? "true" : "false");
+				break;
 			case XDB_TYPE_TINYINT:
 				len += sprintf (buf+len, "%d,", *(int8_t*)pVal);
 				break;

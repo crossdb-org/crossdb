@@ -71,6 +71,7 @@ const char* xdb_type2str(xdb_type_t tp)
 {
 	const char *id2str[] = {
 		[XDB_TYPE_NULL     ] = "NULL",
+		[XDB_TYPE_BOOL	   ] = "BOOL",
 		[XDB_TYPE_TINYINT  ] = "TINYINT",
 		[XDB_TYPE_SMALLINT ] = "SMALLINT",
 		[XDB_TYPE_INT      ] = "INT",
@@ -91,6 +92,7 @@ const char* xdb_type2str(xdb_type_t tp)
 }
 
 static xdb_type_t s_xdb_prompt_type[] = {
+	[XDB_TYPE_BOOL	  ] 	= XDB_TYPE_BIGINT,
 	[XDB_TYPE_TINYINT  ] 	= XDB_TYPE_BIGINT,
 	[XDB_TYPE_SMALLINT  ] 	= XDB_TYPE_BIGINT,
 	[XDB_TYPE_INT	] 		= XDB_TYPE_BIGINT,
@@ -100,7 +102,8 @@ static xdb_type_t s_xdb_prompt_type[] = {
 	[XDB_TYPE_CHAR	]		= XDB_TYPE_CHAR,
 	[XDB_TYPE_VCHAR	]		= XDB_TYPE_VCHAR,
 	[XDB_TYPE_BINARY ]		= XDB_TYPE_BINARY,
-	[XDB_TYPE_VBINARY ]		= XDB_TYPE_VBINARY
+	[XDB_TYPE_VBINARY ]		= XDB_TYPE_VBINARY,
+	[XDB_TYPE_TIMESTAMP] 	= XDB_TYPE_BIGINT
 };
 
 static volatile bool s_xdb_bInit = false;

@@ -237,6 +237,7 @@ xdb_row_isequal (xdb_tblm_t *pTblm, void *pRow, xdb_field_t **ppFields, xdb_valu
 				return false;
 			}
 			break;
+		case XDB_TYPE_BOOL:
 		case XDB_TYPE_TINYINT:
 			if (pValue->ival != *(int8_t*)pFldVal) {
 				return false;
@@ -317,6 +318,7 @@ xdb_row_isequal2 (xdb_tblm_t *pTblm, void *pRowL, void *pRowR, xdb_field_t **ppF
 				return false;
 			}
 			break;
+		case XDB_TYPE_BOOL:
 		case XDB_TYPE_TINYINT:
 			if (*(int8_t*)pFldValL != *(int8_t*)pFldValR) {
 				return false;
@@ -409,6 +411,7 @@ xdb_row_cmp (const void *pRowL, const void *pRowR, const xdb_field_t **ppFields,
 				return cmp;
 			}
 			break;
+		case XDB_TYPE_BOOL:
 		case XDB_TYPE_TINYINT:
 			cmp = *(int8_t*)pRowValL - *(int8_t*)pRowValR;
 			if (cmp) {
@@ -481,6 +484,7 @@ xdb_row_and_match (xdb_tblm_t *pTblm, void *pRow, xdb_filter_t **pFilters, int c
 			value.ival = *(int64_t*)pVal;
 			value.val_type = XDB_TYPE_BIGINT;
 			break;
+		case XDB_TYPE_BOOL:
 		case XDB_TYPE_TINYINT:
 			value.ival = *(int8_t*)pVal;
 			value.val_type = XDB_TYPE_BIGINT;
@@ -647,6 +651,7 @@ xdb_row_getval (void *pRow, xdb_value_t *pVal)
 		pVal->ival = *(int32_t*)pFldPtr;
 		pVal->sup_type = XDB_TYPE_BIGINT;
 		break;
+	case XDB_TYPE_BOOL:
 	case XDB_TYPE_TINYINT:
 		pVal->ival = *(int8_t*)pFldPtr;
 		pVal->sup_type = XDB_TYPE_BIGINT;
@@ -794,6 +799,7 @@ xdb_col_set2 (void *pColPtr, xdb_type_t col_type, xdb_value_t *pVal)
 	case XDB_TYPE_BIGINT:
 		*(int64_t*)(pColPtr) = pVal->ival;
 		break;
+	case XDB_TYPE_BOOL:
 	case XDB_TYPE_TINYINT:
 		*(int8_t*)(pColPtr) = pVal->ival;
 		break;
@@ -827,6 +833,7 @@ xdb_col_set (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pField, xdb_value_t *pV
 	case XDB_TYPE_BIGINT:
 		*(int64_t*)(pColPtr) = pVal->ival;
 		break;
+	case XDB_TYPE_BOOL:
 	case XDB_TYPE_TINYINT:
 		*(int8_t*)(pColPtr) = pVal->ival;
 		break;
@@ -894,6 +901,7 @@ xdb_row_hash (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pFields[], int count)
 		case XDB_TYPE_BIGINT:
 			hash = *(int64_t*)ptr;
 			break;
+		case XDB_TYPE_BOOL:
 		case XDB_TYPE_TINYINT:
 			hash = *(int8_t*)ptr;
 			break;
@@ -959,6 +967,7 @@ xdb_row_hash2 (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pFields[], int count)
 		case XDB_TYPE_BIGINT:
 			hash = *(int64_t*)ptr;
 			break;
+		case XDB_TYPE_BOOL:
 		case XDB_TYPE_TINYINT:
 			hash = *(int8_t*)ptr;
 			break;
@@ -1088,6 +1097,7 @@ xdb_row_getInt (uint64_t meta, void *pRow, uint16_t iCol)
 		return *(int32_t*)pVal;
 	case XDB_TYPE_BIGINT:
 		return *(int64_t*)pVal;
+	case XDB_TYPE_BOOL:
 	case XDB_TYPE_TINYINT:
 		return *(int8_t*)pVal;
 	case XDB_TYPE_SMALLINT:
@@ -1107,6 +1117,7 @@ xdb_fld_setInt (void *pAddr, xdb_type_t type, int64_t val)
 	case XDB_TYPE_BIGINT:
 		*(int64_t*)pAddr = val;
 		break;
+	case XDB_TYPE_BOOL:
 	case XDB_TYPE_TINYINT:
 		*(int8_t*)pAddr = val;
 		break;
@@ -1277,6 +1288,7 @@ int64_t xdb_column_int64 (uint64_t meta, xdb_row_t *pRow, uint16_t iCol)
 		return *(int32_t*)pRow[iCol];
 	case XDB_TYPE_BIGINT:
 		return *(int64_t*)pRow[iCol];
+	case XDB_TYPE_BOOL:
 	case XDB_TYPE_TINYINT:
 		return *(int8_t*)pRow[iCol];
 	case XDB_TYPE_SMALLINT:
@@ -1374,6 +1386,9 @@ int xdb_fprint_row (FILE *pFile, uint64_t meta, xdb_row_t *pRow, int format)
 			continue;
 		}
 		switch (pCol[i]->col_type) {
+		case XDB_TYPE_BOOL:
+			fprintf (pFile, "%s=%s ", pCol[i]->col_name, *(int8_t*)pVal?"true":"false");
+			break;
 		case XDB_TYPE_INT:
 			fprintf (pFile, "%s=%d ", pCol[i]->col_name, *(int32_t*)pVal);
 			break;
@@ -1424,6 +1439,9 @@ int xdb_fprint_dbrow (FILE *pFile, xdb_tblm_t *pTblm, void *pDbRow, int format)
 		}
 		void *pVal = pDbRow + pField->fld_off;
 		switch (pField->fld_type) {
+		case XDB_TYPE_BOOL:
+			fprintf (pFile, "%s=%s ", XDB_OBJ_NAME(pField), *(int8_t*)pVal?"true":"false");
+			break;
 		case XDB_TYPE_INT:
 			fprintf (pFile, "%s=%d ", XDB_OBJ_NAME(pField), *(int32_t*)pVal);
 			break;
@@ -2141,6 +2159,9 @@ xdb_sprint_field (xdb_field_t *pField, void *pRow, char *buf)
 	switch (pField->fld_type) {
 	case XDB_TYPE_INT:
 		len = sprintf (buf, "%d", *(int32_t*)pVal);
+		break;
+	case XDB_TYPE_BOOL:
+		len = sprintf (buf, "%s", *(int8_t*)pVal?"true":"false");
 		break;
 	case XDB_TYPE_TINYINT:
 		len = sprintf (buf, "%d", *(int8_t*)pVal);

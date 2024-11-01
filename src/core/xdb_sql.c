@@ -676,6 +676,10 @@ xdb_bind_blob (xdb_stmt_t *pStmt, uint16_t para_id, const void *blob, int len)
 XDB_STATIC xdb_res_t*
 xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 {
+	xdb_conn_t	*pConn = pStmt->pConn;
+	char		*str;
+	int 		len;
+
 	switch (pStmt->stmt_type) {
 	case XDB_STMT_SELECT:
 	case XDB_STMT_UPDATE:
@@ -689,6 +693,15 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 				case XDB_TYPE_SMALLINT:
 				case XDB_TYPE_TINYINT:
 					pVal->ival = va_arg (ap, int);
+					break;
+				case XDB_TYPE_BOOL:
+					str = va_arg (ap, char *);
+					if (!strcasecmp(str, "true")) {
+						pVal->ival = 1;
+					} else {
+						XDB_EXPECT (!strcasecmp(str, "false"), XDB_E_STMT, "Expect TRUE/FALSE");
+						pVal->ival = 0;
+					}
 					break;
 				case XDB_TYPE_BIGINT:
 					pVal->ival = va_arg (ap, int64_t);
@@ -716,13 +729,10 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 
 	case XDB_STMT_INSERT:
 		{
-			xdb_conn_t			*pConn = pStmt->pConn;
 			xdb_stmt_insert_t *pStmtIns = (void*)pStmt;
 			for (int i = 0; i < pStmtIns->bind_count; ++i) {
 				xdb_field_t *pFld = pStmtIns->pBind[i];
 				void		*pAddr = pStmtIns->pBindRow[i] + pFld->fld_off;
-				char 		*str;
-				int			len;
 				switch (pFld->fld_type) {
 				case XDB_TYPE_INT:
 					*(int32_t*)pAddr = va_arg (ap, int);
@@ -732,6 +742,15 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 					break;
 				case XDB_TYPE_TINYINT:
 					*(int8_t*)pAddr = va_arg (ap, int);
+					break;
+				case XDB_TYPE_BOOL:
+					str = va_arg (ap, char *);
+					if (!strcasecmp(str, "true")) {
+						*(int8_t*)pAddr = 1;
+					} else {
+						XDB_EXPECT (!strcasecmp(str, "false"), XDB_E_STMT, "Expect TRUE/FALSE");
+						*(int8_t*)pAddr = 0;
+					}
 					break;
 				case XDB_TYPE_BIGINT:
 					*(int64_t*)pAddr = va_arg (ap, int64_t);
@@ -798,6 +817,9 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 	}
 
 	return xdb_stmt_exec (pStmt);
+
+error:
+	return &pConn->conn_res;	
 }
 
 xdb_res_t*

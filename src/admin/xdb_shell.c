@@ -93,6 +93,12 @@ xdb_get_row_len (xdb_meta_t *pMeta, xdb_row_t *pRow, int *pColLen)
 				pColLen[i] = len;
 			}
 			break;
+		case XDB_TYPE_BOOL:
+			len = snprintf (buf, sizeof(buf), "%s", *(int8_t*)pVal?"true":"false");
+			if (pColLen[i] < len) {
+				pColLen[i] = len;
+			}
+			break;
 		case XDB_TYPE_TINYINT:
 			len = snprintf (buf, sizeof(buf), "%d", *(int8_t*)pVal);
 			if (pColLen[i] < len) {
@@ -184,6 +190,11 @@ xdb_fprint_row_table (FILE *pFile, xdb_meta_t *pMeta, xdb_row_t *pRow, int *pCol
 				case XDB_TYPE_INT:
 					if (0 == n) {
 						plen = fprintf (pFile, "%d", *(int32_t*)pVal);
+					}
+					break;
+				case XDB_TYPE_BOOL:
+					if (0 == n) {
+						plen = fprintf (pFile, "%s", *(int8_t*)pVal?"true":"false");
 					}
 					break;
 				case XDB_TYPE_TINYINT:

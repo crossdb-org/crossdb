@@ -82,9 +82,9 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 	bool bColList = false;
 
 	uint8_t		null_bmp[(XDB_MAX_COLUMN+7)>>3];
-	memset (null_bmp, 0, XDB_ALIGN8(pTblm->null_bytes));
 
 	if (XDB_TOK_LP == type) {
+		memset (null_bmp, 0, XDB_ALIGN8(pTblm->null_bytes));
 		bColList = true;
 		// col list
 		do {
@@ -103,6 +103,7 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 		XDB_EXPECT (XDB_TOK_RP == type, XDB_E_STMT, "Miss )");
 		type = xdb_next_token (pTkn);
 	} else {
+		memset (null_bmp, 0xFF, XDB_ALIGN8(pTblm->null_bytes));
 		pStmt->fld_count = pTblm->fld_count;
 	}
 
@@ -187,6 +188,16 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 					case XDB_TYPE_TINYINT:
 						XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
 						*(int8_t*)(pRow+pField->fld_off) = atoi (pTkn->token);
+						//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
+						break;
+					case XDB_TYPE_BOOL:
+						XDB_EXPECT ((XDB_TOK_ID == type), XDB_E_STMT, "Expect TRUE/FALSE");
+						if (!strcasecmp(pTkn->token, "true")) {
+							*(int8_t*)(pRow+pField->fld_off) = 1;
+						} else {
+							XDB_EXPECT (!strcasecmp(pTkn->token, "false"), XDB_E_STMT, "Expect TRUE/FALSE");
+							*(int8_t*)(pRow+pField->fld_off) = 0;
+						}
 						//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
 						break;
 					case XDB_TYPE_SMALLINT:
@@ -560,8 +571,6 @@ next_filter:
 			pFilter->val.fld_type = pField->fld_type;
 			pFilter->val.val_type = pField->sup_type;
 			pStmt->pBind[pStmt->bind_count++] = &pFilter->val;
-		} else if (xdb_unlikely (XDB_TOK_ID == vtype)) {
-			
 		} else {
 			switch (pField->fld_type) {
 			case XDB_TYPE_INT:
@@ -572,6 +581,16 @@ next_filter:
 				pFilter->val.ival = atoll (pVal);
 				pFilter->val.val_type = XDB_TYPE_BIGINT;
 				//xdb_dbgprint ("%s = %d\n", pField->fld_name.str, pFilter->val.ival);
+				break;
+			case XDB_TYPE_BOOL:
+				XDB_EXPECT ((XDB_TOK_ID == vtype), XDB_E_STMT, "Expect TRUE/FALSE");
+				if (!strcasecmp(pVal, "true")) {
+					pFilter->val.ival = 1;
+				} else {
+					XDB_EXPECT (!strcasecmp(pVal, "false"), XDB_E_STMT, "Expect TRUE/FALSE");
+					pFilter->val.ival = 0;
+				}
+				pFilter->val.val_type = XDB_TYPE_BIGINT;
 				break;
 			case XDB_TYPE_CHAR:
 			case XDB_TYPE_VCHAR:
