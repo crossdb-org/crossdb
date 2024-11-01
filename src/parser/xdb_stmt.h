@@ -160,12 +160,19 @@ typedef enum {
 	XDB_LOCK_THREAD,
 	XDB_LOCK_PROCESS,
 	XDB_LOCK_NOLOCK,
-} xdb_lockmode_t;
+} xdb_lockmode_e;
+
+typedef enum {
+	XDB_SYNC_NOSYNC,
+	XDB_SYNC_SYNC,
+	XDB_SYNC_ASYNC=(1U<<31)-1,
+} xdb_syncmode_e;
 
 typedef struct {
 	XDB_STMT_COMMON;
 	bool			bMemory;
-	xdb_lockmode_t	lock_mode;
+	xdb_lockmode_e	lock_mode;
+	xdb_syncmode_e	sync_mode;
 	bool			bIfExistOrNot;
 	char 	 		*db_name;
 	struct xdb_dbm_t	*pDbm;

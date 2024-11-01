@@ -129,6 +129,7 @@ xdb_create_index (xdb_stmt_idx_t *pStmt, bool bCreateTbl)
 		pIdxm->pFields[i]->idx_bmp |= (1<<XDB_OBJ_ID(pIdxm));
 		if (pIdxm->bPrimary) {
 			pIdxm->pFields[i]->fld_flags |= (XDB_FLD_NOTNULL | XDB_FLD_PRIKEY);
+			pIdxm->pTblm->bPrimary = true;
 		} else if  (pIdxm->bUnique) {
 			pIdxm->pFields[i]->fld_flags |= XDB_FLD_UNIKEY;
 		}

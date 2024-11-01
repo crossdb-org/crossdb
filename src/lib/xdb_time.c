@@ -32,3 +32,12 @@ xdb_timestamp_us ()
     gettimeofday(&time,NULL);
 	return time.tv_sec * 1000000LL + time.tv_usec;
 }
+
+static inline uint64_t 
+xdb_uptime ()
+{
+    struct timespec uptime;
+    clock_gettime(CLOCK_MONOTONIC, &uptime);
+	return uptime.tv_sec;
+}
+

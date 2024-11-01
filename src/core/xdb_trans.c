@@ -10,7 +10,7 @@
 ******************************************************************************/
 
 #if XDB_LOG_FLAGS & XDB_LOG_TRANS
-#define xdb_translog(...)	xdb_print(...)
+#define xdb_translog(...)	xdb_print(__VA_ARGS__)
 #else
 #define xdb_translog(...)
 #endif
@@ -293,8 +293,6 @@ xdb_trans_tbl_commit (uint32_t tid, void *pArg)
 	// iterate del rows -> delete
 	xdb_bmp_iterate (&pTblTrans->del_rows, xdb_trans_delrow_commit, pTblTrans);
 
-	xdb_mark_dirty (pTblTrans->pTblm);
-
 	xdb_tbltrans_init (pTblTrans);
 
 	return XDB_OK;		
@@ -305,10 +303,7 @@ xdb_trans_db_commit (uint32_t did, void *pArg)
 {
 	xdb_conn_t *pConn = pArg;
 	xdb_dbTrans_t *pDbTrans = pConn->pDbTrans[did];
-#ifdef XDB_DEBUG
-	xdb_dbm_t *pDbm = XDB_OBJM_GET(s_xdb_db_list, did);
-	xdb_translog ("  commit db '%s'\n", XDB_OBJ_NAME(pDbm));
-#endif
+	xdb_translog ("  commit db '%s'\n", XDB_OBJ_NAME((xdb_dbm_t*)XDB_OBJM_GET(s_xdb_db_list, did)));
 	xdb_lv2bmp_iterate (&pDbTrans->tbl_rows, xdb_trans_tbl_commit, pDbTrans);
 
 	return XDB_OK;
@@ -333,7 +328,7 @@ xdb_commit (xdb_conn_t *pConn)
 	if (xdb_unlikely (!pConn->bInTrans)) {
 		return XDB_OK;
 	}
-	xdb_translog ("commit transaction %s\n", pConn->bAutoTrans ? "AUTO" : "");
+	xdb_translog ("Commit Transaction %s\n", pConn->bAutoTrans ? "AUTO" : "");
 
 	// write wal for each DB
 	xdb_lv2bmp_iterate (&pConn->dbTrans_bmp, xdb_trans_db_wal, pConn);
@@ -358,8 +353,6 @@ xdb_trans_tbl_rollback (uint32_t tid, void *pArg)
 	// iterate new rows, -> delete
 	xdb_bmp_iterate (&pTblTrans->new_rows, xdb_trans_delrow_commit, pTblTrans);
 	// iterate del rows -> just free bmp
-
-	xdb_mark_dirty (pTblTrans->pTblm);
 
 	xdb_tbltrans_init (pTblTrans);
 
@@ -389,10 +382,10 @@ xdb_rollback (xdb_conn_t *pConn)
 		return XDB_OK;
 	}
 
-	xdb_translog ("rollback transaction\n");
+	xdb_translog ("Rollback Transaction\n");
 
 	xdb_lv2bmp_iterate (&pConn->dbTrans_bmp, xdb_trans_db_rollback, pConn);
-	
+
 	xdb_trans_unlock (pConn);
 
 	return XDB_OK;
@@ -456,8 +449,9 @@ void* xdb_bg_task (void *data)
 		sleep (s_xdb_flush_period);
 		s_xdb_bg_run++;
 		for (int i = 0; i < XDB_OBJM_MAX(s_xdb_db_list); ++i) {
-			xdb_dbm_t *pDbm = XDB_OBJM_GET(s_xdb_db_list, i);
-			if (s_xdb_bInit && (NULL != pDbm) && pDbm->bReady && pDbm->stg_mgr.pStgHdr->blk_dirty) {
+			xdb_dbm_t	*pDbm	= XDB_OBJM_GET(s_xdb_db_list, i);
+			xdb_db_t	*pDb	= XDB_DBPTR(pDbm);
+			if (s_xdb_bInit && (NULL != pDbm) && (pDb->lastchg_id != pDb->flush_id)) {
 				xdb_translog ("XDB BGTask run %d flush %s\n", s_xdb_bg_run, XDB_OBJ_NAME(pDbm));
 				xdb_flush_db (pDbm, 0);
 				s_xdb_bg_flush++;
@@ -469,9 +463,20 @@ void* xdb_bg_task (void *data)
 	return NULL;	
 }
 
-//static xdb_thread_t s_xdb_bg_tid;
+#if 0
+void* xdb_task_test (void *data)
+{
+	int id =0;
+	while (1) {
+		usleep (5000);
+		//printf ("%d\n", id++);
+	}
+}
+#endif
+
+static xdb_thread_t s_xdb_bg_tid;
 XDB_STATIC xdb_ret xdb_bgtask_init ()
 {
-//	xdb_create_thread (&s_xdb_bg_tid, NULL, xdb_bg_task, NULL);
+	xdb_create_thread (&s_xdb_bg_tid, NULL, xdb_bg_task, NULL);
 	return XDB_OK;
 }

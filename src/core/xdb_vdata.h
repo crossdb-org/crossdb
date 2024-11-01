@@ -49,10 +49,17 @@ xdb_vdata_drop (xdb_vdatm_t *pVdatm);
 XDB_STATIC void
 xdb_vdata_free (xdb_vdatm_t *pVdatm, uint8_t type, xdb_rowid vid);
 
+XDB_STATIC int 
+xdb_vdata_create (xdb_vdatm_t *pVdatm, int type);
+
 static inline void* 
 xdb_vdata_get (xdb_vdatm_t *pVdatm, uint8_t type, xdb_rowid vid)
 {
-	return XDB_IDPTR(&pVdatm->stg_mgr[type], vid);
+	xdb_stgmgr_t *pStgMgr = &pVdatm->stg_mgr[type];
+	if (xdb_unlikely (NULL == pStgMgr->pStgHdr)) {
+		xdb_vdata_create (pVdatm, type);
+	}
+	return XDB_IDPTR(pStgMgr, vid);
 }
 
 // MSB=1 is for use/free mark, next 3b is refcnt
@@ -65,20 +72,6 @@ xdb_vdata_ref (xdb_vdatm_t *pVdatm, uint8_t type, xdb_rowid vid)
 	uint32_t *pVdat = xdb_vdata_get (pVdatm, type, vid);
 	if (xdb_likely (pVdat != NULL)) {
 		*pVdat += (1<<XDB_VDAT_LENBITS);
-	}
-}
-
-static inline void
-xdb_vdata_free (xdb_vdatm_t *pVdatm, uint8_t type, xdb_rowid vid)
-{
-	xdb_stgmgr_t *pStgMgr = &pVdatm->stg_mgr[type];
-	uint32_t *pVdat = XDB_IDPTR(pStgMgr, vid);
-
-	if (*pVdat  <= 8) { // b1000
-		//xdb_print ("free t %d v %d\n", type, vid);
-		xdb_stg_free (pStgMgr, vid, pVdat);
-	} else {
-		*pVdat -= (1<<XDB_VDAT_LENBITS);
 	}
 }
 

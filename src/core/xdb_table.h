@@ -23,11 +23,13 @@ typedef struct xdb_tblm_t {
 	uint32_t		blk_size;
 
 	bool			bMemory;
-	xdb_lockmode_t	lock_mode;
+	bool			bPrimary;
+	xdb_lockmode_e	lock_mode;
 
 	struct xdb_dbm_t *pDbm;
 
 	struct	xdb_field_t *pFields;
+	struct	xdb_field_t **ppFields;
 	struct	xdb_field_t **ppVFields;
 	uint8_t			*pNullBytes;
 
@@ -55,11 +57,16 @@ typedef struct xdb_tblm_t {
 typedef struct xdb_tbl_t {
 	xdb_stghdr_t	blk_hdr;
 	xdb_rowid		row_count;
-	xdb_rowid		rsvd;
-	uint64_t		rsvd2[15];
+	uint8_t			tbl_dirty;
+	uint8_t			rsvd[3];
+	uint64_t		lastchg_id;	// last commit id
+	uint64_t		flush_id;	// last flush id
 	//statistics
+	uint64_t		rsvd2[13];
 	uint8_t			pRowDat[];
 } xdb_tbl_t;
+
+#define XDB_TBLPTR(pTblm)	((xdb_tbl_t*)pTblm->stg_mgr.pStgHdr)
 
 
 static inline xdb_tblm_t* 
@@ -75,7 +82,7 @@ xdb_find_field (xdb_tblm_t *pTblm, const char *fld_name, int len)
 }
 
 XDB_STATIC int 
-xdb_repair_table (xdb_tblm_t *pTblm, uint32_t flags);
+__xdb_repair_table (xdb_tblm_t *pTblm, uint32_t flags);
 
 XDB_STATIC int 
 xdb_close_table (xdb_tblm_t *pTblm);

@@ -77,7 +77,7 @@ typedef int	xdb_rowid;
 
 #define XDB_CONNCODE(pConn)		pConn->conn_res.errcode
 
-//#define XDB_LOG_FLAGS	(XDB_LOG_DB|XDB_LOG_TBL|XDB_LOG_WAL)
+//#define XDB_LOG_FLAGS	(XDB_LOG_DB|XDB_LOG_TBL|XDB_LOG_TRANS|XDB_LOG_WAL)
 #ifndef XDB_LOG_FLAGS
 #define XDB_LOG_FLAGS	0
 #endif
@@ -91,6 +91,7 @@ typedef int	xdb_rowid;
 #define XDB_LOG_STG		(1<<9)
 #define XDB_LOG_TRANS	(1<<10)
 #define XDB_LOG_WAL		(1<<11)
+#define XDB_LOG_VDAT	(1<<12)
 
 #define XDB_IS_NOTNULL(pNull,bits)	(((uint8_t*)(pNull))[bits>>3] & (1<<(bits&7)))
 #define XDB_SET_NOTNULL(pNull,bits)	(((uint8_t*)(pNull))[bits>>3] |= (1<<(bits&7)))

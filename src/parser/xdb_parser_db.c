@@ -13,13 +13,13 @@ XDB_STATIC xdb_stmt_t*
 xdb_parse_create_db (xdb_conn_t* pConn, xdb_token_t *pTkn)
 {
 	xdb_stmt_db_t *pStmt = &pConn->stmt_union.db_stmt;
+	memset (pStmt, 0, sizeof (*pStmt));
 	pStmt->stmt_type = XDB_STMT_CREATE_DB;
-	pStmt->pSql = NULL;
 	xdb_token_type type = xdb_next_token (pTkn);
 
 	XDB_EXPECT (type<=XDB_TOK_STR, XDB_E_STMT, "Miss database name");
 	pStmt->lock_mode = XDB_LOCK_THREAD;
-	pStmt->bMemory = false;
+	pStmt->sync_mode = XDB_SYNC_ASYNC;
 
 	if ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "IF")) {
 		type = xdb_next_token (pTkn);
@@ -63,6 +63,20 @@ xdb_parse_create_db (xdb_conn_t* pConn, xdb_token_t *pTkn)
 			} else {
 				XDB_EXPECT (0, XDB_E_STMT, "Unknown lockmode '%s'", pTkn->token);
 			}
+		} else if (!strcasecmp (var, "SYNCMODE")) {
+			if (XDB_TOK_ID == type) {
+				if (!strcasecmp (pTkn->token, "ASYNC")) {
+					pStmt->sync_mode = XDB_SYNC_ASYNC;
+				} else if (!strcasecmp (pTkn->token, "SYNC")) {
+					pStmt->sync_mode = XDB_SYNC_SYNC;
+				} else if (!strcasecmp (pTkn->token, "NOLOCK")) {
+					pStmt->sync_mode = XDB_SYNC_NOSYNC;
+				} else {
+					XDB_EXPECT (0, XDB_E_STMT, "Unknown syncmode '%s'", pTkn->token);
+				}
+			} else if (XDB_TOK_NUM == type) {
+				pStmt->sync_mode = atoi (pTkn->token);
+			}
 		} else if (!strcasecmp (var, "ENGINE")) {
 			XDB_EXPECT ((XDB_TOK_ID == type) && !strcasecmp (pTkn->token, "MEMORY"), XDB_E_STMT, "Expect MEMORY");
 			pStmt->bMemory = true;
@@ -72,6 +86,9 @@ xdb_parse_create_db (xdb_conn_t* pConn, xdb_token_t *pTkn)
 
 	if (pStmt->bMemory && (XDB_LOCK_PROCESS == pStmt->lock_mode)) {
 		pStmt->lock_mode = XDB_LOCK_THREAD;
+	}
+	if (pStmt->bMemory) {
+		pStmt->sync_mode = XDB_SYNC_NOSYNC;
 	}
 
 	return (xdb_stmt_t*)pStmt;

@@ -24,7 +24,27 @@
 **Test**
 **Bug Fixes**
 - Support simple SQL inner join
+- Support new statements: `FLUSH` `REPAIR`
+
 -->
+
+## 0.10.0 <small>(2024-11-01)</small>
+
+**Features**
+
+- Support `VARCHAR`, `BINARY`, `VARBINARY`
+- Support `WAL` [#31](https://github.com/crossdb-org/crossdb/issues/31)
+- Support `OR` operator
+- Support new API `xdb_column_blob`
+- Support `CREATE DATABASE` `SYNCMODE` option
+
+**Improvements**
+
+**Test**
+
+**Bug Fixes**
+
+- Create duplicate database doesn't report error sometimes
 
 ## 0.9.0 <small>(2024-10-11)</small>
 

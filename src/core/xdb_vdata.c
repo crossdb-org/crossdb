@@ -9,6 +9,12 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/.
 ******************************************************************************/
 
+#if XDB_LOG_FLAGS & XDB_LOG_VDAT
+#define xdb_vdatlog(...)	xdb_print(__VA_ARGS__)
+#else
+#define xdb_vdatlog(...)
+#endif
+
 static uint8_t s_xdb_vdat_4k[4096/16], s_xdb_vdat_256k[256*1024/1024 - 4], s_xdb_vdat_16m[16*1024/64 - 4];
 static int s_xdb_vdat_size[] = {
 	16,				32,				48,				64,				// 16
@@ -91,16 +97,20 @@ XDB_STATIC uint8_t xdb_vdat_type (int size)
 XDB_STATIC int 
 xdb_vdata_create (xdb_vdatm_t *pVdatm, int type)
 {
-	xdb_stghdr_t stg_hdr = {.stg_magic = 0xE7FCFDFB, .blk_size = s_xdb_vdat_size[type], .ctl_off = 0, .blk_off = XDB_OFFSET(xdb_vdat_t, pVdat)};
+	xdb_stgmgr_t *pStgMgr = &pVdatm->stg_mgr[type];
 
-	xdb_stgmgr_t *stg_mgr = &pVdatm->stg_mgr[type];
+	if (pStgMgr->pStgHdr != NULL) {
+		return XDB_OK;
+	}
+	
+	xdb_stghdr_t stg_hdr = {.stg_magic = 0xE7FCFDFB, .blk_size = s_xdb_vdat_size[type], .ctl_off = 0, .blk_off = XDB_OFFSET(xdb_vdat_t, pVdat)};
 
 	char path[XDB_PATH_LEN + 32];
 	xdb_sprintf (path, "%s/T%06d/vdat/V%02d.vdat", pVdatm->pTblm->pDbm->db_path, XDB_OBJ_ID(pVdatm->pTblm), type);
 
-	stg_mgr->pOps = pVdatm->pTblm->bMemory ? &s_xdb_store_mem_ops : &s_xdb_store_file_ops;
-	stg_mgr->pStgHdr	= &stg_hdr;
-	int rc = xdb_stg_open (stg_mgr, path, NULL, NULL);
+	pStgMgr->pOps = pVdatm->pTblm->bMemory ? &s_xdb_store_mem_ops : &s_xdb_store_file_ops;
+	pStgMgr->pStgHdr	= &stg_hdr;
+	int rc = xdb_stg_open (pStgMgr, path, NULL, NULL);
 	if (rc != XDB_OK) {
 		xdb_errlog ("Failed to create vdat '%d'", type);
 		return rc;
@@ -152,9 +162,24 @@ xdb_vdata_alloc (xdb_vdatm_t *pVdatm, uint8_t *pType, void **ppVdatDb, int len)
 		return -1;
 	}
 
-	//xdb_print ("alloc t %d v %d\n", *pType, vid);
+	xdb_vdatlog ("%s VDAT alloc t %d v %d\n", XDB_OBJ_NAME(pVdatm->pTblm), *pType, vid);
 
 	return vid;
+}
+
+XDB_STATIC void 
+xdb_vdata_free (xdb_vdatm_t *pVdatm, uint8_t type, xdb_rowid vid)
+{
+	xdb_stgmgr_t *pStgMgr = &pVdatm->stg_mgr[type];
+	uint32_t *pVdat = XDB_IDPTR(pStgMgr, vid);
+
+	if ((*pVdat>>XDB_VDAT_LENBITS) <= 8) { // b1000
+		xdb_vdatlog ("%s VDAT free t %d v %d\n", XDB_OBJ_NAME(pVdatm->pTblm),type, vid);
+		xdb_stg_free (pStgMgr, vid, pVdat);
+	} else {
+		// refcnt--
+		*pVdat -= (1<<XDB_VDAT_LENBITS);
+	}
 }
 
 XDB_STATIC void 
@@ -177,11 +202,14 @@ xdb_vdat_mark (xdb_vdatm_t *pVdatm)
 	}
 	xdb_tblm_t *pTblm = pVdatm->pTblm;
 	for (int i = 0; i < XDB_ARY_LEN(s_xdb_vdat_size); ++i) {
-		xdb_stgmgr_t	*stg_mgr = &pTblm->pVdatm->stg_mgr[i];
-		xdb_rowid max_rid = XDB_STG_MAXID(stg_mgr);
-		xdb_stg_init (stg_mgr);
+		xdb_stgmgr_t	*pStgMgr = &pTblm->pVdatm->stg_mgr[i];
+		if (NULL == pStgMgr->pStgHdr) {
+			continue;
+		}
+		xdb_rowid max_rid = XDB_STG_MAXID(pStgMgr);
+		xdb_stg_init (pStgMgr);
 		for (xdb_rowid rid = 1; rid <= max_rid; ++rid) {
-			uint32_t *pVdat = XDB_IDPTR(stg_mgr, rid);
+			uint32_t *pVdat = XDB_IDPTR(pStgMgr, rid);
 			if (*pVdat & (1<<31)) {
 				*pVdat |= (0xF << XDB_VDAT_LENBITS);
 			}
@@ -197,13 +225,16 @@ xdb_vdat_clean (xdb_vdatm_t *pVdatm)
 	}
 	xdb_tblm_t *pTblm = pVdatm->pTblm;
 	for (int i = 0; i < XDB_ARY_LEN(s_xdb_vdat_size); ++i) {
-		xdb_stgmgr_t	*stg_mgr = &pTblm->pVdatm->stg_mgr[i];
-		xdb_rowid max_rid = XDB_STG_MAXID(stg_mgr);
+		xdb_stgmgr_t	*pStgMgr = &pTblm->pVdatm->stg_mgr[i];
+		if (NULL == pStgMgr->pStgHdr) {
+			continue;
+		}
+		xdb_rowid max_rid = XDB_STG_MAXID(pStgMgr);
 		for (xdb_rowid rid = 1; rid <= max_rid; ++rid) {
-			uint32_t *pVdat = XDB_IDPTR(stg_mgr, rid);
+			uint32_t *pVdat = XDB_IDPTR(pStgMgr, rid);
 			if ((*pVdat>>XDB_VDAT_LENBITS) != 8) { // 1000
 				*pVdat = 0;
-				xdb_stg_free (stg_mgr, rid, pVdat);
+				xdb_stg_free (pStgMgr, rid, pVdat);
 			}
 		}
 	}

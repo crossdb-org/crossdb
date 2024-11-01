@@ -31,12 +31,12 @@ typedef struct {
 
 typedef struct {
 	xdb_stghdr_t			blk_hdr;
-	uint64_t				max_wal_size;
 	uint64_t				wal_size;		// current WAL size(alloc), include header
 	uint64_t				sync_size;		// sync to disk size, include header	
+	uint64_t				sync_cid;		// last sync commit id
+	uint64_t				commit_id;		// next commit id
 	uint64_t				commit_size;	// commit size, include header
 	uint64_t				rollback_count;	// total rollback count 
-	uint64_t				commit_id;		// next commit id
 	uint8_t					wal_active;		// is active
 	uint8_t					wal_switch;		// need switch
 	uint8_t					rsvd[6];

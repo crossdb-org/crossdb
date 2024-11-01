@@ -19,8 +19,8 @@ typedef struct xdb_dbm_t {
 	xdb_stgmgr_t	stg_mgr;
 	bool			bMemory;
 	bool			bSysDb;
-	bool			bReady;
-	xdb_lockmode_t	lock_mode;
+	xdb_lockmode_e	lock_mode;
+	xdb_syncmode_e	sync_mode;
 
 	xdb_walm_t 			wal_mgr[2];
 	xdb_walm_t 			*pWalm;
@@ -35,11 +35,16 @@ typedef struct xdb_dbobj_t {
 
 typedef struct xdb_db_t {
 	xdb_stghdr_t	blk_hdr;
-	uint64_t		lsn;
-	uint8_t			lock_mode; // xdb_lockmode_t
+	uint64_t		flush_time;
+	uint64_t		lastchg_id;	// last commit id
+	uint64_t		flush_id;	// last flush id
+	uint8_t			lock_mode;  // xdb_lockmode_e
+	uint32_t		sync_mode;	// xdb_syncmode_e
 	uint8_t			rsvd[7];
 	xdb_dbobj_t 	dbobj[];
 } xdb_db_t;
+
+#define XDB_DBPTR(pDbm)	((xdb_db_t*)pDbm->stg_mgr.pStgHdr)
 
 XDB_STATIC xdb_dbm_t* 
 xdb_find_db (const char *name);

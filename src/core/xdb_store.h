@@ -45,9 +45,6 @@ typedef struct xdb_stghdr_t {
 	uint16_t		blk_off;
 	uint8_t			blk_type;
 	uint8_t			blk_flags;
-	uint8_t			blk_dirty;
-	uint8_t			blk_inflush;
-	uint8_t			blk_rsvd[2];
 	xdb_rowid		blk_head;
 	xdb_rowid		blk_tail;
 	xdb_rowid		blk_alloc;

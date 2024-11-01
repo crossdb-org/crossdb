@@ -50,7 +50,7 @@ int xdb_call_trigger (xdb_conn_t *pConn, xdb_tblm_t *pTblm, uint32_t type, xdb_r
 	xdb_objm_t	*pTrigObj = &pTblm->trig_objm[type];
 	for (int i = 0; i < count; ++i) {
 		xdb_trig_t *pTrig = XDB_OBJM_GET(*pTrigObj, i);
-		pTrig->cb_func (pConn, (uintptr_t)pTblm->pMeta, type, pNewRow, pOldRow, pTrig->pArg);
+		pTrig->cb_func (pConn, (uintptr_t)pTblm->pMeta, type, pNewRow, pOldRow, pTrig->pArg, false);
 	}
 	return XDB_OK;
 }

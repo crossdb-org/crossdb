@@ -217,15 +217,18 @@ xdb_remmap (xdb_fd fd, void *addr, uint64_t length, uint64_t new_len)
 XDB_STATIC int 
 xdb_msync (void *addr, uint64_t length, bool bAsync)
 {
-	(void) bAsync;
-	length += ((uintptr_t)addr&XDB_PAGE_MASK);
-	addr = (void*)((uintptr_t)addr & (~XDB_PAGE_MASK));
+	if (bAsync) {
+		return 0;
+	} else {
+		length += ((uintptr_t)addr&XDB_PAGE_MASK);
+		addr = (void*)((uintptr_t)addr & (~XDB_PAGE_MASK));
 
-	BOOL err = FlushViewOfFile (addr, (SIZE_T)length);
-	if (! err) {
-		xdb_errlog ("Can't msync addr %p length %"PRIu64" -> rc %d \n", addr, length, (int)GetLastError());
+		BOOL err = FlushViewOfFile (addr, (SIZE_T)length);
+		if (! err) {
+			xdb_errlog ("Can't msync addr %p length %"PRIu64" -> rc %d \n", addr, length, (int)GetLastError());
+		}
+		return err ? 0 : -1;
 	}
-	return err ? 0 : -1;
 }
 
 #endif // Windows

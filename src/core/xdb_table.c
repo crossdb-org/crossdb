@@ -10,7 +10,7 @@
 ******************************************************************************/
 
 #if XDB_LOG_FLAGS & XDB_LOG_TBL
-#define xdb_tbllog(...)	xdb_print(...)
+#define xdb_tbllog(...)	xdb_print(__VA_ARGS__)
 #else
 #define xdb_tbllog(...)
 #endif
@@ -104,16 +104,18 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 
 	int flds_size = sizeof(*pTblm->pFields) * pTblm->fld_count;
 	pTblm->null_bytes = (pStmt->fld_count+7)>>3;
-	pTblm->pFields = xdb_malloc (flds_size + sizeof(pTblm->ppVFields) * pTblm->vfld_count + XDB_ALIGN8(pTblm->null_bytes));
+	pTblm->pFields = xdb_malloc (flds_size + sizeof(void*) * (pTblm->fld_count + pTblm->vfld_count) + XDB_ALIGN8(pTblm->null_bytes));
 	XDB_EXPECT (NULL!=pTblm->pFields, XDB_E_MEMORY, "Can't alloc memory");
 	memcpy (pTblm->pFields, pStmt->stmt_flds, flds_size);
-	pTblm->ppVFields = (void*)pTblm->pFields + flds_size;
+	pTblm->ppFields = (void*)pTblm->pFields + flds_size;
+	pTblm->ppVFields = (void*)pTblm->ppFields + sizeof(void*) * pTblm->fld_count;
 	pTblm->pNullBytes = (void*)pTblm->ppVFields + sizeof(pTblm->ppVFields) * pTblm->vfld_count;
 	memset (pTblm->pNullBytes, 0, XDB_ALIGN8(pTblm->null_bytes));
 
 	int vi = 0;
 	for (int i = 0; i < pTblm->fld_count; ++i) {
 		xdb_field_t *pField = &pTblm->pFields[i];
+		pTblm->ppFields[i] = pField;
 		pTblm->meta_size += XDB_ALIGN4 (sizeof(xdb_col_t) + XDB_OBJ_NMLEN(pField) + 1);
 		pField->pTblm = pTblm;
 		xdb_objm_add (&pTblm->fld_objm, pField);
@@ -144,7 +146,6 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 	XDB_EXPECT (NULL!=pMeta, XDB_E_MEMORY, "Can't alloc memory");
 	pTblm->pMeta = pMeta;
 	pMeta->col_count = pTblm->fld_count;
-	pMeta->col_vcount	= pTblm->vfld_count;
 	pMeta->cols_off	 = cols_off;
 	pMeta->null_off  = pTblm->null_off;
 	pMeta->row_size	= pTblm->row_size;
@@ -160,7 +161,6 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 		pCol->col_off	= pFld->fld_off;
 		pCol->col_flags	= pFld->fld_flags;
 		pCol->col_nmlen = XDB_OBJ_NMLEN(pFld);
-		pCol->col_vid	= pFld->fld_vid;
 		memcpy (pCol->col_name, XDB_OBJ_NAME(pFld), pCol->col_nmlen + 1);
 		pCol->col_len = XDB_ALIGN4 (sizeof (*pCol) + pCol->col_nmlen + 1);
 		pCol = (void*)pCol + pCol->col_len;
@@ -373,9 +373,18 @@ xdb_dump_create_table (xdb_tblm_t *pTblm, char buf[], xdb_size size, uint32_t fl
 XDB_STATIC int 
 xdb_flush_table (xdb_tblm_t *pTblm, uint32_t flags)
 {
-	xdb_tbllog ("Flush Table '%s'\n", XDB_OBJ_NAME(pTblm));
+	xdb_wrlock_tblstg (pTblm);
+	xdb_tbl_t *pTbl = XDB_TBLPTR(pTblm);
+	if (pTbl->flush_id == pTbl->lastchg_id) {
+		xdb_wrunlock_tblstg (pTblm);
+		return XDB_OK;
+	}
 
-	pTblm->stg_mgr.pStgHdr->blk_inflush = true;
+	xdb_tbllog ("Flush Table '%s' %"PRIu64" -> %"PRIu64"\n", XDB_OBJ_NAME(pTblm), pTbl->flush_id, pTbl->lastchg_id);
+
+	pTbl->flush_id = pTbl->lastchg_id;
+
+	xdb_wrunlock_tblstg (pTblm);
 
 	xdb_stg_sync (&pTblm->stg_mgr,    0, 0, false); 
 
@@ -383,16 +392,12 @@ xdb_flush_table (xdb_tblm_t *pTblm, uint32_t flags)
 
 	xdb_flush_index (pTblm);
 
-	pTblm->stg_mgr.pStgHdr->blk_inflush = false;
-
 	return 0;
 }
 
 XDB_STATIC int 
-xdb_repair_table (xdb_tblm_t *pTblm, uint32_t flags)
+__xdb_repair_table (xdb_tblm_t *pTblm, uint32_t flags)
 {
-	xdb_wrlock_tblstg (pTblm);;
-
 	xdb_print ("  --- Begin Repair table %s\n", XDB_OBJ_NAME(pTblm));
 
 	xdb_stg_init (&pTblm->stg_mgr);
@@ -410,8 +415,10 @@ xdb_repair_table (xdb_tblm_t *pTblm, uint32_t flags)
 		if (XDB_ROW_COMMIT == ctrl) {
 			if (pTblm->vfld_count > 0) {
 				void *pVdat = xdb_row_vdata_get (pTblm, pRow);
-				// 1000b
-				*(uint32_t*)pVdat = (0x8 << XDB_VDAT_LENBITS) | (*(uint32_t*)pVdat & XDB_VDAT_LENMASK);
+				if (NULL != pVdat) {
+					// 1000b
+					*(uint32_t*)pVdat = (0x8 << XDB_VDAT_LENBITS) | (*(uint32_t*)pVdat & XDB_VDAT_LENMASK);
+				}
 			}
 			xdb_idx_addRow (NULL, pTblm, rid, pRow);
 		} else {
@@ -422,8 +429,6 @@ xdb_repair_table (xdb_tblm_t *pTblm, uint32_t flags)
 	xdb_vdat_clean (pTblm->pVdatm);
 
 	xdb_print ("  --- End Repair table %s\n", XDB_OBJ_NAME(pTblm));
-
-	xdb_wrunlock_tblstg (pTblm);;
 
 	return XDB_OK;	
 }

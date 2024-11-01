@@ -137,30 +137,29 @@ typedef struct {
 } xdb_rowdat_t;
 
 typedef struct {
-	uint16_t	col_len;		// colum total len
-	uint8_t		col_type;		// 2 xdb_type_t
-	uint8_t		col_dtid;		// 3
+	uint8_t		col_len;		// colum total len
+	uint8_t		col_type;		// 1 xdb_type_t
+	uint16_t	col_flags;		// 2
 	uint32_t	col_off;		// 4
-	uint16_t	col_flags;		// 10
-	uint16_t	col_vid;		// 8
-	uint8_t		col_decimal;	// 12
-	uint8_t		col_charset;	// 12
-	uint8_t		col_nmlen;		// 13
-	char		col_name[];		// 14
+	uint16_t	rsvd;			// 8
+	//uint8_t		col_decimal;	// 8
+	//uint8_t		col_charset;	// 9
+	uint8_t		col_dtid;		// 10 db.table id in xdb_meta_t.tbl_name
+	uint8_t		rsvd1;			// 11
+	uint8_t		col_nmlen;		// 12
+	char		col_name[];		// 13
 } xdb_col_t;
 
 typedef struct {
 	uint32_t	len_type;		// MSB 4bit are type
 	uint16_t	col_count;		// 4
-	uint16_t	col_vcount;		// 6
-	uint16_t	cols_off;		// 8
-	uint16_t	rsvd;			// 10
-	uint32_t	row_size;		// 12
-	uint32_t	null_off;		// 16
-	uint32_t	rsvd2;			// 20
-	uint64_t	col_list;		// 24 xdb_col_t list after is head(u16),next(u16)
-	uint16_t	tbl_nmlen;		// 32 list of db.tbl;db.tbl;db.tbl
-	char		tbl_name[];
+	uint16_t	cols_off;		// 6
+	uint64_t	col_list;		// 8 xdb_col_t list
+	uint32_t	row_size;		// 16
+	uint32_t	null_off;		// 20
+	uint32_t	rsvd[4];		// 24
+	uint16_t	tbl_nmlen;		// 40 list of db.tbl,db.tbl,db.tbl
+	char		tbl_name[];		// 42
 	//xdb_col_t	cols[];
 } xdb_meta_t;
 

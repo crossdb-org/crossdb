@@ -10,7 +10,7 @@
 ******************************************************************************/
 
 #if XDB_LOG_FLAGS & XDB_LOG_DB
-#define xdb_dblog(...)	xdb_print(...)
+#define xdb_dblog(...)	xdb_print(__VA_ARGS__)
 #else
 #define xdb_dblog(...)
 #endif
@@ -79,6 +79,20 @@ xdb_open_datadir (xdb_stmt_db_t *pStmt)
 	return XDB_OK;
 }
 
+XDB_STATIC void
+xdb_init_db (xdb_stgmgr_t *pStgMgr, void *pArg, xdb_size fsize)
+{
+	xdb_db_t *pDb = (xdb_db_t*)pStgMgr->pStgHdr;
+	xdb_dbm_t *pDbm = pArg;
+	if (0 == fsize) {
+		pDb->lock_mode = pDbm->lock_mode;
+		pDb->sync_mode = pDbm->sync_mode;
+	} else {
+		pDbm->lock_mode = pDb->lock_mode;
+		pDbm->sync_mode = pDb->sync_mode;
+	}
+}
+
 XDB_STATIC int 
 xdb_create_db (xdb_stmt_db_t *pStmt)
 {
@@ -142,17 +156,13 @@ xdb_create_db (xdb_stmt_db_t *pStmt)
 							.ctl_off = 0, .blk_off = XDB_OFFSET(xdb_db_t, dbobj)};
 	pDbm->stg_mgr.pOps = pDbm->bMemory ? &s_xdb_store_mem_ops : &s_xdb_store_file_ops;
 	pDbm->stg_mgr.pStgHdr	= &stg_hdr;
-	int rc = xdb_stg_open (&pDbm->stg_mgr, path, NULL, NULL);
+	int rc = xdb_stg_open (&pDbm->stg_mgr, path, xdb_init_db, pDbm);
 	XDB_EXPECT (XDB_OK == rc, XDB_E_FILE, "Can't create DB in path '%s'", path);
 
 	pDbm->lock_mode = pStmt->lock_mode;
+	pDbm->sync_mode = pStmt->sync_mode;
 
 	xdb_db_t *pDb = (xdb_db_t*)pDbm->stg_mgr.pStgHdr;
-	if (XDB_OK == rc) {
-		pDb->lock_mode = pStmt->lock_mode;
-	} else if (0 == pDbm->lock_mode) {
-		pDbm->lock_mode = pDb->lock_mode;
-	}
 
 	XDB_EXPECT (strlen(real_db_name) < sizeof (pDbm->db_path), XDB_E_PARAM, "Too long path");
 	xdb_strcpy (pDbm->db_path, real_db_name);
@@ -177,15 +187,13 @@ xdb_create_db (xdb_stmt_db_t *pStmt)
 		}
 	}
 
-	if (pDbm->stg_mgr.pStgHdr->blk_dirty || pDbm->stg_mgr.pStgHdr->blk_inflush) {
-#ifdef XDB_WAL
+	if ((pDb->flush_time < xdb_timestamp()-xdb_uptime()) && (pDb->lastchg_id != pDb->flush_id)) {
 		#ifdef XDB_CLI
 		xdb_errlog ("'%s' is broken, run 'REPAIR DATABASE to repaire DB'\n", XDB_OBJ_NAME(pDbm));
 		#else
 		xdb_errlog ("Database '%s' was broken, repaire now\n", XDB_OBJ_NAME(pDbm));
 		xdb_repair_db (pDbm, 0);
 		#endif
-#endif
 	}
 
 	if (strcmp (XDB_OBJ_NAME(pDbm), "system")) {
@@ -193,8 +201,6 @@ xdb_create_db (xdb_stmt_db_t *pStmt)
 	} else {
 		pDbm->bSysDb = true;
 	}
-
-	pDbm->bReady = true;
 
 	return XDB_OK;
 
@@ -210,8 +216,6 @@ xdb_close_db (xdb_conn_t *pConn, xdb_dbm_t *pDbm)
 	xdb_sprintf (path, "%s/xdb.db", pDbm->db_path);
 
 	xdb_dblog ("------ close db '%s' ------\n", XDB_OBJ_NAME(pDbm));
-
-	pDbm->bReady = false;
 	xdb_yield ();
 
 	xdb_flush_db (pDbm, 0);
@@ -339,12 +343,15 @@ xdb_flush_db (xdb_dbm_t *pDbm, uint32_t flags)
 	if (NULL == pDbm || pDbm->bMemory) {
 		return XDB_OK;
 	}
-	if (pDbm->stg_mgr.pStgHdr->blk_inflush) {
+	xdb_db_t *pDb = XDB_DBPTR(pDbm);
+	
+	if (pDb->flush_id == pDb->lastchg_id) {
 		return XDB_OK;
 	}
-	xdb_dblog ("Flush DB '%s'\n", XDB_OBJ_NAME(pDbm));
 
-	pDbm->stg_mgr.pStgHdr->blk_inflush = true;
+	xdb_dblog ("Flush DB '%s' %"PRIu64" -> %"PRIu64"\n", XDB_OBJ_NAME(pDbm), pDb->flush_id, pDb->lastchg_id);
+
+	pDb->lastchg_id = pDb->flush_id;
 
 	// Switch wal if has commit, then flush tables, afterward backup wal can be recycled
 	bool bSwitch = xdb_wal_switch (pDbm);
@@ -353,7 +360,7 @@ xdb_flush_db (xdb_dbm_t *pDbm, uint32_t flags)
 	int count = XDB_OBJM_MAX(pDbm->db_objm);
 	for (int i = 0; i < count; ++i) {
 		xdb_tblm_t *pTblm = XDB_OBJM_GET(pDbm->db_objm, i);
-		if ((NULL != pTblm) && pTblm->stg_mgr.pStgHdr->blk_dirty) {
+		if ((NULL != pTblm)) {
 			xdb_flush_table (pTblm, flags);
 		}
 	}
@@ -363,8 +370,10 @@ xdb_flush_db (xdb_dbm_t *pDbm, uint32_t flags)
 		xdb_wal_wrlock (pDbm);
 		__xdb_wal_flush (pDbm->pWalmBak, false);
 		if (XDB_WAL_PTR(pDbm->pWalm)->commit_size > sizeof (xdb_wal_t)) {
-			// Mark for next round flush
-			pDbm->stg_mgr.pStgHdr->blk_dirty = true;
+			// Wait for next round flush
+		} else {
+			xdb_db_t *pDb = XDB_DBPTR(pDbm);
+			pDb->flush_id = pDb->lastchg_id;
 		}
 		xdb_wal_wrunlock (pDbm);
 
@@ -372,8 +381,6 @@ xdb_flush_db (xdb_dbm_t *pDbm, uint32_t flags)
 		xdb_stg_sync (&pDbm->pWalm->stg_mgr,    0, 0, false);
 		xdb_stg_sync (&pDbm->pWalmBak->stg_mgr, 0, 0, false);
 	}
-
-	pDbm->stg_mgr.pStgHdr->blk_inflush = false;
 
 	return 0;
 }
@@ -388,12 +395,18 @@ xdb_repair_db (xdb_dbm_t *pDbm, int flags)
 	int count = XDB_OBJM_MAX(pDbm->db_objm);
 	for (int i = 0; i < count; ++i) {
 		xdb_tblm_t *pTblm = XDB_OBJM_GET(pDbm->db_objm, i);
-		if ((NULL != pTblm) && (pTblm->stg_mgr.pStgHdr->blk_dirty || pTblm->stg_mgr.pStgHdr->blk_inflush)) {
-			xdb_repair_table (pTblm, flags);
-		}
+		if (NULL != pTblm) {
+			xdb_wrlock_tblstg (pTblm);
+			xdb_tbl_t *pTbl = XDB_TBLPTR(pTblm);
+			if (pTbl->flush_id != pTbl->lastchg_id) {
+				__xdb_repair_table (pTblm, flags);
+			}
+			xdb_wrunlock_tblstg (pTblm);
+		}	
 	}
 
 	xdb_wal_redo (pDbm);
+	xdb_flush_db (pDbm, 0);
 
 	xdb_print ("=== End Recover database %s ===\n", XDB_OBJ_NAME (pDbm));
 
