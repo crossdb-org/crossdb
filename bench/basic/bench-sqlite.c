@@ -2,7 +2,7 @@
 #include <sqlite3.h>
 
 #define BENCH_DBNAME	"SQLite"
-#define LKUP_COUNT		1000000
+int LKUP_COUNT	= 1000000;
 
 #include "bench.h"
 

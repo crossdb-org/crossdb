@@ -93,6 +93,50 @@ xdb_wrunlock_tblstg (xdb_tblm_t *pTblm)
 	return XDB_OK;
 }
 
+static inline int 
+xdb_rdlock_db (xdb_dbm_t *pDbm) 
+{
+	if (XDB_LOCK_PROCESS == pDbm->lock_mode) {
+		return xdb_file_rdlock (pDbm->stg_mgr.stg_fd, 0, 1);
+	} else {
+		xdb_rwlock_rdlock (&pDbm->db_lock);
+	}
+	return XDB_OK;
+}
+
+static inline int 
+xdb_rdunlock_db (xdb_dbm_t *pDbm) 
+{
+	if (XDB_LOCK_PROCESS == pDbm->lock_mode) {
+		return xdb_file_unlock (pDbm->stg_mgr.stg_fd, 0, 1);
+	} else {
+		xdb_rwlock_rdunlock (&pDbm->db_lock);
+	}
+	return XDB_OK;
+}
+
+static inline int 
+xdb_wrlock_db (xdb_dbm_t *pDbm) 
+{
+	if (XDB_LOCK_PROCESS == pDbm->lock_mode) {
+		return xdb_file_wrlock (pDbm->stg_mgr.stg_fd, 0, 1);
+	} else {
+		xdb_rwlock_wrlock (&pDbm->db_lock);
+	}
+	return XDB_OK;
+}
+
+static inline int 
+xdb_wrunlock_db (xdb_dbm_t *pDbm) 
+{
+	if (XDB_LOCK_PROCESS == pDbm->lock_mode) {
+		return xdb_file_unlock (pDbm->stg_mgr.stg_fd, 0, 1);
+	} else {
+		xdb_rwlock_wrunlock (&pDbm->db_lock);
+	}
+	return XDB_OK;
+}
+
 XDB_STATIC void 
 xdb_tbltrans_init (xdb_tblTrans_t *pTblRows);
 

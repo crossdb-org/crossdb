@@ -259,12 +259,12 @@ xdb_trans_db_wal (uint32_t did, void *pArg)
 	if (pDbm->sync_mode > 0) {
 		// include endof commit_len=0
 		if (pWal->commit_id - pWal->sync_cid >= pDbm->sync_mode) {
-			xdb_stg_sync (&pDbm->stg_mgr, pWal->commit_size - sizeof(xdb_commit_t), flush_size, false);
+			xdb_stg_sync (&pDbm->pWalm->stg_mgr, pWal->sync_size - sizeof(xdb_commit_t), flush_size, false);
 			pWal->commit_size += pCommit->commit_len;
 			pWal->sync_size = pWal->commit_size;
 			pWal->sync_cid	= pCommit->commit_id;
 		} else {
-			xdb_stg_sync (&pDbm->stg_mgr, pWal->commit_size - sizeof(xdb_commit_t), flush_size, true);
+			xdb_stg_sync (&pDbm->pWalm->stg_mgr, pWal->sync_size - sizeof(xdb_commit_t), flush_size, true);
 			pWal->commit_size += pCommit->commit_len;
 		}
 	} else {
@@ -313,7 +313,7 @@ xdb_wal_flush (xdb_walm_t *pWalm)
 	return XDB_OK;
 }
 
-XDB_STATIC xdb_commit_id 
+XDB_STATIC uint64_t 
 xdb_wal_iterate (xdb_walm_t *pWalm, xdb_wal_callbck cb_func, void *pArg)
 {
 	xdb_wal_t			*pWal = XDB_WAL_PTR(pWalm);
@@ -322,7 +322,7 @@ xdb_wal_iterate (xdb_walm_t *pWalm, xdb_wal_callbck cb_func, void *pArg)
 	xdb_tblm_t			*pTblm;
 	xdb_dbm_t			*pDbm = pWalm->pDbm;
 	uint64_t			commit_size = sizeof (xdb_wal_t);
-	xdb_commit_id		last_commit_id = pWal->commit_id;
+	uint64_t			last_commit_id = pWal->commit_id;
 	void				*pWalEnd = (void*)pWal + pWal->commit_size;
 
 	// Go over until end or checksum error
@@ -394,9 +394,11 @@ xdb_wal_redo_row (xdb_tblm_t *pTblm, xdb_walrow_t *pWalRow, void *pArg)
 			int vlen = pWalRow->row_len - sizeof(xdb_walrow_t) - pTblm->row_size - 4;
 			if (vlen > 0) {
 				uint32_t *pVdat = xdb_row_vdata_get (pTblm, pDbRow);
-				memcpy ((void*)pVdat + 4, pRow + pTblm->row_size, vlen);
-				// b1000
-				*pVdat = (8<<XDB_VDAT_LENBITS) | vlen;
+				if (pVdat != NULL) {
+					memcpy ((void*)pVdat + 4, pRow + pTblm->row_size, vlen);
+					// b1000
+					*pVdat = (8<<XDB_VDAT_LENBITS) | vlen;
+				}
 			}
 		} else {
 			memcpy (pDbRow, pRow, pTblm->row_size);

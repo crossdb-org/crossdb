@@ -28,6 +28,28 @@
 
 -->
 
+## 0.11.0 <small>(2024-11-11)</small>
+
+**Features**
+
+- Support data types: `BOOL`, `TIMESTAMP`
+- Support SQL statements: `CREATE SERVER` `DROP SERVER` `SHOW SERVERS`
+- Support APIs: `xdb_connect`
+- Support embedded SERVER mode
+- Support `xdb-cli` standalone server mode
+- Support telnet connection
+
+**Improvements**
+
+**Test**
+
+**Bug Fixes**
+
+- INSERT without column list will set all columns to NULL
+- WAL flush with wrong address and range
+- Crash when table drop during flush
+
+
 ## 0.10.0 <small>(2024-11-01)</small>
 
 **Features**
@@ -45,6 +67,7 @@
 **Bug Fixes**
 
 - Create duplicate database doesn't report error sometimes
+
 
 ## 0.9.0 <small>(2024-10-11)</small>
 
@@ -74,6 +97,7 @@
 - Wrong Aggregation function result for empty table
 - Update transaction crash issue
 - SQL syntax error
+
 
 ## 0.8.0 <small>(2024-09-03)</small>
 

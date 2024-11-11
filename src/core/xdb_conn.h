@@ -48,7 +48,7 @@ typedef struct xdb_conn_t {
 
 	xdb_conn_t			*pConn; // pConn must be before conn_res
 	xdb_res_t			conn_res;
-	xdb_msg_t			conn_msg;
+	xdb_msg_t			conn_msg; // conn_msg must be after conn_res
 
 	int 				sockfd;
 	FILE				*conn_stdout;
@@ -83,6 +83,9 @@ typedef struct xdb_conn_t {
 
 	bool				conn_client;
 	xdb_format_t		res_format;
+
+	char				*poll_buf;
+	uint32_t			poll_size;
 } xdb_conn_t;
 
 XDB_STATIC void 

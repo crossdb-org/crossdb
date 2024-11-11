@@ -25,7 +25,7 @@ xdb_print_char (FILE *pFile, char ch, int n)
 {
 	int i;
 	for (i = 0; i < n; ++i) {
-		fputc (ch, pFile);
+		xdb_fputc (ch, pFile);
 	}
 }
 
@@ -63,12 +63,12 @@ xdb_is_sql_complete (char *sql, bool split)
 XDB_STATIC void 
 xdb_print_table_line (FILE *pFile, int *colLen, int n)
 {
-	fputc ('+', pFile);
+	xdb_fputc ('+', pFile);
 	for (int i = 0; i < n; ++i) {
 		xdb_print_char (pFile, '-', colLen[i]+2);
-		fputc ('+', pFile);
+		xdb_fputc ('+', pFile);
 	}
-	fputc ('\n', pFile);
+	xdb_fputc ('\n', pFile);
 }
 
 XDB_STATIC void 
@@ -195,51 +195,51 @@ xdb_fprint_row_table (FILE *pFile, xdb_meta_t *pMeta, xdb_row_t *pRow, int *pCol
 	}
 
 	for (int n = 0; n < line; ++n) {
-		fputc ('|', pFile);
+		xdb_fputc ('|', pFile);
 		for (int i = 0; i < pMeta->col_count; ++i) {
 			int 	plen = 0;
 			char 	*str = "", *ch = NULL;
-			fputc (' ', pFile);
+			xdb_fputc (' ', pFile);
 			void *pVal = (void*)((uint64_t*)pRow[i]);
 			if (NULL == pVal) {
 				if (0 == n) {
-					plen = fprintf (pFile, "NULL");
+					plen = xdb_fprintf (pFile, "NULL");
 				}
 			} else {
 				switch (pCol[i]->col_type) {
 				case XDB_TYPE_INT:
 					if (0 == n) {
-						plen = fprintf (pFile, "%d", *(int32_t*)pVal);
+						plen = xdb_fprintf (pFile, "%d", *(int32_t*)pVal);
 					}
 					break;
 				case XDB_TYPE_BOOL:
 					if (0 == n) {
-						plen = fprintf (pFile, "%s", *(int8_t*)pVal?"true":"false");
+						plen = xdb_fprintf (pFile, "%s", *(int8_t*)pVal?"true":"false");
 					}
 					break;
 				case XDB_TYPE_TINYINT:
 					if (0 == n) {
-						plen = fprintf (pFile, "%d", *(int8_t*)pVal);
+						plen = xdb_fprintf (pFile, "%d", *(int8_t*)pVal);
 					}
 					break;
 				case XDB_TYPE_SMALLINT:
 					if (0 == n) {
-						plen = fprintf (pFile, "%d", *(int16_t*)pVal);
+						plen = xdb_fprintf (pFile, "%d", *(int16_t*)pVal);
 					}
 					break;
 				case XDB_TYPE_BIGINT:
 					if (0 == n) {
-						plen = fprintf (pFile, "%"PRIi64, *(int64_t*)pVal);
+						plen = xdb_fprintf (pFile, "%"PRIi64, *(int64_t*)pVal);
 					}
 					break;
 				case XDB_TYPE_FLOAT:
 					if (0 == n) {
-						plen = fprintf (pFile, "%f", *(float*)pVal);
+						plen = xdb_fprintf (pFile, "%f", *(float*)pVal);
 					}
 					break;
 				case XDB_TYPE_DOUBLE:
 					if (0 == n) {
-						plen = fprintf (pFile, "%f", *(double*)pVal);
+						plen = xdb_fprintf (pFile, "%f", *(double*)pVal);
 					}
 					break;
 				case XDB_TYPE_CHAR:
@@ -262,14 +262,14 @@ xdb_fprint_row_table (FILE *pFile, xdb_meta_t *pMeta, xdb_row_t *pRow, int *pCol
 							*ch = '\0';
 						}
 					}
-					plen = fprintf (pFile, "%s", str);
+					plen = xdb_fprintf (pFile, "%s", str);
 					break;
 				case XDB_TYPE_BINARY:
 				case XDB_TYPE_VBINARY:
 					if (0 == n) {
-						plen += fprintf (pFile, "0x");
+						plen += xdb_fprintf (pFile, "0x");
 						for (int h = 0; h < *(uint16_t*)(pVal-2); ++h) {
-							plen += fprintf (pFile, "%c%c", s_xdb_hex_2_str[((uint8_t*)pVal)[h]][0], s_xdb_hex_2_str[((uint8_t*)pVal)[h]][1]);
+							plen += xdb_fprintf (pFile, "%c%c", s_xdb_hex_2_str[((uint8_t*)pVal)[h]][0], s_xdb_hex_2_str[((uint8_t*)pVal)[h]][1]);
 						}
 					}
 					break;
@@ -288,7 +288,7 @@ xdb_fprint_row_table (FILE *pFile, xdb_meta_t *pMeta, xdb_row_t *pRow, int *pCol
 								len += sprintf (buf+len, ".%03d", millsec/1000);
 							}
 						}
-						plen = fprintf (pFile, "%s", buf);
+						plen = xdb_fprintf (pFile, "%s", buf);
 					}
 					break;
 				}
@@ -296,12 +296,12 @@ xdb_fprint_row_table (FILE *pFile, xdb_meta_t *pMeta, xdb_row_t *pRow, int *pCol
 
 			xdb_print_char (pFile, ' ', pColLen[i] + 1 - plen);
 
-			fputc ('|', pFile);
+			xdb_fputc ('|', pFile);
 			if (ch != NULL) {
 				*ch = '\n';
 			}
 		}
-		fputc ('\n', pFile);
+		xdb_fputc ('\n', pFile);
 	}
 }
 
@@ -326,14 +326,14 @@ xdb_output_table (xdb_conn_t *pConn, xdb_res_t *pRes)
 	xdb_rewind_result (pRes);
 	
 	xdb_print_table_line (pConn->conn_stdout, colLen, count);
-	fputc ('|', pConn->conn_stdout);
+	xdb_fputc ('|', pConn->conn_stdout);
 	for (int i = 0; i < count; ++i) {
-		fputc (' ', pConn->conn_stdout);
-		fprintf (pConn->conn_stdout, "%s", pCol[i]->col_name);
+		xdb_fputc (' ', pConn->conn_stdout);
+		xdb_fprintf (pConn->conn_stdout, "%s", pCol[i]->col_name);
 		xdb_print_char (pConn->conn_stdout, ' ', colLen[i] + 1 - pCol[i]->col_nmlen);
-		fputc ('|', pConn->conn_stdout);
+		xdb_fputc ('|', pConn->conn_stdout);
 	}
-	fputc ('\n', pConn->conn_stdout);
+	xdb_fputc ('\n', pConn->conn_stdout);
 	
 	xdb_print_table_line (pConn->conn_stdout, colLen, count);
 	
@@ -404,6 +404,27 @@ xdb_shell_add_tbl (xdb_conn_t* pConn, const char *prefix, crossline_completions_
 		bFound = false;
 		xdb_free_result (pRes);
 		pRes = xdb_pexec (pConn, "SELECT table FROM system.tables WHERE database='%s'", xdb_curdb(pConn));
+		while (NULL != (pRow = xdb_fetch_row (pRes))) {
+			if (! strncasecmp(prefix, (char*)pRow[0], strlen(prefix))) {
+				crossline_completion_add (pCompletion, (char*)pRow[0], NULL);
+			}
+		}
+	}
+	xdb_free_result (pRes);
+	return bFound;
+}
+
+XDB_STATIC bool 
+xdb_shell_add_svr (xdb_conn_t* pConn, const char *prefix, crossline_completions_t *pCompletion)
+{
+	bool		bFound = true;
+	xdb_row_t 	*pRow;
+
+	xdb_res_t *pRes = xdb_pexec (pConn, "SELECT server FROM system.servers WHERE server='%s'", xdb_curdb(pConn), prefix);
+	if (0 == pRes->row_count) {
+		bFound = false;
+		xdb_free_result (pRes);
+		pRes = xdb_pexec (pConn, "SELECT server FROM system.servers", xdb_curdb(pConn));
 		while (NULL != (pRow = xdb_fetch_row (pRes))) {
 			if (! strncasecmp(prefix, (char*)pRow[0], strlen(prefix))) {
 				crossline_completion_add (pCompletion, (char*)pRow[0], NULL);
@@ -585,7 +606,7 @@ select:
 			xdb_shell_completion_filter (pConn, pCompletion, &token, token.token, fitlercommands);
 		}
 	} else if (! strcasecmp (token.token, "SHOW")) {
-		static const char *commands[] = {"DATABASES", "TABLES", "INDEXES", "COLUMNS", "CREATE", NULL};
+		static const char *commands[] = {"DATABASES", "TABLES", "INDEXES", "COLUMNS", "SERVERS", "CREATE", NULL};
 		xdb_next_token (&token);
 		if (sql_add_completion (pCompletion, token.token, commands, NULL) >= 0) {
 			goto exit;
@@ -619,7 +640,7 @@ select:
 			xdb_shell_completion_filter (pConn, pCompletion, &token, token.token, fitlercommands);
 		}	
 	} else if (! strcasecmp (token.token, "DROP")) {
-		static const char *commands[] = {"DATABASE", "TABLE", "INDEX", NULL};
+		static const char *commands[] = {"DATABASE", "TABLE", "INDEX", "SERVER", NULL};
 		xdb_next_token (&token);
 		if (sql_add_completion (pCompletion, token.token, commands, NULL) >= 0) {
 			goto exit;
@@ -649,6 +670,11 @@ select:
 				if (!xdb_shell_add_tbl (pConn, token.token, pCompletion)) {
 					goto exit;
 				}
+			}
+		} else if (! strcasecmp (token.token, "SERVER")) {
+			xdb_next_token (&token);
+			if (!xdb_shell_add_svr (pConn, token.token, pCompletion)) {
+				goto exit;
 			}
 		}
 	} else if (! strcasecmp (token.token, "DESC") || ! strcasecmp (token.token, "DESCRIBE")) {
@@ -795,11 +821,11 @@ xdb_shell_process (xdb_conn_t *pConn, const char *sql)
 }
 
 XDB_STATIC int 
-xdb_shell_loop (xdb_conn_t* pConn, const char *prompt, const char *db)
+xdb_shell_loop (xdb_conn_t* pConn, const char *prompt, const char *db, bool bQuite)
 {
 	bool	bNewConn = false;
 	
-	if (isatty(STDIN_FILENO)) {
+	if (!bQuite && isatty(STDIN_FILENO)) {
 		xdb_print (s_xdb_banner, xdb_version());
 
 		crossline_color_set (CROSSLINE_FGCOLOR_YELLOW);

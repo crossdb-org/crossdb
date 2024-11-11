@@ -123,7 +123,25 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 		case XDB_STMT_CREATE_SVR:
 			rc = xdb_create_server ((xdb_stmt_svr_t*)pStmt);
 			break;
+		case XDB_STMT_DROP_SVR:
+			rc = xdb_drop_server ((xdb_stmt_svr_t*)pStmt);
+			break;
 		#endif
+
+		#if (XDB_ENABLE_PUBSUB == 1)
+		case XDB_STMT_CREATE_PUB:
+			rc = xdb_create_pub ((xdb_stmt_pub_t*)pStmt);
+			break;
+
+		case XDB_STMT_CREATE_SUB:
+			rc = xdb_create_sub ((xdb_stmt_sub_t*)pStmt);
+			break;
+
+		case XDB_STMT_SUBSCRIBE:
+			rc = xdb_subscribe ((xdb_stmt_subscribe_t*)pStmt);
+			break;
+		#endif
+		
 		case XDB_STMT_USE_DB:
 			rc = xdb_use_db ((xdb_stmt_db_t*)pStmt);
 			if (XDB_OK == rc) {
@@ -196,6 +214,9 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 		case XDB_STMT_SHOW_IDX:
 			pRes = xdb_pexec (pStmt->pConn, "SELECT table,idx_key,type,col_list FROM system.indexes WHERE database='%s'", XDB_OBJ_NAME(pConn->pCurDbm));
 			break;
+		case XDB_STMT_SHOW_SVR:
+			pRes = xdb_pexec (pStmt->pConn, "SELECT * FROM system.servers");
+			break;
 		case XDB_STMT_DESC:
 			{
 				xdb_stmt_tbl_t *pStmtTbl = (xdb_stmt_tbl_t*)pStmt;
@@ -207,7 +228,7 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 			{
 				char cur_db[XDB_NAME_LEN+2];
 				xdb_strcpy (cur_db, xdb_curdb(pConn));
-				rc = xdb_shell_loop (pStmt->pConn, NULL, xdb_curdb(pConn));
+				rc = xdb_shell_loop (pStmt->pConn, NULL, xdb_curdb(pConn), true);
 				// reover current db
 				if (*cur_db != '\0') {
 					pRes = xdb_pexec (pStmt->pConn, "USE %s", cur_db);
@@ -244,8 +265,11 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 
 		// extra msg set
 		if (xdb_unlikely (pConn->conn_msg.len > 0)) {
-			pRes->data_len = sizeof (xdb_msg_t) + pConn->conn_msg.len + 1;
+			pRes->data_len = sizeof (xdb_msg_t) - sizeof(pConn->conn_msg.msg) + pConn->conn_msg.len + 1;
 			pRes->row_data = (uintptr_t)pConn->conn_msg.msg;
+		}
+		if (rc != XDB_OK) {
+			XDB_SETERR (rc, "Failed");
 		}
 	}
 
@@ -453,11 +477,39 @@ xdb_vbexec (xdb_conn_t *pConn, const char *sql, va_list ap)
 xdb_res_t*
 xdb_bexec (xdb_conn_t *pConn, const char *sql, ...)
 {
+	if (xdb_unlikely (pConn->conn_client)) {
+		va_list 	vargs;
+		
+		XDB_BUF_DEF(pSql,4096);
+		
+		va_start(vargs, sql);
+		int len = vsnprintf ((char*)pSql, pSql_size-1, sql, vargs);
+		va_end(vargs);
+		
+		if (len >= pSql_size) {
+			XDB_BUF_ALLOC(pSql,len+1);
+			XDB_EXPECT (NULL != pSql, XDB_E_MEMORY, "Can't alloc memory");
+			va_start(vargs, sql);
+			len = vsnprintf (pSql, len, sql, vargs);
+			va_end(vargs);
+		}
+		pSql[pSql_size-1] = '\0';
+		
+		xdb_res_t *pRes = xdb_exec (pConn, pSql);
+		
+		XDB_BUF_FREE(pSql);
+		
+		return pRes;
+	}
+
 	va_list ap;
 	va_start (ap, sql);
 	xdb_res_t* pRes = xdb_vbexec (pConn, sql, ap);
 	va_end (ap);
 	return pRes;
+
+error:
+	return &pConn->conn_res;
 }
 
 XDB_STATIC int 
@@ -519,25 +571,25 @@ xdb_exec_out (xdb_conn_t *pConn, const char *sql, int len)
 		default:
 			{
 				if (pRes->errcode > 0) {
-					fprintf (pConn->conn_stdout, "ERROR %d: %s\n\n", pRes->errcode, xdb_errmsg(pRes));
+					xdb_fprintf (pConn->conn_stdout, "ERROR %d: %s\n\n", pRes->errcode, xdb_errmsg(pRes));
 				} else {
 					if (pRes->row_count) {
 						xdb_output_table (pConn, pRes);
 					}
 					if (pRes->meta_len > 0) {
-						fprintf (pConn->conn_stdout, "%"PRId64" row%s in set (%d.%03d ms)\n\n", pRes->row_count, pRes->row_count>1?"s":"", (int)(ts/1000), (int)(ts%1000));
+						xdb_fprintf (pConn->conn_stdout, "%"PRId64" row%s in set (%d.%03d ms)\n\n", pRes->row_count, pRes->row_count>1?"s":"", (int)(ts/1000), (int)(ts%1000));
 					} else if (1 == pRes->stmt_type) {
-						fprintf (pConn->conn_stdout, "Database changed\n\n");
+						xdb_fprintf (pConn->conn_stdout, "Database changed\n\n");
 					} else if (pRes->stmt_type < 200) {
 						if (isatty(STDIN_FILENO)) {
 							if (pRes->data_len) {
-								fprintf (pConn->conn_stdout, "%s\n", xdb_errmsg(pRes));
+								xdb_fprintf (pConn->conn_stdout, "%s\n", xdb_errmsg(pRes));
 							}
-							fprintf (pConn->conn_stdout, "Query OK, %" PRId64 " row%s affected (%d.%03d ms)\n\n", pRes->affected_rows, pRes->affected_rows>1?"s":"", (int)(ts/1000), (int)(ts%1000));
+							xdb_fprintf (pConn->conn_stdout, "Query OK, %" PRId64 " row%s affected (%d.%03d ms)\n\n", pRes->affected_rows, pRes->affected_rows>1?"s":"", (int)(ts/1000), (int)(ts%1000));
 						}
 					}
 				}
-				fflush (pConn->conn_stdout);
+				xdb_fflush (pConn->conn_stdout);
 			}
 			break;
 		}

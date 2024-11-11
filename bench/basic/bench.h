@@ -8,8 +8,9 @@
 #include <sched.h>
 #include <pthread.h>
 
-#define SQL_LKUP_COUNT	LKUP_COUNT/5
-#define UPD_COUNT		LKUP_COUNT/10
+extern int LKUP_COUNT;
+int SQL_LKUP_COUNT;
+int UPD_COUNT;
 
 #define BENCH_CHECK(expr, action...)	if (!(expr)) { action; }
 
@@ -128,6 +129,8 @@ void stu_count_cb (void *pArg, int id, string &name, int age, string &cls, int s
 
 #endif
 
+bool s_bench_svr = false;
+
 #define BENCH_SQL_CREATE		"CREATE TABLE student (id INT PRIMARY KEY, name CHAR(16), age INT, class CHAR(16), score INT)"
 #define BENCH_SQL_DROP			"DROP TABLE IF EXISTS student"
 #define BENCH_SQL_INSERT		"INSERT INTO student (id,name,age,class,score) VALUES (?,?,?,?,?)"
@@ -135,6 +138,10 @@ void stu_count_cb (void *pArg, int id, string &name, int age, string &cls, int s
 #define BENCH_SQL_UDPAGE_BYID	"UPDATE student SET age=? WHERE id=?"
 #define BENCH_SQL_DEL_BYID		"DELETE FROM student WHERE id=?"
 
+#define BENCH_SQL_INSERT_NET		"INSERT INTO student (id,name,age,class,score) VALUES (%d,'%s',%d,'%s',%d)"
+#define BENCH_SQL_GET_BYID_NET		"SELECT * FROM student WHERE id=%d"
+#define BENCH_SQL_UDPAGE_BYID_NET	"UPDATE student SET age=? WHERE id=%d"
+#define BENCH_SQL_DEL_BYID_NET		"DELETE FROM student WHERE id=%d"
 
 void* bench_open (const char *db);
 void bench_close (void *pConn);
@@ -162,6 +169,10 @@ bool bench_stmt_get_byid (void *pStmt, int id, stu_callback callback, void *pArg
 void bench_sql_test (void *pConn, int STU_COUNT, bool bRand, bench_result_t *pResult)
 {
 	bool ok;
+	const char *sql_insert = !s_bench_svr ? BENCH_SQL_INSERT : BENCH_SQL_INSERT_NET;
+	const char *sql_getbyid = !s_bench_svr ? BENCH_SQL_GET_BYID : BENCH_SQL_GET_BYID_NET;
+	const char *sql_upagebyid = !s_bench_svr ? BENCH_SQL_UDPAGE_BYID : BENCH_SQL_UDPAGE_BYID_NET;
+	const char *sql_delbyid = !s_bench_svr ? BENCH_SQL_DEL_BYID : BENCH_SQL_DEL_BYID_NET;
 
 	bench_sql (pConn, BENCH_SQL_DROP);
 	bench_sql (pConn, BENCH_SQL_CREATE);
@@ -171,7 +182,7 @@ void bench_sql_test (void *pConn, int STU_COUNT, bool bRand, bench_result_t *pRe
 	bench_print ("------------ INSERT %s ------------\n", qps2str(STU_COUNT));
 	bench_ts_beg();
 	for (int i = 0; i < STU_COUNT; ++i) {
-		ok = bench_sql_insert (pConn, BENCH_SQL_INSERT, STU_BASEID+i, STU_NAME(i), STU_AGE(i), STU_CLASS(i), STU_SCORE(i));
+		ok = bench_sql_insert (pConn, sql_insert, STU_BASEID+i, STU_NAME(i), STU_AGE(i), STU_CLASS(i), STU_SCORE(i));
 		BENCH_CHECK (ok, bench_print ("Can't insert student id=%d\n", STU_BASEID+i); return;);
 	}
 	pResult->insert_qps += bench_ts_end (STU_COUNT);
@@ -182,7 +193,7 @@ void bench_sql_test (void *pConn, int STU_COUNT, bool bRand, bench_result_t *pRe
 		int count = 0;
 		bench_ts_beg();
 		for (int i = 0; i < SQL_LKUP_COUNT; ++i) {
-			ok = bench_sql_get_byid (pConn, BENCH_SQL_GET_BYID, STU_ID(i), stu_count_cb, &count);
+			ok = bench_sql_get_byid (pConn, sql_getbyid, STU_ID(i), stu_count_cb, &count);
 			BENCH_CHECK (ok, bench_print ("Can't get student id=%d\n", STU_ID(i)); return;);
 		}
 		qps_sum += bench_ts_end (SQL_LKUP_COUNT);
@@ -193,7 +204,7 @@ void bench_sql_test (void *pConn, int STU_COUNT, bool bRand, bench_result_t *pRe
 	bench_print ("------------ %s UPDATE %s ------------\n", ORDER_STR(bRand), qps2str(UPD_COUNT));
 	bench_ts_beg();
 	for (int i = 0; i < UPD_COUNT; ++i) {
-		ok = bench_sql_updAge_byid (pConn, BENCH_SQL_UDPAGE_BYID, STU_ID(i), 10+i%20);
+		ok = bench_sql_updAge_byid (pConn, sql_upagebyid, STU_ID(i), 10+i%20);
 		BENCH_CHECK (ok, bench_print ("Can't update student id=%d\n", STU_ID(i)); return;);
 	}
 	pResult->update_qps += bench_ts_end (UPD_COUNT);
@@ -201,7 +212,7 @@ void bench_sql_test (void *pConn, int STU_COUNT, bool bRand, bench_result_t *pRe
 	bench_print ("------------ %s DELETE %s ------------\n", ORDER_STR(bRand), qps2str(STU_COUNT));
 	bench_ts_beg();
 	for (int i = 0; i < STU_COUNT; ++i) {
-		ok = bench_sql_del_byid (pConn, BENCH_SQL_DEL_BYID, STU_ID(i));
+		ok = bench_sql_del_byid (pConn, sql_delbyid, STU_ID(i));
 		BENCH_CHECK (ok, bench_print ("Can't delete student id=%d\n", STU_ID(i)); return;);
 	}
 	pResult->delete_qps += bench_ts_end (STU_COUNT);
@@ -297,14 +308,16 @@ int main (int argc, char **argv)
 	const	char *db = ":memory:";
 
 	if (argc >= 2) {
-		while ((ch = getopt(argc, argv, "n:r:c:d:l:qjh")) != -1) {
+		while ((ch = getopt(argc, argv, "n:r:c:d:l:qjhs")) != -1) {
 			switch (ch) {
 			case 'h':
 				printf ("Usage:\n");
 	            printf ("  -h                        show this help\n");
 	            printf ("  -n <row count>            default 1000000\n");
 	            printf ("  -r <round count>          test round, default 1\n");
+	            printf ("  -d <dbname>               test on-disk db\n");
 				printf ("  -c <cpu core>             bind cpu core\n");
+				printf ("  -s             			 test in server db mode\n");
 	            printf ("  -q                        quite mode\n");
 				return -1;
 			case 'n':
@@ -324,6 +337,9 @@ int main (int argc, char **argv)
 				break;
 			case 'j':
 				bCharts = true;
+				break;
+			case 's':
+				s_bench_svr = true;
 				break;
 			case 'q':
 				s_quiet = true;
@@ -363,6 +379,9 @@ int main (int argc, char **argv)
 		goto error;
 	}
 
+	SQL_LKUP_COUNT 	= LKUP_COUNT/5;
+	UPD_COUNT		= LKUP_COUNT/10;
+
 	bench_result_t result[4];
 	memset (&result, 0, sizeof(result));
 
@@ -372,12 +391,16 @@ int main (int argc, char **argv)
 		bench_print ("\n******************** %10s Test *********************\n", "Sequential");
 
 		bench_sql_test   (pConn, STU_COUNT, false, &result[0]);
-		bench_stmt_test (pConn, STU_COUNT, false, &result[1]);
+		if (!s_bench_svr) {
+			bench_stmt_test (pConn, STU_COUNT, false, &result[1]);
+		}
 
 		bench_print ("\n\n********************* %10s Test *********************\n", "Random");
 
 		bench_sql_test   (pConn, STU_COUNT, true, &result[2]);
-		bench_stmt_test (pConn, STU_COUNT, true, &result[3]);
+		if (!s_bench_svr) {
+			bench_stmt_test (pConn, STU_COUNT, true, &result[3]);
+		}
 	}
 	
 	for (int i = 0; i < 4; ++i) {

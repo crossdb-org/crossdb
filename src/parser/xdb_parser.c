@@ -50,6 +50,9 @@ error:
 #if (XDB_ENABLE_SERVER == 1)
 #include "xdb_parser_svr.c"
 #endif
+#if (XDB_ENABLE_PUBSUB == 1)
+#include "xdb_parser_pubsub.c"
+#endif
 
 XDB_STATIC xdb_stmt_t* 
 xdb_parse_use (xdb_conn_t* pConn, xdb_token_t *pTkn)
@@ -103,6 +106,10 @@ xdb_parse_create (xdb_conn_t* pConn, xdb_token_t *pTkn)
 			#if (XDB_ENABLE_SERVER == 1)
 				return xdb_parse_create_server (pConn, pTkn);
 			#endif
+			#if (XDB_ENABLE_PUBSUB == 1)
+			} else if (!strcasecmp (pTkn->token, "SUBSCRIPTION")) {
+				return xdb_parse_create_sub (pConn, pTkn);
+			#endif
 			}
 			break;
 		case 'U':
@@ -112,6 +119,14 @@ xdb_parse_create (xdb_conn_t* pConn, xdb_token_t *pTkn)
 				XDB_EXPECT ((XDB_TOK_ID == type) && !strcasecmp (pTkn->token, "INDEX"), XDB_E_STMT, "Expect INDEX"XDB_SQL_CREATE_IDX_STMT);
 				return xdb_parse_create_index (pConn, pTkn, true);
 			}
+			break;
+		case 'P':
+		case 'p':
+			#if (XDB_ENABLE_PUBSUB == 1)
+			if (!strcasecmp (pTkn->token, "PUBLICATION")) {
+				return xdb_parse_create_pub (pConn, pTkn);
+			}
+			#endif
 			break;
 		}
 	}
@@ -253,6 +268,8 @@ xdb_parse_show (xdb_conn_t* pConn, xdb_token_t *pTkn)
 			type = xdb_next_token (pTkn);
 			XDB_PARSE_DBTBLNAME ();
 		}
+	} else if (!strcasecmp (pTkn->token, "SERVERS")) {
+		pStmt->stmt_type = XDB_STMT_SHOW_SVR;
 	} else {
 		XDB_SETERR (XDB_E_STMT, "Unknown show object '%s'", pTkn->token);
 		return NULL;
@@ -439,6 +456,10 @@ xdb_sql_parse (xdb_conn_t* pConn, char **ppSql, bool bPStmt)
 				pStmt = xdb_parse_source (pConn, &token);
 			} else if (! strcasecmp (token.token, "SHELL")) {
 				pStmt = xdb_parse_shell (pConn, &token);
+			#if (XDB_ENABLE_PUBSUB == 1)			
+			} else if (! strcasecmp (token.token, "SUBSCRIBE")) {
+				pStmt = xdb_parse_subscribe (pConn, &token);
+			#endif
 			} else {
 				goto error;
 			}
@@ -571,7 +592,7 @@ exit:
 	} else {
 		xdb_res_t*	pRes = &pConn->conn_res;
 		pRes->row_data = (uintptr_t)pConn->conn_msg.msg;
-		pRes->data_len = sizeof (xdb_msg_t) + pConn->conn_msg.len + 1;
+		pRes->data_len = sizeof (xdb_msg_t) - sizeof(pConn->conn_msg.msg) + pConn->conn_msg.len + 1;
 	}
 
 	// move to end of token for next stmt

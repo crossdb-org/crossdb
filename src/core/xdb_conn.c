@@ -61,7 +61,7 @@ xdb_close (xdb_conn_t* pConn)
 
 	xdb_rollback (pConn);
 	
-	if (pConn->conn_stdout != stdout) {
+	if ((pConn->conn_stdout != stdout) && ((uintptr_t)pConn->conn_stdout != pConn->sockfd)) {
 		fclose (pConn->conn_stdout);
 	} else if (pConn->sockfd > 0) {
 		xdb_sock_close (pConn->sockfd);

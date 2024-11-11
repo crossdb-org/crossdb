@@ -73,6 +73,8 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 		return XDB_OK;
 	}
 
+	xdb_wrlock_db (pDbm);
+
 	XDB_EXPECT (XDB_OBJM_COUNT (pDbm->db_objm) < XDB_MAX_TBL, XDB_E_FULL, "Can create at most %d tables", XDB_MAX_TBL);
 
 	pTblm = xdb_calloc (sizeof(xdb_tblm_t));
@@ -219,9 +221,12 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 		xdb_gen_db_schema (pTblm->pDbm);
 	}
 
+	xdb_wrunlock_db (pDbm);
+
 	return XDB_OK;
 
 error:
+	xdb_wrunlock_db (pDbm);
 	xdb_free (pTblm);
 	return -pConn->conn_res.errcode;
 }
@@ -271,9 +276,11 @@ xdb_close_table (xdb_tblm_t *pTblm)
 XDB_STATIC int 
 xdb_drop_table (xdb_tblm_t *pTblm)
 {
-	xdb_tbllog ("Drop Table '%s'\n", XDB_OBJ_NAME(pTblm));
-
 	xdb_dbm_t*	pDbm = pTblm->pDbm;
+
+	xdb_wrlock_db (pDbm);
+
+	xdb_tbllog ("Drop Table '%s'\n", XDB_OBJ_NAME(pTblm));
 
 	xdb_sysdb_del_tbl (pTblm);
 
@@ -301,6 +308,8 @@ xdb_drop_table (xdb_tblm_t *pTblm)
 	xdb_free_table (pTblm);
 
 	xdb_gen_db_schema (pDbm);
+
+	xdb_wrunlock_db (pDbm);
 
 	return XDB_OK;
 }

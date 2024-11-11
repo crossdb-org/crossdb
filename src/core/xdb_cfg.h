@@ -16,7 +16,7 @@
 	CrossDB Config
 ******************************************************************************/
 
-#define XDB_VERSION			"0.10.0"
+#define XDB_VERSION			"0.11.0"
 
 #define XDB_MAX_DB			1024 // at most 4096
 #define XDB_MAX_TBL			4095 // per DB
@@ -30,9 +30,12 @@
 
 #define XDB_PATH_LEN		512
 
-
 #ifndef XDB_ENABLE_SERVER
-#define XDB_ENABLE_SERVER	0
+#define XDB_ENABLE_SERVER	1
+#endif
+
+#ifndef XDB_ENABLE_PUBSUB
+#define XDB_ENABLE_PUBSUB	0
 #endif
 
 #endif // __CROSS_CFG_H__

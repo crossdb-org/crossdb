@@ -1696,10 +1696,9 @@ XDB_STATIC int
 xdb_sql_scan (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowset_t *pRowSet, xdb_reftbl_t *pRefTbl)
 {
 	if (xdb_likely (pRefTbl->bUseIdx)) {
-		xdb_bmp_t		rows_bmp;
 		if (xdb_unlikely (pRefTbl->or_count > 1)) {
-			xdb_bmp_init (&rows_bmp);
-			pRowSet->pBmp = &rows_bmp;
+			pRowSet->pBmp = &pRowSet->bmp;
+			xdb_bmp_init (pRowSet->pBmp);
 		}
 		for (int i = 0; i < pRefTbl->or_count; ++i) {
 			xdb_idxfilter_t 	*pIdxFilter = pRefTbl->or_list[i].pIdxFilter;
@@ -1976,7 +1975,13 @@ xdb_queryres_alloc (xdb_conn_t *pConn, xdb_size size)
 		pQueryRes->pStmt = NULL;
 		pQueryRes->buf_len = size;
 		pConn->pQueryRes = pQueryRes;
+	} else if (pQueryRes->buf_len < size) {
+		pQueryRes = xdb_realloc (pQueryRes, size);
+		XDB_EXPECT2 (NULL != pQueryRes);
+		pQueryRes->buf_len = size;
+		pConn->pQueryRes = pQueryRes;
 	}
+
 	pQueryRes->buf_free = pQueryRes->buf_len - (sizeof (*pQueryRes) + 4); // last 4 is end of row (len = 0)
 
 	return NULL;
@@ -2275,10 +2280,12 @@ xdb_sprint_field (xdb_field_t *pField, void *pRow, char *buf)
 	return len;
 }
 
-static int 
-xdb_dbrow_log (xdb_tblm_t *pTblm, uint32_t type, void *pNewRow, void *pOldRow, xdb_setfld_t set_flds[], int set_count)
+XDB_STATIC int 
+xdb_dbrow_log (xdb_tblm_t *pTblm, uint32_t type, void *pNewRow, void *pOldRow, xdb_setfld_t *set_flds, int set_count)
 {
+#if (XDB_ENABLE_PUBSUB == 0)
 	return 0;
+#endif
 
 	int 		len = 0;
 	char 		buf[32768];
@@ -2291,7 +2298,7 @@ xdb_dbrow_log (xdb_tblm_t *pTblm, uint32_t type, void *pNewRow, void *pOldRow, x
 
 	switch (type) {
 	case XDB_TRIG_AFT_INS:
-		len = sprintf (buf, "INSERT INTO %s (", XDB_OBJ_NAME(pTblm));
+		len = sprintf (buf, "INSERT INTO %s.%s (", XDB_OBJ_NAME(pTblm->pDbm), XDB_OBJ_NAME(pTblm));
 		for (int i = 0; i < pTblm->fld_count; ++i) {
 			pField = &pTblm->pFields[i];
 			memcpy (buf+len, pField->obj.obj_name, pField->obj.nm_len);
@@ -2309,7 +2316,7 @@ xdb_dbrow_log (xdb_tblm_t *pTblm, uint32_t type, void *pNewRow, void *pOldRow, x
 		buf[++len] = '\0';
 		break;
 	case XDB_TRIG_AFT_UPD:
-		len = sprintf (buf, "UPDATE %s SET ", XDB_OBJ_NAME(pTblm));
+		len = sprintf (buf, "UPDATE %s.%s SET ", XDB_OBJ_NAME(pTblm->pDbm), XDB_OBJ_NAME(pTblm));
 		for (int i = 0; i < set_count; ++i) {
 			pField = set_flds[i].pField;
 			memcpy (buf+len, pField->obj.obj_name, pField->obj.nm_len);
@@ -2323,7 +2330,7 @@ xdb_dbrow_log (xdb_tblm_t *pTblm, uint32_t type, void *pNewRow, void *pOldRow, x
 		// fall through
 	case XDB_TRIG_AFT_DEL:
 		if (XDB_TRIG_AFT_DEL == type) {
-			len = sprintf (buf, "DELETE FROM %s WHERE ", XDB_OBJ_NAME(pTblm));
+			len = sprintf (buf, "DELETE FROM %s.%s WHERE ", XDB_OBJ_NAME(pTblm->pDbm), XDB_OBJ_NAME(pTblm));
 		}
 		if (pTblm->bPrimary) {
 			xdb_idxm_t *pIdxm = XDB_OBJM_GET(pTblm->idx_objm, 0);
@@ -2344,11 +2351,15 @@ xdb_dbrow_log (xdb_tblm_t *pTblm, uint32_t type, void *pNewRow, void *pOldRow, x
 			buf[len++] = '=';
 			len += xdb_sprint_field (pField, (void*)pOldRow, buf+len);
 		}
-		buf[len++] = ';';
+		buf[len++] = '\n';
 		buf[len++] = '\0';
 	}
 
-	printf ("DBLOG: %s\n", buf);
+	printf ("DBLOG %d: %s\n", len, buf);
+#if (XDB_ENABLE_PUBSUB == 1)
+	xdb_pub_notify (buf, len);
+#endif
+
 	return 0;
 }
 
@@ -2500,7 +2511,7 @@ xdb_row_delete (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow,
 }
 
 XDB_STATIC int 
-xdb_row_update (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow, xdb_setfld_t set_flds[], int set_count)
+xdb_row_update (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow, xdb_setfld_t *set_flds, int set_count)
 {
 	uint64_t idx_bmp = 0;
 	XDB_BUF_DEF(pUpdRow, 4096);

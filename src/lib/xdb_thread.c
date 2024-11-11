@@ -71,27 +71,23 @@ xdb_rwlock_wrunlock(xdb_rwlock_t *rwl)
 	__atomic_store_n(&rwl->count, 0, __ATOMIC_RELEASE);
 }
 
-#ifndef _WIN32
-
-#include <unistd.h>
-#include <pthread.h>
-
 typedef pthread_t xdb_thread_t;
-
-#else
-#include <windows.h>
-typedef DWORD pthread_t;
-static inline int 
-pthread_create(pthread_t *thread, const void *attr, void *(*start_routine) (void *), void *arg)
-{
-	(void) attr;
-	CreateThread (0, 0, (LPTHREAD_START_ROUTINE)start_routine, arg, 0, thread);
-	return 0;
-}
-#endif
 
 static inline int 
 xdb_create_thread (xdb_thread_t *pThread, const void *pAttr, void *(*start_routine) (void *), void *pArg)
 {
 	return pthread_create (pThread, pAttr, start_routine, pArg);
 }
+
+#if 0
+#ifdef _WIN32
+typedef DWORD xdb_thread_t;
+static inline int 
+xdb_create_thread (xdb_thread_t *thread, const void *attr, void *(*start_routine) (void *), void *arg)
+{
+	(void) attr;
+	CreateThread (0, 0, (LPTHREAD_START_ROUTINE)start_routine, arg, 0, thread);
+	return 0;
+}
+#endif
+#endif

@@ -15,9 +15,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
-#ifndef _WIN32
+//#ifndef _WIN32
 #include <pthread.h>
-#endif
+//#endif
 #include <stdint.h>
 #include <stdbool.h>
 #include <inttypes.h>
@@ -25,36 +25,40 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#ifndef _WIN32
+//#ifndef _WIN32
 #include <unistd.h>
-#endif
+//#endif
 #include <string.h>
 #include <stdarg.h>
 #include <time.h>
-#ifndef _WIN32
+//#ifndef _WIN32
 #include <sys/time.h>
-#endif
+//#endif
 #include <signal.h>
-#ifndef _WIN32
+//#ifndef _WIN32
 #include <dirent.h>
-#endif
+//#endif
 #include <fcntl.h>
 #include <assert.h>
 #include <errno.h>
 
 #ifdef _WIN32
-	#include <windows.h>
+#include <ws2tcpip.h>
+#include <windows.h>
+#define localtime_r(timep, result)	localtime_s(result, timep)
+typedef unsigned int in_addr_t;
 #endif
 
 #if defined(__BIG_ENDIAN__) || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
-  #define XDB_BIG_ENDIAN 1
+  #define XDB_BIG_ENDIAN		1
 #endif
 
 #define XDB_ARY_LEN(a)			(sizeof(a)/sizeof(a[0]))
 #define XDB_OFFSET(st,fld)		offsetof(st,fld)
 
-#define XDB_ALIGN4(len)			((len + 3) & ~(3))
-#define XDB_ALIGN8(len)			((len + 7) & ~(7))
+#define XDB_ALIGN4(len)			((len + 3) & ~3)
+#define XDB_ALIGN8(len)			((len + 7) & ~7)
+#define XDB_ALIGN4K(len)		((len + 4093) & ~4093)
 
 #ifdef XDB_DEBUG
 #define xdb_assert(exp)			assert(exp)
@@ -126,12 +130,18 @@ xdb_wyhash(const void *key, size_t len)
 XDB_STATIC uint64_t 
 xdb_strcasehash(const char *key, int len);
 
-//XDB_STATIC void xdb_hexdump (const void *addr, int len);
+void xdb_hexdump (const void *addr, int len);
 
+#ifndef _WIN32
 #if (XDB_ENABLE_SERVER == 1)
 XDB_STATIC int 
 xdb_signal_block (int signum);
 #endif
+#endif
+
+static int xdb_fprintf (FILE *pFile, const char *format, ...);
+static int xdb_fflush (FILE *pFile);
+#define xdb_fputc(c, pFile)	xdb_fprintf(pFile, "%c", c)
 
 #include "xdb_objm.h"
 #include "xdb_bmp.h"

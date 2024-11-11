@@ -39,13 +39,14 @@ xdb_use_db (xdb_stmt_db_t *pStmt)
 XDB_STATIC int 
 xdb_open_datadir (xdb_stmt_db_t *pStmt)
 {
-	char		*datadir = pStmt->db_name;
+	char		datadir[XDB_PATH_LEN + 1];;
     DIR 		*d = NULL;
     struct 		dirent *dp = NULL;
     struct 		stat st;    
-    char 		dbpath[XDB_PATH_LEN + 1] = {0};
+    char 		dbpath[XDB_PATH_LEN + 256 + 1] = {0};
 	int			rc;
 
+	xdb_strcpy (datadir, pStmt->db_name);
     if(stat(datadir, &st) < 0 || !S_ISDIR(st.st_mode)) {
         xdb_errlog ("Invalid datadir: %s\n", datadir);
         return XDB_E_NOTFOUND;
@@ -61,6 +62,7 @@ xdb_open_datadir (xdb_stmt_db_t *pStmt)
             continue;
         }
         snprintf (dbpath, sizeof(dbpath), "%s/%s", datadir, dp->d_name);
+		xdb_dblog ("Open DB '%s'\n", dbpath);
 		// snprintf on Linux will force last '\0', while Windows doesn't
 		dbpath[sizeof(dbpath)-1] = '\0';
         rc = stat (dbpath, &st);
@@ -97,16 +99,16 @@ XDB_STATIC int
 xdb_create_db (xdb_stmt_db_t *pStmt)
 {
 	xdb_conn_t		*pConn = pStmt->pConn;
+	xdb_dbm_t 		*pDbm = NULL;
 
 	if (NULL != pStmt->pDbm) {
 		if (NULL == pConn->pCurDbm) {
-			pConn->pCurDbm = pStmt->pDbm;
+			XDB_EXPECT (strlen(XDB_OBJ_NAME(pStmt->pDbm)) <= XDB_NAME_LEN, XDB_E_STMT, "DB name too long"); 
 			xdb_strcpy (pConn->cur_db, XDB_OBJ_NAME(pStmt->pDbm));
+			pConn->pCurDbm = pStmt->pDbm;
 		}
 		return XDB_OK;
 	}
-
-	xdb_dbm_t *pDbm = NULL;
 
 	char db_path[XDB_PATH_LEN + XDB_NAME_LEN + 1];
 	char *real_db_name = pStmt->db_name;
@@ -162,6 +164,8 @@ xdb_create_db (xdb_stmt_db_t *pStmt)
 	pDbm->lock_mode = pStmt->lock_mode;
 	pDbm->sync_mode = pStmt->sync_mode;
 
+	XDB_RWLOCK_INIT(pDbm->db_lock);
+
 	xdb_db_t *pDb = (xdb_db_t*)pDbm->stg_mgr.pStgHdr;
 
 	XDB_EXPECT (strlen(real_db_name) < sizeof (pDbm->db_path), XDB_E_PARAM, "Too long path");
@@ -183,17 +187,20 @@ xdb_create_db (xdb_stmt_db_t *pStmt)
 	if (!pDbm->bMemory) {
 		xdb_sprintf (path, "%s/xdb.xql", real_db_name);
 		if (xdb_fexist (path)) {
+			xdb_dbm_t*	pCurDbm = pConn->pCurDbm;
+			pConn->pCurDbm = pDbm;
 			xdb_source (pConn, path);
+			pConn->pCurDbm = pCurDbm;
 		}
 	}
 
 	if ((pDb->flush_time < xdb_timestamp()-xdb_uptime()) && (pDb->lastchg_id != pDb->flush_id)) {
-		#ifdef XDB_CLI
-		xdb_errlog ("'%s' is broken, run 'REPAIR DATABASE to repaire DB'\n", XDB_OBJ_NAME(pDbm));
-		#else
-		xdb_errlog ("Database '%s' was broken, repaire now\n", XDB_OBJ_NAME(pDbm));
-		xdb_repair_db (pDbm, 0);
-		#endif
+		if (s_xdb_cli) {
+			xdb_errlog ("'%s' is broken, run 'REPAIR DATABASE to repaire DB'\n", XDB_OBJ_NAME(pDbm));
+		} else {
+			xdb_errlog ("Database '%s' was broken, repaire now\n", XDB_OBJ_NAME(pDbm));
+			xdb_repair_db (pDbm, 0);
+		}
 	}
 
 	if (strcmp (XDB_OBJ_NAME(pDbm), "system")) {
@@ -343,10 +350,13 @@ xdb_flush_db (xdb_dbm_t *pDbm, uint32_t flags)
 	if (NULL == pDbm || pDbm->bMemory) {
 		return XDB_OK;
 	}
+
+	xdb_wrlock_db (pDbm);
+
 	xdb_db_t *pDb = XDB_DBPTR(pDbm);
 	
 	if (pDb->flush_id == pDb->lastchg_id) {
-		return XDB_OK;
+		goto exit;
 	}
 
 	xdb_dblog ("Flush DB '%s' %"PRIu64" -> %"PRIu64"\n", XDB_OBJ_NAME(pDbm), pDb->flush_id, pDb->lastchg_id);
@@ -382,6 +392,8 @@ xdb_flush_db (xdb_dbm_t *pDbm, uint32_t flags)
 		xdb_stg_sync (&pDbm->pWalmBak->stg_mgr, 0, 0, false);
 	}
 
+exit:
+	xdb_wrunlock_db (pDbm);
 	return 0;
 }
 

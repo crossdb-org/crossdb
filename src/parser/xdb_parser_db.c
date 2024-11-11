@@ -102,9 +102,9 @@ XDB_STATIC xdb_stmt_t*
 xdb_parse_drop_db (xdb_conn_t* pConn, xdb_token_t *pTkn)
 {
 	xdb_stmt_db_t *pStmt = &pConn->stmt_union.db_stmt;
+	memset (pStmt, 0, sizeof (*pStmt));
 	xdb_token_type type = xdb_next_token (pTkn);
 	pStmt->stmt_type = XDB_STMT_DROP_DB;
-	pStmt->pSql = NULL;
 
 	XDB_EXPECT (type<=XDB_TOK_STR, XDB_E_STMT, "Miss database name");
 
@@ -140,9 +140,9 @@ XDB_STATIC xdb_stmt_t*
 xdb_parse_open_datadir (xdb_conn_t* pConn, xdb_token_t *pTkn)
 {
 	xdb_stmt_db_t *pStmt = &pConn->stmt_union.db_stmt;
+	memset (pStmt, 0, sizeof(*pStmt));
 	xdb_token_type type = xdb_next_token (pTkn);
 	pStmt->stmt_type = XDB_STMT_OPEN_DATADIR;
-	pStmt->pSql = NULL;
 
 	XDB_EXPECT (XDB_TOK_STR==type, XDB_E_STMT, "Miss datadir");
 
@@ -158,14 +158,13 @@ XDB_STATIC xdb_stmt_t*
 xdb_parse_open_db (xdb_conn_t* pConn, xdb_token_t *pTkn)
 {
 	xdb_stmt_db_t *pStmt = &pConn->stmt_union.db_stmt;
+	memset (pStmt, 0, sizeof(*pStmt));
 	xdb_token_type type = xdb_next_token (pTkn);
 	pStmt->stmt_type = XDB_STMT_OPEN_DB;
-	pStmt->pSql = NULL;
 
 	XDB_EXPECT (XDB_TOK_STR>=type, XDB_E_STMT, "Open DB miss database name");
 
 	pStmt->db_name	= pTkn->token;
-	pStmt->lock_mode = 0;
 	return (xdb_stmt_t*)pStmt;
 
 error:
@@ -177,13 +176,11 @@ XDB_STATIC xdb_stmt_t*
 xdb_parse_close_db (xdb_conn_t* pConn, xdb_token_t *pTkn)
 {
 	xdb_stmt_db_t *pStmt = &pConn->stmt_union.db_stmt;
+	memset (pStmt, 0, sizeof (*pStmt));
 	xdb_token_type type = xdb_next_token (pTkn);
 	pStmt->stmt_type = XDB_STMT_CLOSE_DB;
-	pStmt->pSql = NULL;
 
 	XDB_EXPECT (type<=XDB_TOK_STR, XDB_E_STMT, "Miss database name");
-
-	pStmt->bIfExistOrNot = false;
 
 	pStmt->db_name	= pTkn->token;
 
@@ -207,13 +204,10 @@ XDB_STATIC xdb_stmt_t*
 xdb_parse_dump_db (xdb_conn_t* pConn, xdb_token_t *pTkn)
 {
 	xdb_stmt_backup_t *pStmt = &pConn->stmt_union.backup_stmt;
+	memset (pStmt, 0, sizeof (*pStmt));
 	xdb_token_type type = xdb_next_token (pTkn);
 
 	pStmt->stmt_type 	= XDB_STMT_DUMP_DB;
-	pStmt->file 		= NULL;
-	pStmt->bNoDrop 		= false;
-	pStmt->bNoCreate 	= false;
-	pStmt->bNoData 		= false;
 
 	if (type >= XDB_TOK_END) {
 		XDB_EXPECT (pConn->pCurDbm != NULL, XDB_E_NODB, XDB_SQL_NO_DB_ERR);

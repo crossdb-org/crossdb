@@ -69,12 +69,7 @@ typedef enum {
 	XDB_TYPE_VCHAR      = 14, // varied-length string(at most 65535 byte)
 	XDB_TYPE_VBINARY    = 15, // varied-length binary(at most 65535 byte)
 	XDB_TYPE_BOOL		= 16,
-	// MAC,IPv4,IPv6,CIDR
-	//XDB_TYPE_DECIMAL    = 16, // TBD decimal
-	//XDB_TYPE_GEOMETRY   = 17, // TBD geometry
-	//XDB_TYPE_JSON 	    = 18, // TBD json string
-	//XDB_TYPE_DYNAMIC	= 20, 
-	XDB_TYPE_MAX        = 21
+	XDB_TYPE_MAX        = 32
 } xdb_type_t;
 
 
@@ -223,6 +218,9 @@ xdb_bexec_cb (xdb_conn_t *pConn, xdb_row_callback callback, void *pArg, const ch
 xdb_res_t*
 xdb_vbexec_cb (xdb_conn_t *pConn, xdb_row_callback callback, void *pArg, const char *sql, va_list ap);
 #endif
+
+const void * 
+xdb_poll (xdb_conn_t *pConn, int *pLen, uint32_t timeout);
 
 
 /**************************************

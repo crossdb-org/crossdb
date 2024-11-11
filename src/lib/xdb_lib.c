@@ -46,8 +46,7 @@ xdb_hex_init ()
 	}
 }
 
-#if 0
-XDB_STATIC void 
+void 
 xdb_hexdump (const void *addr, int len)
 {
 	int i, j;
@@ -71,12 +70,12 @@ xdb_hexdump (const void *addr, int len)
 		xdb_print ("|\n");
 	}
 }
-#endif
 
 /*
 	sigaction(SIGPIPE, &(struct sigaction){{SIG_IGN}}, NULL)
 	signal(SIGPIPE,SIG_IGN);
 */
+#ifndef _WIN32
 #if (XDB_ENABLE_SERVER == 1)
 XDB_STATIC int 
 xdb_signal_block (int signum)
@@ -93,10 +92,15 @@ xdb_signal_block (int signum)
 	return 0;
 }
 #endif
+#endif
 
 XDB_STATIC uint64_t 
 xdb_strcasehash(const char *key, int len)
 {
+	if (xdb_unlikely (len <= 0)) {
+		return 0;
+	}
+
 	XDB_BUF_DEF(str, 2048);
 	if (len > 2048) {
 		XDB_BUF_ALLOC (str, len);
@@ -104,13 +108,38 @@ xdb_strcasehash(const char *key, int len)
 			return -1;
 		}
 	}
-	for (int i = 0; i< len; ++i) {
+	for (int i = 0; i < len; ++i) {
 		str[i] = tolower(key[i]);
 	}
-	
 	uint64_t hash = xdb_wyhash (str, len);
 
 	XDB_BUF_FREE(str);
 
 	return hash;
 }
+
+static int xdb_fprintf (FILE *pFile, const char *format, ...)
+{
+	int len;
+    va_list 	ap;
+	va_start(ap, format);
+
+	if ((uintptr_t)pFile > 0xffff) {
+		len = vfprintf (pFile, format, ap);
+	} else {
+		len = xdb_sock_vprintf ((uintptr_t)pFile, format, ap);
+	}
+
+	va_end(ap);
+
+	return len;
+}
+
+static int xdb_fflush (FILE *pFile)
+{
+	if ((uintptr_t)pFile > 0xffff) {
+		return fflush (pFile);
+	}
+	return 0;
+}
+

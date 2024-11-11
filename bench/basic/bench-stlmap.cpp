@@ -4,8 +4,8 @@
 #include <unordered_map>
 
 #define BENCH_DBNAME	"STL"
-#define LKUP_COUNT		10000000
 #define TEST_NAME(i) 	i?"HashMap":"Map"
+int LKUP_COUNT = 10000000;
 
 using namespace std;
 

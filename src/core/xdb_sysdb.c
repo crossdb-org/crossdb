@@ -174,6 +174,31 @@ xdb_sysdb_del_tbl (xdb_tblm_t *pTblm)
 	XDB_RESCHK(pRes);
 }
 
+XDB_STATIC void 
+xdb_sysdb_add_svr (xdb_server_t *pSvr)
+{
+	if (!s_xdb_bInit) {
+		return;
+	}
+	xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "INSERT INTO servers (server,port) VALUES('%s',%u)", 
+		XDB_OBJ_NAME(pSvr), pSvr->svr_port);
+	if (pRes->errcode != XDB_E_NOTFOUND) {
+		XDB_RESCHK(pRes, xdb_errlog("Can't add to system table servers %s\n", XDB_OBJ_NAME(pSvr)));
+	}
+}
+
+XDB_STATIC void 
+xdb_sysdb_del_svr (xdb_server_t *pSvr)
+{
+	if (!s_xdb_bInit) {
+		return;
+	}
+	xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "DELETE FROM servers WHERE server='%s'", XDB_OBJ_NAME(pSvr));
+	if (pRes->errcode != XDB_E_NOTFOUND) {
+		XDB_RESCHK(pRes, xdb_errlog("Can't del from system table servers %s\n", XDB_OBJ_NAME(pSvr)));
+	}
+}
+
 XDB_STATIC int 
 xdb_sysdb_init ()
 {
@@ -215,6 +240,9 @@ xdb_sysdb_init ()
 	}
 
 	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS databases (database CHAR(64), engine CHAR(8), data_path VARCHAR(1024), PRIMARY KEY (database))");
+	XDB_RESCHK(pRes, xdb_errlog ("Can't create system table databases\n"));
+
+	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS servers (server CHAR(64), port INT)");
 	XDB_RESCHK(pRes, xdb_errlog ("Can't create system table databases\n"));
 
 	xdb_sysdb_add_db (pConn->pCurDbm);

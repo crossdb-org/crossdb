@@ -50,8 +50,17 @@ typedef enum {
 	// Prepared STMT
 		
 	// Relication
-	
+	XDB_STMT_CREATE_PUB		= 20,
+	XDB_STMT_ALTER_PUB,
+	XDB_STMT_DROP_PUB,
+	XDB_STMT_SHOW_PUB,
+
 	// Subscription
+	XDB_STMT_CREATE_SUB		= 25,
+	XDB_STMT_ALTER_SUB,
+	XDB_STMT_DROP_SUB,
+	XDB_STMT_SHOW_SUB,
+	XDB_STMT_SUBSCRIBE,
 
 	///////////////////////////
 
@@ -195,6 +204,28 @@ typedef struct {
 	int				svr_port;
 } xdb_stmt_svr_t;
 
+typedef struct {
+	XDB_STMT_COMMON;
+	bool			bIfExistOrNot;
+	char 	 		*pub_name;
+} xdb_stmt_pub_t;
+
+typedef struct {
+	XDB_STMT_COMMON;
+	bool			bIfExistOrNot;
+	char 	 		*pub_name;
+	char 	 		*sub_name;
+	char			*pub_host;
+	int				pub_port;
+} xdb_stmt_sub_t;
+
+typedef struct {
+	XDB_STMT_COMMON;
+	bool			bIfExistOrNot;
+	char 	 		*pub_name;
+	char 	 		*sub_name;
+} xdb_stmt_subscribe_t;
+
 typedef enum {
 	XDB_IDX_HASH 		= 0,
 	XDB_IDX_RBTREE		= 1,
@@ -245,7 +276,7 @@ typedef struct {
 	xdb_value_t		op_val[2];
 } xdb_exp_t;
 
-typedef struct {
+typedef struct xdb_setfld_t {
 	xdb_field_t		*pField;
 	xdb_exp_t		exp;
 } xdb_setfld_t;
@@ -411,6 +442,9 @@ typedef union {
 	xdb_stmt_select_t	select_stmt;
 	xdb_stmt_set_t		set_stmt;
 	xdb_stmt_svr_t		svr_stmt;
+	xdb_stmt_pub_t		pub_stmt;
+	xdb_stmt_subscribe_t		subscribe_stmt;
+	xdb_stmt_sub_t		sub_stmt;
 	xdb_stmt_lock_t		lock_stmt;
 	xdb_stmt_backup_t	backup_stmt;
 } xdb_stmt_union_t;

@@ -9,16 +9,27 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/.
 ******************************************************************************/
 
-#ifndef __XDB_SHELL_H__
-#define __XDB_SHELL_H__
+#ifndef __XDB_SERVER_H__
+#define __XDB_SERVER_H__
 
+#define XDB_SVR_PORT	7777
+#ifndef _WIN32
+#define XDB_DATA_DIR	"/var/xdb_data"
+#else
+#define XDB_DATA_DIR	"c:/crossdb/xdb_data"
+#endif
+
+typedef struct xdb_server_t {
+	xdb_obj_t			obj;
+	int					svr_port;
+	int					sockfd;
+	bool				bDrop;
+	xdb_thread_t 		tid;
+} xdb_server_t;
+
+#if (XDB_ENABLE_PUBSUB == 1)
 XDB_STATIC int 
-xdb_shell_loop (xdb_conn_t* pConn, const char *prompt, const char *db, bool bQuite);
+xdb_pub_notify (const char *sql, int len);
+#endif
 
-XDB_STATIC void 
-xdb_output_table (xdb_conn_t *pConn, xdb_res_t *pRes);
-
-XDB_STATIC bool 
-xdb_is_sql_complete (char *sql, bool split);
-
-#endif // __XDB_SHELL_H__
+#endif // __XDB_SERVER_H__

@@ -1,13 +1,22 @@
 #include <crossdb.h>
 
 #define BENCH_DBNAME	"CrossDB"
-#define LKUP_COUNT		10000000
+
+int LKUP_COUNT = 10000000;
 
 #include "bench.h"
 
 void* bench_open (const char *db)
 {
-	xdb_conn_t* pConn = xdb_open (db);
+	xdb_conn_t* pConn;
+	if (!s_bench_svr) {
+		pConn = xdb_open (db);
+	} else {
+		pConn = xdb_connect (NULL, NULL, NULL, NULL, 7777);
+		xdb_bexec (pConn, "CREATE DATABASE school ENGINE=MEMORY");
+		xdb_bexec (pConn, "USE school");
+		LKUP_COUNT = 100000;
+	}
 	XDB_CHECK (NULL != pConn, printf ("Can't open connection:\n"); return NULL;);
 	return pConn;
 }
@@ -44,6 +53,9 @@ bool bench_sql_get_byid (void *pConn, const char *sql, int id, stu_callback call
 bool bench_sql_updAge_byid (void *pConn, const char *sql, int id, int age)
 {
 	xdb_res_t	*pRes = xdb_bexec (pConn, sql, age, id);
+	if (pRes->affected_rows != 1) {
+		printf ("wrong\n"); 
+	}
 	return 1 == pRes->affected_rows;
 }
 

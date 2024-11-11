@@ -5,7 +5,8 @@ int main (int argc, char **argv)
 	xdb_res_t	*pRes;
 	xdb_row_t	*pRow;
 
-	xdb_conn_t	*pConn = xdb_open (argc > 1 ? argv[1] : ":memory:");
+	//xdb_conn_t	*pConn = xdb_open (argc > 1 ? argv[1] : ":memory:");
+	xdb_conn_t	*pConn = xdb_connect (NULL, NULL, NULL, "memory", 7777);
 	XDB_CHECK (NULL != pConn, printf ("failed to create DB\n"); return -1;);
 
 	// Create Table

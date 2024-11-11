@@ -27,6 +27,7 @@ typedef struct xdb_dbm_t {
 	xdb_walm_t 			*pWalmBak;
 
 	xdb_rwlock_t		wal_lock;
+	xdb_rwlock_t		db_lock;
 } xdb_dbm_t;
 
 typedef struct xdb_dbobj_t {

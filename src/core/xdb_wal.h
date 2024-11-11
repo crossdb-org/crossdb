@@ -12,19 +12,30 @@
 #ifndef __XDB_WAL_H__
 #define __XDB_WAL_H__
 
-typedef uint32_t			xdb_commit_id;
+#if 0
+#define XDB_WAL_LENBITS	28
+#define XDB_WAL_LENMASK	((1<<XDB_VDAT_LENBITS) - 1)
+
+typedef enum {
+	XDB_WAL_INVALID	= 0,
+	XDB_WAL_INSERT	= 1,
+	XDB_WAL_DELETE	= 2,
+	XDB_WAL_UPDATE	= 3,
+	XDB_WAL_SQL		= 4,
+} xdb_waltype_t;
+#endif
 
 typedef struct {
-	uint32_t	row_len;
-	xdb_rowid	row_id;
-	int			tbl_xoid;
-	uint8_t		row_data[];
+	uint32_t				row_len;	// ms4b is type
+	xdb_rowid				row_id;		// for upd, new row len
+	uint32_t				tbl_xoid;	// or interval from beg_ts in us
+	uint8_t					row_data[];	// for update, old row, new row, (upd cnt, fid list)4B align
 } xdb_walrow_t;
 
 typedef struct {
 	uint64_t				commit_len; // =0 means end
 	uint64_t				commit_id;
-	uint64_t				timestamp;
+	uint64_t				timestamp;	// in us
 	uint32_t				checksum;
 	uint32_t				rsvd[1];
 } xdb_commit_t;

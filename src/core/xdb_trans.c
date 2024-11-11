@@ -374,8 +374,7 @@ int
 xdb_rollback (xdb_conn_t *pConn)
 {
 	if (xdb_unlikely (pConn->conn_client)) {
-		xdb_res_t *pRes = xdb_exec (pConn, "ROLLBACK");
-		return -pRes->errcode;
+		return XDB_OK;
 	}
 
 	if (xdb_unlikely (!pConn->bInTrans)) {
@@ -447,7 +446,13 @@ void* xdb_bg_task (void *data)
 	sleep (10);
 	while (s_xdb_bInit) {
 		sleep (s_xdb_flush_period);
+		if (!s_xdb_bInit) {
+			break;
+		}
 		s_xdb_bg_run++;
+		if (!s_xdb_bInit) {
+			break;
+		}
 		for (int i = 0; i < XDB_OBJM_MAX(s_xdb_db_list); ++i) {
 			xdb_dbm_t	*pDbm	= XDB_OBJM_GET(s_xdb_db_list, i);
 			xdb_db_t	*pDb	= XDB_DBPTR(pDbm);

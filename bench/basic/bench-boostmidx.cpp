@@ -7,8 +7,8 @@
 #include <boost/multi_index/composite_key.hpp>
 
 #define BENCH_DBNAME	"Boost"
-#define LKUP_COUNT		10000000
 #define TEST_NAME(i) 	i?"Hash":"Order"
+int LKUP_COUNT = 10000000;
 
 using namespace std;
 

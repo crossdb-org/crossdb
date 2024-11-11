@@ -9,13 +9,13 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/.
 ******************************************************************************/
 
+#if !defined(_WIN32)
+
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-
-#if !defined(_WIN32)
 
 	#define xdb_sock_open(domain,type,protocol)		socket(domain, type, protocol)
 	#define xdb_sock_read(sockfd, buf, len) 		read(sockfd, buf, len)
@@ -125,3 +125,74 @@
 	#define socket_exit()	WSACleanup();
 #endif
 
+static inline int xdb_sock_SetTcpNoDelay (int fd, int val)
+{
+#ifndef _WIN32
+    if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val)) < 0) {
+        return -1;
+    }
+#endif
+    return 0;
+}
+
+XDB_STATIC void xdb_sockaddr_init (struct sockaddr_in *addr, int port, const char *host)
+{
+	memset (addr, 0, sizeof(*addr));
+	addr->sin_family = AF_INET;
+	addr->sin_port	= htons(port);
+	in_addr_t hadd = inet_addr (host);
+	memcpy (&addr->sin_addr, &hadd, sizeof (addr->sin_addr));
+}
+
+static int xdb_sock_vprintf (int sockfd, const char *format, va_list ap)
+{
+	char buf[32*1024], *pBuf = buf;
+	va_list dupArgs;
+
+	va_copy(dupArgs, ap);
+
+    int len = vsnprintf(pBuf, sizeof(buf), format, ap);
+	if (len >= sizeof(buf)) {
+    	pBuf = (char*) xdb_malloc(len + 1 );
+		if (NULL != pBuf) {
+			vsnprintf (pBuf, len+1, format, dupArgs);
+			pBuf[len] = '\0';
+		}
+	}
+
+   va_end(dupArgs);
+
+	if (NULL != pBuf) {
+		len = xdb_sock_write (sockfd, pBuf, len);
+	}
+	if (pBuf != buf) {
+		xdb_free (pBuf);
+	}
+
+	return len;
+}
+
+#if 0
+static int xdb_sock_printf (int sockfd, const char *format, ...)
+{
+    va_list 	ap;
+
+	va_start(ap, format);
+    int len = xdb_sock_vprintf (sockfd, format, ap);
+	va_end(ap);
+	
+	return len;
+}
+
+static int cdb_sock_puts (int sockfd, const char *str)
+{
+	int len = strlen(str);
+	len = xdb_sock_write (sockfd, str, strlen(str));
+	return len;
+}
+
+static int cdb_sock_putc (int sockfd, const char ch)
+{
+	return xdb_sock_write (sockfd, &ch, 1);
+}
+#endif

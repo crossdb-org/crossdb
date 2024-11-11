@@ -78,6 +78,9 @@ typedef int	xdb_rowid;
 #define XDB_CONNCODE(pConn)		pConn->conn_res.errcode
 
 //#define XDB_LOG_FLAGS	(XDB_LOG_DB|XDB_LOG_TBL|XDB_LOG_TRANS|XDB_LOG_WAL)
+//#define XDB_LOG_FLAGS	XDB_LOG_DB
+//#define XDB_LOG_FLAGS	XDB_LOG_SVR
+//#define XDB_LOG_FLAGS	XDB_LOG_PUBSUB
 #ifndef XDB_LOG_FLAGS
 #define XDB_LOG_FLAGS	0
 #endif
@@ -92,6 +95,9 @@ typedef int	xdb_rowid;
 #define XDB_LOG_TRANS	(1<<10)
 #define XDB_LOG_WAL		(1<<11)
 #define XDB_LOG_VDAT	(1<<12)
+#define XDB_LOG_SVR		(1<<13)
+#define XDB_LOG_BINLOG	(1<<14)
+#define XDB_LOG_PUBSUB	(1<<15)
 
 #define XDB_IS_NOTNULL(pNull,bits)	(((uint8_t*)(pNull))[bits>>3] & (1<<(bits&7)))
 #define XDB_SET_NOTNULL(pNull,bits)	(((uint8_t*)(pNull))[bits>>3] |= (1<<(bits&7)))
@@ -154,7 +160,7 @@ typedef struct {
 	uint16_t		*pFldMap;
 	xdb_rowptr_t 	*pRowList;
 	xdb_rowptr_t 	rowlist[XDB_ROWLIST_CNT];
-	xdb_bmp_t		*pBmp;
+	xdb_bmp_t		*pBmp, bmp;
 	//uint8_t		buf[xxx]; // if no lock, then cache result ?
 } xdb_rowset_t;
 
@@ -167,5 +173,6 @@ int
 xdb_exit ();
 
 static xdb_type_t s_xdb_prompt_type[];
+static bool s_xdb_cli;
 
 #endif // __XDB_COMMON_H__

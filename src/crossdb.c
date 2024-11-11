@@ -54,6 +54,9 @@
 #include "server/xdb_client.c"
 #include "server/xdb_server.c"
 #endif
+#if (XDB_ENABLE_PUBSUB == 1)
+#include "server/xdb_pubsub.c"
+#endif
 #include "core/xdb_sql.c"
 #include "core/xdb_wal.c"
 #if (XDB_ENABLE_JNI == 1)
@@ -107,6 +110,7 @@ static xdb_type_t s_xdb_prompt_type[] = {
 };
 
 static volatile bool s_xdb_bInit = false;
+static bool s_xdb_cli = false;
 
 int 
 xdb_init ()
