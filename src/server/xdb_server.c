@@ -238,12 +238,12 @@ xdb_drop_server (xdb_stmt_svr_t *pStmt)
 
 XDB_STATIC void xdb_native_out (xdb_conn_t *pConn, xdb_res_t *pRes)
 {
-	uint64_t slen = (pRes->len_type & XDB_LEN_MASK) + pRes->data_len;
+	int slen = (pRes->len_type & XDB_LEN_MASK) + pRes->data_len;
 	xdb_meta_t *pMeta = (xdb_meta_t*)pRes->col_meta;
 	memcpy (pRes + 1, pMeta, pRes->meta_len);
-	size_t len = xdb_sock_write (pConn->sockfd, pRes, slen);
+	int len = xdb_sock_write (pConn->sockfd, pRes, slen);
 	if (len < slen) {
-		xdb_errlog ("send %"PRIi64" < %"PRIi64"\n", len, slen);
+		xdb_errlog ("send %d < %d\n", len, slen);
 	}
 	xdb_svrlog ("send response %d to client\n", len);
 #if XDB_LOG_FLAGS & XDB_LOG_SVR

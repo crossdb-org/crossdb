@@ -3,10 +3,8 @@ help:
 	@echo "make debug                Build crossdb library and tool with debug"
 	@echo "make run                  Run crossdb tool"
 	@echo "make clean                Clean build result"
-	@echo "make install              Install crossdb(lib&tool&header) to Linux/FreeBSD"
-	@echo "make uninstall            Uninstall crossdb from Linux/FreeBSD"
-	@echo "make installmac           Install crossdb(lib&tool&header) to MacOS"
-	@echo "make uninstallmac         Uninstall crossdb from MacOS"
+	@echo "make install              Install crossdb(lib&tool&header) to Linux/MacOS/FreeBSD"
+	@echo "make uninstall            Uninstall crossdb from Linux/MacOS/FreeBSD"
 	@echo "make example              Build and run example (need to install crossdb first)"
 	@echo "make smoketest            Build and run smoke test (need to install crossdb first)"
 	@echo "make bench                Build and run bench test (need to install crossdb first)"
@@ -16,6 +14,7 @@ help:
 
 .PHONY: build
 build:
+	@rm -f build/libcrossdb.so
 	$(CC) -o build/libcrossdb.so -fPIC -shared -lpthread -Wall src/crossdb.c
 	$(CC) -o build/xdb-cli src/xdb-cli.c -lpthread
 	cp include/crossdb.h build/
@@ -45,26 +44,33 @@ gdb:
 	gdb build/xdb-cli
 
 install:
-	install -c build/libcrossdb.so /usr/local/lib/
-	install -c build/crossdb.h /usr/local/include/
-	install -c build/xdb-cli /usr/local/bin/
-	ldconfig
-
-uninstall:
-	rm -rf /usr/local/lib/libcrossdb.so
-	rm -rf /usr/local/include/crossdb.h
-	rm -rf /usr/local/bin/xdb-cli
-
-installmac:
+ifeq ($(uname -s), Darwin)
+	@mkdir -p /usr/local/lib/
+	@mkdir -p /usr/local/bin/
 	$(CC) -o build/libcrossdb.so -dynamiclib -lpthread -O2 src/crossdb.c
 	install -c build/libcrossdb.so /usr/local/lib/
 	install -c build/crossdb.h /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include
 	install -c build/xdb-cli /usr/local/bin/
+else
+	@mkdir -p /usr/local/lib/
+	@mkdir -p /usr/local/bin/
+	@mkdir -p /usr/local/include/
+	install -c build/libcrossdb.so /usr/local/lib/
+	install -c build/crossdb.h /usr/local/include/
+	install -c build/xdb-cli /usr/local/bin/
+	ldconfig
+endif
 
-uninstallmac:
+uninstall:
+ifeq ($(uname -s), Darwin)
 	rm -rf /usr/local/lib/libcrossdb.so
 	rm -rf /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/crossdb.h
 	rm -rf /usr/local/bin/xdb-cli
+else
+	rm -rf /usr/local/lib/libcrossdb.so
+	rm -rf /usr/local/include/crossdb.h
+	rm -rf /usr/local/bin/xdb-cli
+endif
 
 example:
 	make -C examples/c/

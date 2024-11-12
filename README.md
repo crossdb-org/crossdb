@@ -53,18 +53,11 @@ git clone https://github.com/crossdb-org/crossdb.git
 cd crossdb
 ```
 
-### Linux/FreeBSD
+### Linux/MacOS/FreeBSD
 
 ```bash
 make build
 sudo make install
-```
-
-### MacOS
-
-```bash
-make build
-sudo make installmac
 ```
 
 ### Windows
