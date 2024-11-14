@@ -44,12 +44,12 @@ gdb:
 	gdb build/xdb-cli
 
 install:
-ifeq ($(uname -s), Darwin)
+ifeq ($(shell uname -s), Darwin)
 	@mkdir -p /usr/local/lib/
 	@mkdir -p /usr/local/bin/
 	$(CC) -o build/libcrossdb.so -dynamiclib -lpthread -O2 src/crossdb.c
 	install -c build/libcrossdb.so /usr/local/lib/
-	install -c build/crossdb.h /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include
+	install -c build/crossdb.h $(shell xcrun --show-sdk-path)/usr/include
 	install -c build/xdb-cli /usr/local/bin/
 else
 	@mkdir -p /usr/local/lib/
@@ -62,9 +62,9 @@ else
 endif
 
 uninstall:
-ifeq ($(uname -s), Darwin)
+ifeq ($(shell uname -s), Darwin)
 	rm -rf /usr/local/lib/libcrossdb.so
-	rm -rf /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/crossdb.h
+	rm -rf $(shell xcrun --show-sdk-path)/usr/include/crossdb.h
 	rm -rf /usr/local/bin/xdb-cli
 else
 	rm -rf /usr/local/lib/libcrossdb.so
