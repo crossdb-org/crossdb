@@ -15,8 +15,6 @@ help:
 .PHONY: build
 build:
 ifeq ($(shell uname -s), Darwin)
-	$(CC) -o libcrossdb.dylib -dynamiclib -lpthread -O2 src/crossdb.c
-	@mv libcrossdb.dylib build/libcrossdb.dylib
 else
 	$(CC) -o build/libcrossdb.so -fPIC -shared -lpthread -O2 src/crossdb.c
 endif
@@ -52,7 +50,7 @@ install:
 	@mkdir -p /usr/local/bin/
 	install -c build/xdb-cli /usr/local/bin/
 ifeq ($(shell uname -s), Darwin)
-	install -c build/libcrossdb.dylib /usr/local/lib/
+	$(CC) -o /usr/local/lib/libcrossdb.dylib -dynamiclib -lpthread -O2 src/crossdb.c
 	install -c build/crossdb.h $(shell xcrun --show-sdk-path)/usr/include
 else
 	@mkdir -p /usr/local/include/
