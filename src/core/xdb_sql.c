@@ -765,6 +765,12 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 					pVal->str.str = va_arg (ap, char *);
 					pVal->str.len = strlen (pVal->str.str);
 					break;
+				case XDB_TYPE_INET:
+					pVal->inet = *(xdb_inet_t*)va_arg (ap, void *);
+					break;
+				case XDB_TYPE_MAC:
+					pVal->mac = *(xdb_mac_t*)va_arg (ap, void *);
+					break;
 				default:
 					break;
 				}
@@ -844,6 +850,12 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 						pStr->len = len;
 						pStr->str = str;
 					}
+					break;
+				case XDB_TYPE_INET:
+					memcpy (pAddr, va_arg (ap, void *), sizeof (xdb_inet_t));
+					break;
+				case XDB_TYPE_MAC:
+					memcpy (pAddr, va_arg (ap, void *), sizeof (xdb_mac_t));
 					break;
 				}
 			}

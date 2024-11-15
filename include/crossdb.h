@@ -68,9 +68,21 @@ typedef enum {
 	XDB_TYPE_BINARY     = 13, // fixed-length binary(at most 65535 byte)
 	XDB_TYPE_VCHAR      = 14, // varied-length string(at most 65535 byte)
 	XDB_TYPE_VBINARY    = 15, // varied-length binary(at most 65535 byte)
-	XDB_TYPE_BOOL		= 16,
+	XDB_TYPE_BOOL		= 16, // 1 byte
+	XDB_TYPE_INET		= 17, // 18 bytes
+	XDB_TYPE_MAC		= 18, // 6 bytes
 	XDB_TYPE_MAX        = 32
 } xdb_type_t;
+
+typedef struct {
+	uint8_t		mask;
+	uint8_t		family;	// 4=ipv4, 6=ipv6 
+	uint8_t		addr[16];
+} xdb_inet_t;
+
+typedef struct {
+	uint8_t		addr[6];
+} xdb_mac_t;
 
 
 /******************************************************************************

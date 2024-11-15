@@ -293,6 +293,15 @@ xdb_row_isequal (xdb_tblm_t *pTblm, void *pRow, xdb_field_t **ppFields, xdb_valu
 				return false;
 			}
 			break;
+		case XDB_TYPE_INET:
+			if (memcmp (pFldVal, &pValue->inet, (pValue->inet.family == 4) ? 6 : 18)) {
+				return false;
+			}
+		case XDB_TYPE_MAC:
+			if (memcmp (pFldVal, &pValue->mac, 6)) {
+				return false;
+			}
+			break;
 		}
 	}
 
@@ -380,10 +389,34 @@ xdb_row_isequal2 (xdb_tblm_t *pTblm, void *pRowL, void *pRowR, xdb_field_t **ppF
 				return false;
 			}
 			break;
+		case XDB_TYPE_INET:
+			if (memcmp (pFldValL, pFldValL, ((xdb_inet_t*)pFldValL)->family == 4 ? 6 : 18)) {
+				return false;
+			}
+			break;
+		case XDB_TYPE_MAC:
+			if (memcmp (pFldValL, pFldValL, 6)) {
+				return false;
+			}
+			break;
 		}
 	}
 
 	return true;
+}
+
+XDB_STATIC int 
+xdb_inet_cmp (const xdb_inet_t* pInetL, const xdb_inet_t* pInetR)
+{
+	int cmp = memcmp (&pInetL->family, &pInetR->family, 4 == pInetL->family ? 5 : 17);
+	if (cmp) {
+		return cmp;
+	}
+	cmp = pInetL->mask - pInetR->mask;
+	if (cmp) {
+		return cmp;
+	}
+	return 0;
 }
 
 XDB_STATIC int 
@@ -444,6 +477,7 @@ xdb_row_cmp (const void *pRowL, const void *pRowR, const xdb_field_t **ppFields,
 			}
 			break;
 		case XDB_TYPE_CHAR:
+		case XDB_TYPE_VCHAR:
 			cmp = strcasecmp (pRowValL, pRowValR);
 			if (cmp) {
 				*pCount = i;
@@ -451,6 +485,7 @@ xdb_row_cmp (const void *pRowL, const void *pRowR, const xdb_field_t **ppFields,
 			}
 			break;
 		case XDB_TYPE_BINARY:
+		case XDB_TYPE_VBINARY:
 			lenL = *(uint16_t*)(pRowValL-2);
 			lenR = *(uint16_t*)(pRowValR-2);
 			cmp = memcmp (pRowValL, pRowValR, lenL>lenR?lenR:lenL);
@@ -460,6 +495,20 @@ xdb_row_cmp (const void *pRowL, const void *pRowR, const xdb_field_t **ppFields,
 			} else if (lenL != lenR) {
 				*pCount = i;
 				return lenL - lenR;
+			}
+			break;
+		case XDB_TYPE_INET:
+			cmp = xdb_inet_cmp (pRowValL, pRowValR);
+			if (cmp) {
+				*pCount = i;
+				return cmp;
+			}
+			break;
+		case XDB_TYPE_MAC:
+			cmp = memcmp (pRowValL, pRowValR, 6);
+			if (cmp) {
+				*pCount = i;
+				return cmp;
 			}
 			break;
 		}
@@ -477,6 +526,7 @@ xdb_row_and_match (xdb_tblm_t *pTblm, void *pRow, xdb_filter_t **pFilters, int c
 		xdb_field_t *pField = pFilter->pField;
 		void *pVal = pRow + pField->fld_off;
 		xdb_value_t	value, *pValue = &pFilter->val;
+		int cmp;
 
 		switch (pField->fld_type) {
 		case XDB_TYPE_INT:
@@ -526,6 +576,14 @@ xdb_row_and_match (xdb_tblm_t *pTblm, void *pRow, xdb_filter_t **pFilters, int c
 			value.str.str = pVal;
 			value.val_type = XDB_TYPE_BINARY;
 			break;
+		case XDB_TYPE_INET:
+			value.inet = *(xdb_inet_t*)pVal;
+			value.val_type = XDB_TYPE_INET;
+			break;
+		case XDB_TYPE_MAC:
+			value.mac = *(xdb_mac_t*)pVal;
+			value.val_type = XDB_TYPE_MAC;
+			break;
 		default:
 			value.val_type = XDB_TYPE_NULL;
 			break;
@@ -536,105 +594,88 @@ xdb_row_and_match (xdb_tblm_t *pTblm, void *pRow, xdb_filter_t **pFilters, int c
 			if (xdb_unlikely (value.val_type != XDB_TYPE_BIGINT)) {
 				return false;
 			}
-			switch (pFilter->cmp_op) {
-			case XDB_TOK_EQ: 
-				if (value.ival != pValue->ival) { return 0;	}
-				break;
-			case XDB_TOK_GT: 
-				if (value.ival <= pValue->ival) { return 0; }
-				break;
-			case XDB_TOK_GE: 
-				if (value.ival < pValue->ival) { return 0; }
-				break;
-			case XDB_TOK_LT: 
-				if (value.ival >= pValue->ival) { return 0; }
-				break;
-			case XDB_TOK_LE: 
-				if (value.ival > pValue->ival) { return 0; }
-				break;
-			case XDB_TOK_NE: 
-				if (value.ival == pValue->ival) { return 0; }
-				break;
-			}
+			cmp = value.ival - pValue->ival;
 			break;
-
 		case XDB_TYPE_DOUBLE:
 			if (xdb_unlikely (value.val_type != XDB_TYPE_DOUBLE)) {
 				return false;
 			}
-			switch (pFilter->cmp_op) {
-			case XDB_TOK_EQ: 
-				if (value.fval != pValue->fval) {	return 0; }
-				break;
-			case XDB_TOK_GT: 
-				if (value.fval <= pValue->fval) { return 0; }
-				break;
-			case XDB_TOK_GE: 
-				if (value.fval < pValue->fval) { return 0; }
-				break;
-			case XDB_TOK_LT: 
-				if (value.fval >= pValue->fval) { return 0; }
-				break;
-			case XDB_TOK_LE: 
-				if (value.fval > pValue->fval) { return 0; }
-				break;
-			case XDB_TOK_NE: 
-				if (value.fval == pValue->fval) { return 0; }
-				break;
-			}
+			cmp = value.fval > pValue->fval ? 1 : (value.fval < pValue->fval ? -1 : 0);
 			break;
-
 		case XDB_TYPE_CHAR:
 		case XDB_TYPE_VCHAR:
 			if (xdb_unlikely (value.val_type != XDB_TYPE_CHAR)) {
 				return 0;
 			}
-			switch (pFilter->cmp_op) {
-			case XDB_TOK_EQ: 
-				if ((value.str.len != pValue->str.len) || strcasecmp (value.str.str, pValue->str.str)) {
-				//if (memcmp (value.str.str, pValue->str.str, value.str.len)) {
-					return false;
-				}
-				break;
-			case XDB_TOK_NE: 
-				if ((value.str.len == pValue->str.len) && !strcasecmp (value.str.str, pValue->str.str)) {
-					//if (memcmp (value.str.str, pValue->str.str, value.str.len)) {
-					return false;
-				}
-				break;
-			case XDB_TOK_LIKE: 
+			if (xdb_unlikely (XDB_TOK_LIKE == pFilter->cmp_op)) {
 				if (!xdb_str_like2 (value.str.str, value.str.len, pValue->str.str, pValue->str.len, true)) {
 					return false;
 				}
-				break;
-			default:
-				break;
+			}
+			cmp = value.str.len - pValue->str.len;
+			if (cmp == 0) {
+				cmp = strcasecmp (value.str.str, pValue->str.str);
 			}
 			break;
-
 		case XDB_TYPE_BINARY:
 		case XDB_TYPE_VBINARY:
 			if (xdb_unlikely (value.val_type != XDB_TYPE_BINARY)) {
 				return 0;
 			}
-			switch (pFilter->cmp_op) {
-			case XDB_TOK_EQ: 
-				if ((value.str.len != pValue->str.len) || memcmp (value.str.str, pValue->str.str, value.str.len)) {
-					return false;
-				}
-				break;
-			case XDB_TOK_NE: 
-				if ((value.str.len == pValue->str.len) && !memcmp (value.str.str, pValue->str.str, value.str.len)) {
-					return false;
-				}
-				break;
-			default:
-				break;
+			cmp = value.str.len - pValue->str.len;
+			if (cmp == 0) {
+				cmp = memcmp (value.str.str, pValue->str.str, value.str.len);
 			}
 			break;
-
+		case XDB_TYPE_INET:
+			if (xdb_unlikely (value.val_type != XDB_TYPE_INET)) {
+				return 0;
+			}
+			cmp = xdb_inet_cmp (&value.inet, &pValue->inet);
+			break;
+		case XDB_TYPE_MAC:
+			if (xdb_unlikely (value.val_type != XDB_TYPE_MAC)) {
+				return 0;
+			}
+			cmp = memcmp (&value.mac, &pValue->mac, 6);
+			break;
 		default:
 			return false;
+		}
+
+		switch (pFilter->cmp_op) {
+		case XDB_TOK_EQ: 
+			if (cmp) {
+				return false;
+			}
+			break;
+		case XDB_TOK_NE: 
+			if (!cmp) {
+				return false;
+			}
+			break;
+		case XDB_TOK_GE: 
+			if (cmp < 0) {
+				return false;
+			}
+			break;
+		case XDB_TOK_GT: 
+			if (cmp <= 0) {
+				return false;
+			}
+			break;
+		case XDB_TOK_LE: 
+			if (cmp > 0) {
+				return false;
+			}
+			break;
+		case XDB_TOK_LT: 
+			if (cmp >= 0) {
+				return false;
+			}
+			break;
+		default:
+			break;
 		}
 	}
 
@@ -708,6 +749,14 @@ xdb_row_getval (void *pRow, xdb_value_t *pVal)
 			pVal->str.len = 0;
 		}
 		pVal->sup_type = XDB_TYPE_VBINARY;
+		break;
+	case XDB_TYPE_INET:
+		pVal->inet = *(xdb_inet_t*)pFldPtr;
+		pVal->sup_type = XDB_TYPE_INET;
+		break;
+	case XDB_TYPE_MAC:
+		pVal->mac = *(xdb_mac_t*)pFldPtr;
+		pVal->sup_type = XDB_TYPE_MAC;
 		break;
 	}
 }
@@ -822,6 +871,12 @@ xdb_col_set2 (void *pColPtr, xdb_type_t col_type, xdb_value_t *pVal)
 		memcpy (pColPtr, pVal->str.str, pVal->str.len+1);
 		*(uint16_t*)(pColPtr-2) = pVal->str.len;
 		break;
+	case XDB_TYPE_INET:
+		*(xdb_inet_t*)pColPtr = pVal->inet;
+		break;
+	case XDB_TYPE_MAC:
+		*(xdb_mac_t*)pColPtr = pVal->mac;
+		break;
 	default:
 		break;
 	}
@@ -869,6 +924,12 @@ xdb_col_set (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pField, xdb_value_t *pV
 		pVStr = pRow + pTblm->row_size;
 		pVStr[pField->fld_vid] = pVal->str;
 		break;		
+	case XDB_TYPE_INET:
+		*(xdb_inet_t*)pColPtr = pVal->inet;
+		break;
+	case XDB_TYPE_MAC:
+		*(xdb_mac_t*)pColPtr = pVal->mac;
+		break;
 	default:
 		break;
 	}
@@ -945,6 +1006,12 @@ xdb_row_hash (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pFields[], int count)
 		case XDB_TYPE_BINARY:
 			hash = xdb_wyhash (ptr, *(uint16_t*)(ptr-2));
 			break;
+		case XDB_TYPE_INET:
+			hash = xdb_wyhash (ptr, ((xdb_inet_t*)ptr)->family == 4 ? 6 : 18);
+			break;
+		case XDB_TYPE_MAC:
+			hash = xdb_wyhash (ptr, 6);
+			break;
 		default:
 			hash = 0;
 			break;
@@ -1012,6 +1079,12 @@ xdb_row_hash2 (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pFields[], int count)
 		case XDB_TYPE_BINARY:
 			hash = xdb_wyhash (ptr, *(uint16_t*)(ptr-2));
 			break;
+		case XDB_TYPE_INET:
+			hash = xdb_wyhash (ptr, ((xdb_inet_t*)ptr)->family == 4 ? 6 : 18);
+			break;
+		case XDB_TYPE_MAC:
+			hash = xdb_wyhash (ptr, 6);
+			break;
 		default:
 			hash = 0;
 			break;
@@ -1044,6 +1117,12 @@ xdb_val_hash (xdb_value_t **ppValues, int count)
 			break;
 		case XDB_TYPE_BINARY:
 			hash = xdb_wyhash (pValue->str.str, pValue->str.len);
+			break;
+		case XDB_TYPE_INET:
+			hash = xdb_wyhash (&pValue->inet, (pValue->inet.family == 4) ? 6 : 18);
+			break;
+		case XDB_TYPE_MAC:
+			hash = xdb_wyhash (&pValue->mac, 6);
 			break;
 		default:
 			hash = 0;
@@ -1392,6 +1471,7 @@ int xdb_fprint_row (FILE *pFile, uint64_t meta, xdb_row_t *pRow, int format)
 	xdb_col_t	**pCol = (xdb_col_t**)pMeta->col_list;
 
 	for (int i = 0; i < pMeta->col_count; ++i) {
+		char buf[1024];
 		void *pVal = (void*)((uint64_t*)pRow[i]);
 		if (NULL == pVal) {
 			fprintf (pFile, "%s=NULL ", pCol[i]->col_name);
@@ -1432,22 +1512,16 @@ int xdb_fprint_row (FILE *pFile, uint64_t meta, xdb_row_t *pRow, int format)
 			fprintf (pFile, "' ");
 			break;
 		case XDB_TYPE_TIMESTAMP:
-			{
-				struct tm tm_val;
-				int		millsec = *(int64_t*)pVal%1000000;
-				time_t time_val = (time_t)*(int64_t*)pVal/1000000;
-				char	buf[32];
-				localtime_r(&time_val, &tm_val);
-				int len = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", &tm_val);
-				if (millsec) {
-					if (millsec%1000) {
-						len += sprintf (buf+len, ".%06d", millsec);
-					} else {
-						len += sprintf (buf+len, ".%03d", millsec/1000);
-					}
-				}
-				fprintf (pFile, "%s='%s' ", pCol[i]->col_name, buf);
-			}
+			xdb_timestamp_sprintf (*(int64_t*)pVal, buf, sizeof(buf));
+			fprintf (pFile, "%s='%s' ", pCol[i]->col_name, buf);
+			break;
+		case XDB_TYPE_INET:
+			xdb_inet_sprintf (pVal, buf, sizeof(buf));
+			fprintf (pFile, "%s='%s' ", pCol[i]->col_name, buf);
+			break;
+		case XDB_TYPE_MAC:
+			xdb_mac_sprintf (pVal, buf, sizeof(buf));
+			fprintf (pFile, "%s='%s' ", pCol[i]->col_name, buf);
 			break;
 		}
 	}
@@ -1462,6 +1536,7 @@ int xdb_print_row (uint64_t meta, xdb_row_t *pRow, int format)
 int xdb_fprint_dbrow (FILE *pFile, xdb_tblm_t *pTblm, void *pDbRow, int format)
 {
 	for (int i = 0; i < pTblm->fld_count; ++i) {
+		char	buf[1024];
 		xdb_field_t *pField = &pTblm->pFields[i];
 		if (!XDB_IS_NOTNULL(pDbRow + pTblm->null_off, i)) {
 			fprintf (pFile, "%s=NULL ", XDB_OBJ_NAME(pField));
@@ -1485,22 +1560,8 @@ int xdb_fprint_dbrow (FILE *pFile, xdb_tblm_t *pTblm, void *pDbRow, int format)
 			fprintf (pFile, "%s=%"PRIi64" ", XDB_OBJ_NAME(pField), *(int64_t*)pVal);
 			break;
 		case XDB_TYPE_TIMESTAMP:
-			{
-				struct tm tm_val;
-				int		millsec = *(int64_t*)pVal%1000000;
-				time_t time_val = (time_t)*(int64_t*)pVal/1000000;
-				char	buf[32];
-				localtime_r(&time_val, &tm_val);
-				int len = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", &tm_val);
-				if (millsec) {
-					if (millsec%1000) {
-						len += sprintf (buf+len, ".%06d", millsec);
-					} else {
-						len += sprintf (buf+len, ".%03d", millsec/1000);
-					}
-				}
-				fprintf (pFile, "%s='%s' ", XDB_OBJ_NAME(pField), buf);
-			}
+			xdb_timestamp_sprintf (*(int64_t*)pVal, buf, sizeof(buf));
+			fprintf (pFile, "%s='%s' ", XDB_OBJ_NAME(pField), buf);
 			break;
 		case XDB_TYPE_FLOAT:
 			fprintf (pFile, "%s=%f ", XDB_OBJ_NAME(pField), *(float*)pVal);
@@ -1522,6 +1583,14 @@ int xdb_fprint_dbrow (FILE *pFile, xdb_tblm_t *pTblm, void *pDbRow, int format)
 				fprintf (pFile, "%c%c", s_xdb_hex_2_str[((uint8_t*)pVal)[h]][0], s_xdb_hex_2_str[((uint8_t*)pVal)[h]][1]);
 			}
 			fprintf (pFile, "' ");
+			break;
+		case XDB_TYPE_INET:
+			xdb_inet_sprintf (pVal, buf, sizeof(buf));
+			fprintf (pFile, "%s='%s' ", XDB_OBJ_NAME(pField), buf);
+			break;
+		case XDB_TYPE_MAC:
+			xdb_mac_sprintf (pVal, buf, sizeof(buf));
+			fprintf (pFile, "%s='%s' ", XDB_OBJ_NAME(pField), buf);
 			break;
 		}
 	}
@@ -2258,22 +2327,19 @@ xdb_sprint_field (xdb_field_t *pField, void *pRow, char *buf)
 		*(buf + len++) = '\'';
 		break;
 	case XDB_TYPE_TIMESTAMP:
-		{
-			struct tm tm_val;
-			int 	millsec = *(int64_t*)pVal%1000000;
-			time_t time_val = (time_t)*(int64_t*)pVal/1000000;
-			localtime_r(&time_val, &tm_val);
-			*(buf + len++) = '\'';
-			len += strftime(buf+len, 32, "%Y-%m-%dT%H:%M:%S", &tm_val);
-			if (millsec) {
-				if (millsec%1000) {
-					len += sprintf (buf+len, ".%06d", millsec);
-				} else {
-					len += sprintf (buf+len, ".%03d", millsec/1000);
-				}
-			}
-			*(buf + len++) = '\'';
-		}
+		*(buf + len++) = '\'';
+		len += xdb_timestamp_sprintf (*(int64_t*)pVal, buf, 1024);
+		*(buf + len++) = '\'';
+		break;
+	case XDB_TYPE_INET:
+		*(buf + len++) = '\'';
+		len += xdb_inet_sprintf (pVal, buf, 1024);
+		*(buf + len++) = '\'';
+		break;
+	case XDB_TYPE_MAC:
+		*(buf + len++) = '\'';
+		len += xdb_mac_sprintf (pVal, buf, 1024);
+		*(buf + len++) = '\'';
 		break;
 	}
 

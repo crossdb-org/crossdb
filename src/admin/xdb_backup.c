@@ -10,7 +10,7 @@
 ******************************************************************************/
 
 XDB_STATIC void 
-xdb_res2sql (FILE *pFile, xdb_res_t *pRes, const char *tbl_name, char *buf, int len)
+xdb_res2sql (FILE *pFile, xdb_res_t *pRes, const char *tbl_name, char *buf, int size)
 {
 	xdb_row_t	*pRow;
 	xdb_meta_t	*pMeta = xdb_fetch_meta (pRes);	
@@ -64,6 +64,12 @@ xdb_res2sql (FILE *pFile, xdb_res_t *pRes, const char *tbl_name, char *buf, int 
 				}
 				*(buf + len++) = '\'';
 				*(buf + len++) = ',';
+				break;
+			case XDB_TYPE_INET:
+				len += xdb_inet_sprintf (pVal, buf, size - len);
+				break;
+			case XDB_TYPE_MAC:
+				len += xdb_mac_sprintf (pVal, buf, size - len);
 				break;
 			}
 		}

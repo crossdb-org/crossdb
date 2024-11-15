@@ -56,6 +56,8 @@ typedef struct xdb_value_t {
 		uint64_t	uval;
 		int64_t		ival;
 		xdb_str_t	str;	// str/binary
+		xdb_inet_t	inet;
+		xdb_mac_t	mac;
 		struct xdb_expr_t	*pExpr;
 	};
 } xdb_value_t;

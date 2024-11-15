@@ -65,6 +65,14 @@ xdb_parse_field (xdb_conn_t* pConn, xdb_token_t *pTkn, xdb_stmt_tbl_t *pStmt)
 	} else if (0 == strcasecmp (pTkn->token, "DOUBLE")) {
 		pFld->fld_type = XDB_TYPE_DOUBLE;
 		pFld->sup_type = XDB_TYPE_DOUBLE;
+	} else if (0 == strcasecmp (pTkn->token, "INET")) {
+		pFld->fld_type = XDB_TYPE_INET;
+		pFld->sup_type = XDB_TYPE_INET;
+		pFld->fld_len = sizeof (xdb_inet_t);
+	} else if (0 == strcasecmp (pTkn->token, "MAC")) {
+		pFld->fld_type = XDB_TYPE_MAC;
+		pFld->sup_type = XDB_TYPE_MAC;
+		pFld->fld_len = sizeof (xdb_mac_t);
 	} else {
 		XDB_EXPECT (0, XDB_E_STMT, "unkown data type '%s'", pTkn->token);
 	}

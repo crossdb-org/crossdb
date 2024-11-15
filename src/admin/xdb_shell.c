@@ -89,50 +89,29 @@ xdb_get_row_len (xdb_meta_t *pMeta, xdb_row_t *pRow, int *pColLen)
 		switch (pCol[i]->col_type) {
 		case XDB_TYPE_INT:
 			len = snprintf (buf, sizeof(buf), "%d", *(int32_t*)pVal);
-			if (pColLen[i] < len) {
-				pColLen[i] = len;
-			}
 			break;
 		case XDB_TYPE_BOOL:
 			len = snprintf (buf, sizeof(buf), "%s", *(int8_t*)pVal?"true":"false");
-			if (pColLen[i] < len) {
-				pColLen[i] = len;
-			}
 			break;
 		case XDB_TYPE_TINYINT:
 			len = snprintf (buf, sizeof(buf), "%d", *(int8_t*)pVal);
-			if (pColLen[i] < len) {
-				pColLen[i] = len;
-			}
 			break;
 		case XDB_TYPE_SMALLINT:
 			len = snprintf (buf, sizeof(buf), "%d", *(int16_t*)pVal);
-			if (pColLen[i] < len) {
-				pColLen[i] = len;
-			}
 			break;
 		case XDB_TYPE_BIGINT:
 			len = snprintf (buf, sizeof(buf), "%"PRIi64, *(int64_t*)pVal);
-			if (pColLen[i] < len) {
-				pColLen[i] = len;
-			}
 			break;
 		case XDB_TYPE_FLOAT:
 			len = snprintf (buf, sizeof(buf), "%f", *(float*)pVal);
-			if (pColLen[i] < len) {
-				pColLen[i] = len;
-			}
 			break;
 		case XDB_TYPE_DOUBLE:
 			len = snprintf (buf, sizeof(buf), "%f", *(double*)pVal);
-			if (pColLen[i] < len) {
-				pColLen[i] = len;
-			}
 			break;
 		case XDB_TYPE_CHAR:
 		case XDB_TYPE_VCHAR:
 			line = (char*)pVal;
-			do {			
+			do {
 				ch = strchr (line, '\n');
 				len = (NULL != ch) ? ch - line : strlen (line);
 				if (pColLen[i] < len) {
@@ -140,31 +119,25 @@ xdb_get_row_len (xdb_meta_t *pMeta, xdb_row_t *pRow, int *pColLen)
 				}
 				line = ch + 1;
 			} while (NULL != ch);
-			break;
+			continue;
 		case XDB_TYPE_BINARY:
 		case XDB_TYPE_VBINARY:
-			pColLen[i] = 2 + *(uint16_t*)(pVal-2) * 2;
+			len = 2 + *(uint16_t*)(pVal-2) * 2;
 			break;
 		case XDB_TYPE_TIMESTAMP:
-			{
-				struct tm tm_val;
-				int		millsec = *(int64_t*)pVal%1000000;
-				time_t time_val = (time_t)*(int64_t*)pVal/1000000;
-				char	buf[32];
-				localtime_r(&time_val, &tm_val);
-				int len = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", &tm_val);
-				if (millsec) {
-					if (millsec%1000) {
-						len += sprintf (buf+len, ".%06d", millsec);
-					} else {
-						len += sprintf (buf+len, ".%03d", millsec/1000);
-					}
-				}
-				if (pColLen[i] < len) {
-					pColLen[i] = len;
-				}
-			}
+			len =	xdb_timestamp_sprintf (*(int64_t*)pVal, buf, sizeof(buf));
 			break;
+		case XDB_TYPE_INET:
+			len = xdb_inet_sprintf (pVal, buf, sizeof(buf));
+			break;
+		case XDB_TYPE_MAC:
+			len = xdb_mac_sprintf (pVal, buf, sizeof(buf));
+			break;
+		default:
+			continue;
+		}
+		if (pColLen[i] < len) {
+			pColLen[i] = len;
 		}
 	}
 }
@@ -197,6 +170,7 @@ xdb_fprint_row_table (FILE *pFile, xdb_meta_t *pMeta, xdb_row_t *pRow, int *pCol
 	for (int n = 0; n < line; ++n) {
 		xdb_fputc ('|', pFile);
 		for (int i = 0; i < pMeta->col_count; ++i) {
+			char	buf[1024];
 			int 	plen = 0;
 			char 	*str = "", *ch = NULL;
 			xdb_fputc (' ', pFile);
@@ -274,22 +248,16 @@ xdb_fprint_row_table (FILE *pFile, xdb_meta_t *pMeta, xdb_row_t *pRow, int *pCol
 					}
 					break;
 				case XDB_TYPE_TIMESTAMP:
-					{
-						struct tm tm_val;
-						int 	millsec = *(int64_t*)pVal%1000000;
-						time_t time_val = (time_t)*(int64_t*)pVal/1000000;
-						char	buf[32];
-						localtime_r(&time_val, &tm_val);
-						int len = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", &tm_val);
-						if (millsec) {
-							if (millsec%1000) {
-								len += sprintf (buf+len, ".%06d", millsec);
-							} else {
-								len += sprintf (buf+len, ".%03d", millsec/1000);
-							}
-						}
-						plen = xdb_fprintf (pFile, "%s", buf);
-					}
+					xdb_timestamp_sprintf (*(int64_t*)pVal, buf, sizeof(buf));
+					plen += xdb_fprintf (pFile, "%s", buf);
+					break;
+				case XDB_TYPE_INET:
+					xdb_inet_sprintf (pVal, buf, sizeof(buf));
+					plen += xdb_fprintf (pFile, "%s", buf);
+					break;
+				case XDB_TYPE_MAC:
+					xdb_mac_sprintf (pVal, buf, sizeof(buf));
+					plen += xdb_fprintf (pFile, "%s", buf);
 					break;
 				}
 			}

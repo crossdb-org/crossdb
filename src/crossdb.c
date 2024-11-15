@@ -90,6 +90,8 @@ const char* xdb_type2str(xdb_type_t tp)
 		[XDB_TYPE_VCHAR    ] = "VARCHAR",
 		[XDB_TYPE_BINARY   ] = "BINARY",
 		[XDB_TYPE_VBINARY  ] = "VARBINARY",
+		[XDB_TYPE_INET	   ] = "INET",
+		[XDB_TYPE_MAC	   ] = "MAC",
 	};
 	return tp <= XDB_ARY_LEN(id2str) ? id2str[tp] : "Unkonwn";
 }
@@ -106,7 +108,9 @@ static xdb_type_t s_xdb_prompt_type[] = {
 	[XDB_TYPE_VCHAR	]		= XDB_TYPE_VCHAR,
 	[XDB_TYPE_BINARY ]		= XDB_TYPE_BINARY,
 	[XDB_TYPE_VBINARY ]		= XDB_TYPE_VBINARY,
-	[XDB_TYPE_TIMESTAMP] 	= XDB_TYPE_BIGINT
+	[XDB_TYPE_TIMESTAMP] 	= XDB_TYPE_BIGINT,
+	[XDB_TYPE_INET]			= XDB_TYPE_INET,
+	[XDB_TYPE_MAC]			= XDB_TYPE_MAC,
 };
 
 static volatile bool s_xdb_bInit = false;

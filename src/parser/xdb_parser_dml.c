@@ -41,6 +41,96 @@ error:
 }
 #endif
 
+XDB_STATIC int 
+xdb_inet_sprintf (xdb_inet_t *pInet, char *buf, int size)
+{
+	int len = 0;
+	if (4 == pInet->family) {
+		if (32 == pInet->mask) {
+			len = sprintf (buf, "%d.%d.%d.%d", pInet->addr[0], pInet->addr[1], pInet->addr[2], pInet->addr[3]);
+		} else {
+			len = sprintf (buf, "%d.%d.%d.%d/%d", pInet->addr[0], pInet->addr[1], pInet->addr[2], pInet->addr[3], pInet->mask);
+		}
+	} else if (6 == pInet->family) {
+		inet_ntop (AF_INET6, pInet->addr, buf, INET6_ADDRSTRLEN);
+		len = strlen (buf);
+		if (128 != pInet->mask) {
+			len += sprintf (buf + len, "/%d", pInet->mask);
+		}
+	}
+	return len;
+}
+
+XDB_STATIC bool 
+xdb_inet_scanf (xdb_inet_t *pInet, const char *addr)
+{
+	int rc;
+	pInet->family = 4;
+	pInet->mask = 32;
+	char *mask = strchr (addr, '/');
+	if (mask) {
+		pInet->mask = atoi (mask + 1);
+		*mask = '\0';
+	}
+	char *ipv6 = strchr (addr, ':');
+	if (NULL == ipv6) {
+		rc = inet_pton (AF_INET, addr, pInet->addr);
+	} else {
+		pInet->family = 6;
+		rc = inet_pton (AF_INET6, addr, pInet->addr);
+		if (NULL == mask) {
+			pInet->mask = 128;
+		}
+	}
+	return rc == 1;
+}
+
+XDB_STATIC int 
+xdb_mac_sprintf (xdb_mac_t *pMac, char *buf, int size)
+{
+	return sprintf (buf, "%02x:%02x:%02x:%02x:%02x:%02x", pMac->addr[0],pMac->addr[1],pMac->addr[2],pMac->addr[3],pMac->addr[4],pMac->addr[5]);	
+}
+
+XDB_STATIC bool 
+xdb_mac_scanf (xdb_mac_t *pMac, const char *addr)
+{
+	int hex1, hex2;
+	for (int i = 0; i < 6; ++i) {
+		hex1 = s_xdb_str_2_hex[(uint8_t)*addr++];
+		if (xdb_unlikely (hex1 < 0)) {
+			return false;
+		}
+		hex2 = s_xdb_str_2_hex[(uint8_t)*addr++];
+		if (xdb_unlikely (hex2 < 0)) {
+			return false;
+		}
+		pMac->addr[i] = (hex1<<4) | hex2;
+		if (*addr == ':' || *addr == '-' || *addr == '.') {
+			addr++;
+		}
+	}
+
+	return *addr == '\0';
+}
+
+XDB_STATIC int 
+xdb_timestamp_sprintf (uint64_t timestamp, char *buf, int size)
+{
+	struct tm tm_val;
+	int 	millsec = timestamp%1000000;
+	time_t time_val = (time_t)timestamp/1000000;
+	localtime_r(&time_val, &tm_val);
+	int len = strftime (buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", &tm_val);
+	if (millsec) {
+		if (millsec%1000) {
+			len += sprintf (buf+len, ".%06d", millsec);
+		} else {
+			len += sprintf (buf+len, ".%03d", millsec/1000);
+		}
+	}
+	return len;
+}
+
 XDB_STATIC int64_t 
 xdb_timestamp_scanf (const char *time_str)
 {
@@ -285,6 +375,14 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 						pStr = &pVStr[pField->fld_vid];
 						pStr->len = pTkn->tk_len;
 						pStr->str = pTkn->token;
+						break;
+					case XDB_TYPE_INET:
+						XDB_EXPECT (XDB_TOK_STR == type, XDB_E_STMT, "Expect IP Addr");
+						XDB_EXPECT (xdb_inet_scanf (pRow + pField->fld_off, pTkn->token),  XDB_E_STMT, "Invalid IP Addr");
+						break;
+					case XDB_TYPE_MAC:
+						XDB_EXPECT (XDB_TOK_STR == type, XDB_E_STMT, "Expect MAC Addr");
+						XDB_EXPECT (xdb_mac_scanf (pRow + pField->fld_off, pTkn->token),  XDB_E_STMT, "Invalid MAC Addr");
 						break;
 					}
 				}
@@ -668,6 +766,14 @@ next_filter:
 				pFilter->val.fval = atof (pVal);
 				pFilter->val.val_type = XDB_TYPE_DOUBLE;
 				//xdb_dbgprint ("%s = %d\n", pField->fld_name.str, pFilter->val.ival);
+				break;
+			case XDB_TYPE_INET:
+				XDB_EXPECT (xdb_inet_scanf (&pFilter->val.inet, pVal),  XDB_E_STMT, "Invalid IP Addr");
+				pFilter->val.val_type = XDB_TYPE_INET;
+				break;
+			case XDB_TYPE_MAC:
+				XDB_EXPECT (xdb_mac_scanf (&pFilter->val.mac, pVal),  XDB_E_STMT, "Invalid MAC Addr");
+				pFilter->val.val_type = XDB_TYPE_MAC;
 				break;
 			}
 		}
