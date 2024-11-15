@@ -15,7 +15,8 @@ help:
 .PHONY: build
 build:
 ifeq ($(shell uname -s), Darwin)
-	$(CC) -o build/libcrossdb.dylib -dynamiclib -lpthread -O2 src/crossdb.c
+	$(CC) -o libcrossdb.dylib -dynamiclib -lpthread -O2 src/crossdb.c
+	@mv libcrossdb.dylib build/libcrossdb.dylib
 else
 	$(CC) -o build/libcrossdb.so -fPIC -shared -lpthread -O2 src/crossdb.c
 endif
