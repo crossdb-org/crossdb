@@ -228,6 +228,9 @@ const xdb_inet_t*
 xdb_column_inet (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol);
 
 bool 
+xdb_col_null (xdb_res_t *pRes, xdb_row_t *pRow, const char *name);
+
+bool 
 xdb_col_bool (xdb_res_t *pRes, xdb_row_t *pRow, const char *name);
 
 int 
