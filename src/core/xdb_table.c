@@ -209,6 +209,12 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 		xdb_create_index (pStmtIdx, true);
 	}
 
+	for (int i = 0; i < pStmt->fkey_count; ++i) {
+		xdb_stmt_fkey_t *pStmtFkey = &pStmt->stmt_fkey[i];
+		pStmtFkey->pTblm = pTblm;
+		xdb_create_fkey (pStmtFkey);
+	}
+
 	for (int i = 0; i < pTblm->fld_count; ++i) {
 		if (pTblm->pFields[i].fld_flags & XDB_FLD_NOTNULL) {
 			XDB_SET_NOTNULL (pTblm->pNullBytes, i);
@@ -226,6 +232,9 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 	return XDB_OK;
 
 error:
+	if (NULL != pTblm) {	
+		xdb_objm_del (&pDbm->db_objm, pTblm);
+	}
 	xdb_wrunlock_db (pDbm);
 	xdb_free (pTblm);
 	return -pConn->conn_res.errcode;
@@ -342,11 +351,11 @@ xdb_dump_create_table (xdb_tblm_t *pTblm, char buf[], xdb_size size, uint32_t fl
 		xdb_idxm_t	*pIdxm = XDB_OBJM_GET(pTblm->idx_objm, i);
 		if (pIdxm != NULL) {
 			if (pIdxm->bPrimary) {
-				len += sprintf (buf+len, "  PRIMARY KEY (");
+				len += sprintf (buf+len, "  PRIMARY KEY USING %s (", xdb_idx2str(pIdxm->idx_type));
 			} else if (pIdxm->bUnique) {
-				len += sprintf (buf+len, "  UNIQUE  KEY %s (", XDB_OBJ_NAME(pIdxm));
+				len += sprintf (buf+len, "  UNIQUE  KEY %s USING %s (", XDB_OBJ_NAME(pIdxm), xdb_idx2str(pIdxm->idx_type));
 			} else {
-				len += sprintf (buf+len, "  KEY         %s (", XDB_OBJ_NAME(pIdxm));
+				len += sprintf (buf+len, "  KEY         %s USING %s (", XDB_OBJ_NAME(pIdxm), xdb_idx2str(pIdxm->idx_type));
 			}
 			for (int j = 0; j < pIdxm->fld_count; ++j) {
 				len += sprintf (buf+len, "%s,", XDB_OBJ_NAME(pIdxm->pFields[j]));

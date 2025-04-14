@@ -34,6 +34,7 @@ typedef struct xdb_idxm_t {
 	xdb_field_t		*pFields[XDB_MAX_MATCH_COL];
 	uint32_t		slot_mask;
 	xdb_hashHdr_t	*pHashHdr;	
+	xdb_rbtree_t	*pRbtrHdr;
 	xdb_rowid		*pHashSlot;
 	xdb_rowid		slot_cap;
 	xdb_rowid		node_cap;
@@ -57,5 +58,8 @@ xdb_idx_remRow_bmp (xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow, uint8_t *idx_d
 
 XDB_STATIC xdb_idxm_t* 
 xdb_find_index (xdb_tblm_t *pTblm, const char *idx_name);
+
+XDB_STATIC const char* 
+xdb_idx2str(xdb_idx_type tp);
 
 #endif // __XDB_INDEX_H__

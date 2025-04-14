@@ -59,6 +59,7 @@ typedef unsigned int in_addr_t;
 #define XDB_ALIGN4(len)			((len + 3) & ~3)
 #define XDB_ALIGN8(len)			((len + 7) & ~7)
 #define XDB_ALIGN4K(len)		((len + 4093) & ~4093)
+#define XDB_ALIGN1M(len)		((len + (1024*1024-1)) & ~(1024*1024-1))
 
 #ifdef XDB_DEBUG
 #define xdb_assert(exp)			assert(exp)
@@ -142,6 +143,14 @@ xdb_signal_block (int signum);
 static int xdb_fprintf (FILE *pFile, const char *format, ...);
 static int xdb_fflush (FILE *pFile);
 #define xdb_fputc(c, pFile)	xdb_fprintf(pFile, "%c", c)
+
+
+typedef struct {
+	volatile int32_t count; // -1 when W lock held, > 0 when R locks held.
+} xdb_rwlock_t;
+
+#define XDB_RWLOCK_INIT(lock) lock.count = 0
+
 
 #include "xdb_objm.h"
 #include "xdb_bmp.h"

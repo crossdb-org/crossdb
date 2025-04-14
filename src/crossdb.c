@@ -22,15 +22,20 @@
 #include "core/xdb_db.h"
 #include "core/xdb_crud.h"
 #include "core/xdb_hash.h"
+#include "core/xdb_rbtree.h"
 #include "core/xdb_sql.h"
 #include "core/xdb_sysdb.h"
 #include "core/xdb_vdata.h"
+#include "core/xdb_fkey.h"
 #include "core/xdb_table.h"
 #include "core/xdb_index.h"
 #include "core/xdb_trans.h"
 #include "core/xdb_trigger.h"
 #if (XDB_ENABLE_SERVER == 1)
 #include "server/xdb_server.h"
+#endif
+#if (XDB_ENABLE_PUBSUB == 1)
+#include "server/xdb_pubsub.h"
 #endif
 #include "core/xdb_conn.h"
 #include "admin/xdb_shell.h"
@@ -43,8 +48,10 @@
 #include "core/xdb_sysdb.c"
 #include "core/xdb_db.c"
 #include "core/xdb_crud.c"
+#include "core/xdb_fkey.c"
 #include "core/xdb_index.c"
 #include "core/xdb_hash.c"
+#include "core/xdb_rbtree.c"
 #include "core/xdb_vdata.c"
 #include "core/xdb_table.c"
 #include "core/xdb_trans.c"
@@ -54,6 +61,7 @@
 #include "server/xdb_client.c"
 #include "server/xdb_server.c"
 #endif
+#include "admin/xdb_backup.c"
 #if (XDB_ENABLE_PUBSUB == 1)
 #include "server/xdb_pubsub.c"
 #endif
@@ -63,7 +71,6 @@
 #include "jni/xdb_jni.c"
 #endif
 #include "admin/xdb_shell.c"
-#include "admin/xdb_backup.c"
 
 static bool s_xdb_vdat[XDB_TYPE_MAX] = {
 	[XDB_TYPE_VBINARY  ] = true,
@@ -93,7 +100,7 @@ const char* xdb_type2str(xdb_type_t tp)
 		[XDB_TYPE_INET	   ] = "INET",
 		[XDB_TYPE_MAC	   ] = "MAC",
 	};
-	return tp <= XDB_ARY_LEN(id2str) ? id2str[tp] : "Unkonwn";
+	return tp <= XDB_ARY_LEN(id2str) ? id2str[tp] : "Unknown";
 }
 
 static xdb_type_t s_xdb_prompt_type[] = {
@@ -144,6 +151,12 @@ xdb_exit ()
 	xdb_sysdb_exit ();
 
 	return XDB_OK;
+}
+
+xdb_errno_e
+xdb_errcode (xdb_res_t *pRes)
+{
+	return pRes->errcode;
 }
 
 const char* xdb_errmsg (xdb_res_t *pRes)

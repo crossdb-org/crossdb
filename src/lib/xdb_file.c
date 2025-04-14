@@ -14,38 +14,33 @@
 #define xdb_fdclose(fd)			do { if(fd) { xdb_fdclose2(fd); fd=XDB_INV_FD; } } while (0)
 #define	xdb_fexist(file) 		(access(file, F_OK) != -1)
 
-#if 0
 XDB_STATIC int 
-xdb_getdir (const char *dir, char *path)
+xdb_getcwd (char *cwd)
 {
-	int ret;
-	char curpath[XDB_PATH_LEN + 1];
-
-	if (NULL == getcwd (curpath, XDB_PATH_LEN)) {
+	if (NULL == getcwd (cwd, XDB_PATH_LEN)) {
 		xdb_errlog ("Can't get current dir\n");
 		return -1;
 	}
-	if ((NULL == dir) || ('\0' == *dir)) {
-		strcpy (path, curpath);
-	} else {
-	 	ret = chdir(dir);
-		if (0 != ret) {
-			path[0] = '\0';
-			return 0;
-		}
-		if (NULL == getcwd (path, XDB_PATH_LEN)) {
-			xdb_errlog ("Can't get current dir\n");
-			return -1;
-		}
-		ret = chdir (curpath);
-		if (0 != ret) {
-			xdb_errlog ("Can't chdir %s\n", curpath);
-			return -1;
-		}
-	}
 	return 0;
 }
-#endif
+
+XDB_STATIC int 
+xdb_chdir (const char *dir, char *cwd)
+{
+	int ret;
+
+	if (cwd != NULL) {
+		xdb_getcwd (cwd);
+	}
+
+ 	ret = chdir(dir);
+	if (0 != ret) {
+		xdb_errlog ("Can't chdir %s\n", dir);
+		return -1;
+	}
+
+	return 0;
+}
 
 XDB_STATIC int 
 xdb_rmdir (const char *dirname)

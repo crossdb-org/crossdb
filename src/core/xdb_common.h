@@ -16,8 +16,86 @@
 #define __restrict	restrict
 #endif
 
+#define XDB_ROW_COL_CNT		4096
 
-typedef int	xdb_rowid;
+typedef struct xdb_res_t {
+	uint32_t	len_type;		// MSB 4bit are type xdb_restype_t
+	uint16_t	errcode;		// 4
+	uint16_t	status;			// 6 xdb_status_t
+
+	uint32_t	meta_len;		// 8
+	uint16_t	col_count;		// 12
+	uint8_t		stmt_type;		// 14 SQL type(create/delete/drop/show/select/delete/update...)
+	uint8_t		rsvd;
+
+	uint64_t	row_count;		// 2*8 SELECT/SHOW
+	uint64_t	affected_rows;	// 3*8 INSERT/UPDATE/DELETE
+	uint64_t	insert_id;		// 4*8 INSERT
+	uint64_t	col_meta;		// 5*8 xdb_meta_t, <ptr:ptr off: 0 following is meta>
+	uint64_t	row_data;		// 6*8 xdb_rowlist_t, ptr: base ptr or error str or information xdb_msg_t
+	uint64_t	data_len;		// 7*8
+} xdb_res_t;
+
+typedef struct {
+	uint32_t	len_type;		// MSB 4bit are type
+	uint16_t	len;
+	char		msg[2048];
+} xdb_msg_t;
+
+typedef struct {
+	uint32_t	len_type;		// MSB 4bit are type
+	uint8_t		rowdat[];
+} xdb_rowdat_t;
+
+typedef struct {
+	uint8_t		col_len;		// colum total len
+	uint8_t		col_type;		// 1 xdb_type_t
+	uint16_t	col_flags;		// 2
+	uint32_t	col_off;		// 4
+	uint16_t	rsvd;			// 8
+	//uint8_t		col_decimal;	// 8
+	//uint8_t		col_charset;	// 9
+	uint8_t		col_dtid;		// 10 db.table id in xdb_meta_t.tbl_name
+	uint8_t		rsvd1;			// 11
+	uint8_t		col_nmlen;		// 12
+	char		col_name[];		// 13
+} xdb_col_t;
+
+typedef struct xdb_meta_t {
+	uint32_t	len_type;		// MSB 4bit are type
+	uint16_t	col_count;		// 4
+	uint16_t	cols_off;		// 6
+	uint64_t	col_list;		// 8 xdb_col_t list
+	uint32_t	row_size;		// 16
+	uint32_t	null_off;		// 20
+	uint32_t	rsvd[4];		// 24
+	uint16_t	tbl_nmlen;		// 40 list of db.tbl,db.tbl,db.tbl
+	char		tbl_name[];		// 42
+	//xdb_col_t	cols[];
+} xdb_meta_t;
+
+typedef enum {
+	XDB_RET_ROW = 0,
+	XDB_RET_REPLY,
+	XDB_RET_META,
+	XDB_RET_MSG,
+	XDB_RET_COMPRESS,
+	XDB_RET_INSERT,	// (meta + row)
+	XDB_RET_DELETE, // (meta + row)
+	XDB_RET_UPDATE, // (old meta, old row, set meta, set row)
+	XDB_RET_EOF = 0xF,
+} xdb_restype_t;
+
+typedef enum {
+	XDB_STATUS_MORE_RESULTS 	= (1<<3),
+} xdb_status_t;
+
+typedef struct {
+	uint8_t			rsvd;
+	uint8_t			type;	// xdb_type_t
+	uint16_t		count;
+} xdb_array_t;
+
 
 
 /******************************************************************************
@@ -78,9 +156,11 @@ typedef int	xdb_rowid;
 #define XDB_CONNCODE(pConn)		pConn->conn_res.errcode
 
 //#define XDB_LOG_FLAGS	(XDB_LOG_DB|XDB_LOG_TBL|XDB_LOG_TRANS|XDB_LOG_WAL)
-//#define XDB_LOG_FLAGS	XDB_LOG_DB
+//#define XDB_LOG_FLAGS	XDB_LOG_RBTREE
 //#define XDB_LOG_FLAGS	XDB_LOG_SVR
-//#define XDB_LOG_FLAGS	XDB_LOG_PUBSUB
+#ifdef XDB_DEBUG
+#define XDB_LOG_FLAGS	(XDB_LOG_PUBSUB|XDB_LOG_SVR)
+#endif
 #ifndef XDB_LOG_FLAGS
 #define XDB_LOG_FLAGS	0
 #endif
@@ -89,8 +169,11 @@ typedef int	xdb_rowid;
 #define XDB_LOG_TBL		(1<<1)
 #define XDB_LOG_IDX		(1<<2)
 #define XDB_LOG_HASH	(1<<3)
-#define XDB_LOG_SQL		(1<<6)
-#define XDB_LOG_CRUD	(1<<7)
+#define XDB_LOG_RBTREE	(1<<4)
+#define XDB_LOG_TRIG	(1<<5)
+#define XDB_LOG_FKEY	(1<<6)
+#define XDB_LOG_SQL		(1<<7)
+#define XDB_LOG_CRUD	(1<<8)
 #define XDB_LOG_STG		(1<<9)
 #define XDB_LOG_TRANS	(1<<10)
 #define XDB_LOG_WAL		(1<<11)
@@ -99,9 +182,15 @@ typedef int	xdb_rowid;
 #define XDB_LOG_BINLOG	(1<<14)
 #define XDB_LOG_PUBSUB	(1<<15)
 
-#define XDB_IS_NOTNULL(pNull,bits)	(((uint8_t*)(pNull))[bits>>3] & (1<<(bits&7)))
-#define XDB_SET_NOTNULL(pNull,bits)	(((uint8_t*)(pNull))[bits>>3] |= (1<<(bits&7)))
-#define XDB_SET_NULL(pNull,bits)	(((uint8_t*)(pNull))[bits>>3] &= ~(1<<(bits&7)))
+#define XDB_BMP_INIT0(pBmp, bits)	memset(pBmp, 0, (bits+7)>>3)
+#define XDB_BMP_INIT1(pBmp, bits)	memset(pBmp, 0xFF, (bits+7)>>3)
+#define XDB_BMP_GET(pBmp, bit)		(((uint8_t*)(pBmp))[bit>>3] &  (1<<(bit&7)))
+#define XDB_BMP_SET(pBmp, bit)		(((uint8_t*)(pBmp))[bit>>3] |= (1<<(bit&7)))
+#define XDB_BMP_CLR(pBmp, bit)		(((uint8_t*)(pBmp))[bit>>3] &= ~(1<<(bit&7)))
+
+#define XDB_IS_NOTNULL(pNull, bit)	XDB_BMP_GET(pNull, bit)
+#define XDB_SET_NOTNULL(pNull, bit)	XDB_BMP_SET(pNull, bit)
+#define XDB_SET_NULL(pNull, bit)	XDB_BMP_CLR(pNull, bit)
 
 static bool s_xdb_vdat[XDB_TYPE_MAX];
 
@@ -121,7 +210,7 @@ typedef enum {
 typedef struct xdb_field_t {
 	xdb_obj_t		obj;
 	struct xdb_tblm_t	*pTblm;
-	uint8_t			fld_type;
+	uint8_t			fld_type; // xdb_type_t
 	uint8_t			sup_type;
 	uint16_t		fld_flags;
 	uint8_t			fld_decimal;

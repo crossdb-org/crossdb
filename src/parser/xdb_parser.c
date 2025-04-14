@@ -53,6 +53,7 @@ error:
 #if (XDB_ENABLE_PUBSUB == 1)
 #include "xdb_parser_pubsub.c"
 #endif
+#include "xdb_parser_trig.c"
 
 XDB_STATIC xdb_stmt_t* 
 xdb_parse_use (xdb_conn_t* pConn, xdb_token_t *pTkn)
@@ -90,6 +91,8 @@ xdb_parse_create (xdb_conn_t* pConn, xdb_token_t *pTkn)
 		case 't':
 			if (!strcasecmp (pTkn->token, "TABLE")) {
 				return xdb_parse_create_table (pConn, pTkn);
+			} else if (!strcasecmp (pTkn->token, "TRIGGER")) {
+				return xdb_parse_create_trigger (pConn, pTkn);
 			}
 			break;
 
@@ -216,7 +219,22 @@ xdb_parse_shell (xdb_conn_t* pConn, xdb_token_t *pTkn)
 	pStmt->stmt_type = XDB_STMT_SHELL;
 	pStmt->pSql = NULL;
 
+	xdb_token_type	type = xdb_next_token (pTkn);
+	if (XDB_TOK_ID == type) {
+		if (!strcasecmp (pTkn->token, "PROMPT")) {
+			type = xdb_next_token (pTkn);
+			XDB_EXPECT (XDB_TOK_EQ==type, XDB_E_STMT, "Expect EQ");
+			type = xdb_next_token (pTkn);
+			XDB_EXPECT (XDB_TOK_STR>=type, XDB_E_STMT, "Miss prompt");
+			pStmt->pArg = pTkn->token;
+		}
+	}
+
 	return (xdb_stmt_t*)pStmt;
+
+error:
+	xdb_stmt_free ((xdb_stmt_t*)pStmt);
+	return NULL;
 }
 
 XDB_STATIC xdb_stmt_t* 
@@ -456,7 +474,7 @@ xdb_sql_parse (xdb_conn_t* pConn, char **ppSql, bool bPStmt)
 				pStmt = xdb_parse_source (pConn, &token);
 			} else if (! strcasecmp (token.token, "SHELL")) {
 				pStmt = xdb_parse_shell (pConn, &token);
-			#if (XDB_ENABLE_PUBSUB == 1)			
+			#if (XDB_ENABLE_PUBSUB == 1)
 			} else if (! strcasecmp (token.token, "SUBSCRIBE")) {
 				pStmt = xdb_parse_subscribe (pConn, &token);
 			#endif
@@ -481,7 +499,7 @@ xdb_sql_parse (xdb_conn_t* pConn, char **ppSql, bool bPStmt)
 		case 'I':
 		case 'i':
 			if (! strcasecmp (token.token, "INSERT")) {
-				pStmt = xdb_parse_insert (pConn, &token, bPStmt);
+				pStmt = xdb_parse_insert (pConn, &token, bPStmt, false);
 			} else {
 				goto error;
 			}
@@ -522,7 +540,9 @@ xdb_sql_parse (xdb_conn_t* pConn, char **ppSql, bool bPStmt)
 			break;
 		case 'R':
 		case 'r':
-			if (! strcasecmp (token.token, "ROLLBACK")) {
+			if (! strcasecmp (token.token, "REPLACE")) {
+				pStmt = xdb_parse_insert (pConn, &token, bPStmt, true);
+			} else if (! strcasecmp (token.token, "ROLLBACK")) {
 				pStmt = &pConn->stmt_union.stmt;
 				pStmt->stmt_type = XDB_STMT_ROLLBACK;
 				pStmt->pSql = NULL;
@@ -539,6 +559,14 @@ xdb_sql_parse (xdb_conn_t* pConn, char **ppSql, bool bPStmt)
 			if (! strcasecmp (token.token, "LOCK")) {
 				pStmt = xdb_parse_lock (pConn, &token);
 				
+			} else {
+				goto error;
+			}
+			break;
+		case 'A':
+		case 'a':
+			if (! strcasecmp (token.token, "AUDIT")) {
+				pStmt = xdb_parse_audit (pConn, &token);
 			} else {
 				goto error;
 			}
@@ -651,6 +679,7 @@ xdb_stmt_free (xdb_stmt_t *pStmt)
 	}
 	switch (pStmt->stmt_type) {
 	case XDB_STMT_INSERT:
+	case XDB_STMT_REPLACE:
 		{
 			xdb_stmt_insert_t* pStmtIns = (xdb_stmt_insert_t*)pStmt;
 			if (pStmtIns->pRowsBuf != pStmtIns->row_buf) {

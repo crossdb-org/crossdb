@@ -115,6 +115,9 @@ typedef enum {
 
 	// Trigger
 	XDB_STMT_CREATE_TRIG 	= 75,
+	XDB_STMT_ALTER_TRIG,
+	XDB_STMT_DROP_TRIG,
+	XDB_STMT_SHOW_TRIG,
 
 	// Function
 	XDB_STMT_CREATE_FUNC 	= 80,
@@ -144,6 +147,10 @@ typedef enum {
 	XDB_STMT_REPAIR_DB,
 	XDB_STMT_FLUSH_DB,
 	XDB_STMT_DUMP_WAL,
+	XDB_STMT_AUDIT_MARK,
+	XDB_STMT_AUDIT_CLEAR,
+	XDB_STMT_AUDIT_SWEEP,
+	XDB_STMT_AUDIT_CANCEL,
 
 	// Backup Restore
 	XDB_STMT_BACKUP			= 200,
@@ -160,6 +167,10 @@ typedef enum {
 	char				*pSql;		\
 	void				*pArg;		\
 	xdb_stmt_type 		stmt_type
+
+#define XDB_STMT_INIT(pStmt, type)	\
+	memset (pStmt, 0, sizeof(*pStmt));	\
+	pStmt->stmt_type = type;
 
 typedef struct xdb_stmt_t {
 	XDB_STMT_COMMON;
@@ -215,6 +226,7 @@ typedef struct {
 	bool			bIfExistOrNot;
 	char 	 		*pub_name;
 	char 	 		*sub_name;
+	char			*tables;
 	char			*pub_host;
 	int				pub_port;
 } xdb_stmt_sub_t;
@@ -224,6 +236,8 @@ typedef struct {
 	bool			bIfExistOrNot;
 	char 	 		*pub_name;
 	char 	 		*sub_name;
+	char			*tables;
+	bool			bCreate;
 } xdb_stmt_subscribe_t;
 
 typedef enum {
@@ -254,6 +268,40 @@ typedef struct {
 	const char 			*idx_col[XDB_MAX_MATCH_COL];
 } xdb_stmt_idx_t;
 
+typedef enum {
+	XDB_FKEY_RESTRICT,  // U: don't allow update  D: don't allow delete
+	XDB_FKEY_NOACT, 	// same with RESTRICT
+	XDB_FKEY_CASCADE,   // U: update parent  D: delete parent
+	XDB_FKEY_SETNULL,	// U/D: set parent to 0
+	XDB_FKEY_SETDFT,	// U/D: set parent to default
+	XDB_FKEY_MAX,
+} xdb_fkey_action;
+
+typedef struct {
+	XDB_STMT_COMMON;
+
+	struct xdb_dbm_t	*pDbm;
+	char				*fkey_name;
+	char				fkeyName[XDB_NAME_LEN+1];
+	struct xdb_tblm_t	*pTblm;
+	int					fkey_id;
+	int					fld_count;
+	const char 			*fkey_col[XDB_MAX_MATCH_COL];
+	struct xdb_tblm_t	*pRefTblm;
+	xdb_field_t			*pRefFlds[XDB_MAX_MATCH_COL];
+	xdb_fkey_action		on_upd_act;
+	xdb_fkey_action		on_del_act;
+} xdb_stmt_fkey_t;
+
+typedef struct {
+	XDB_STMT_COMMON;
+	
+	char				*trig_name;
+	xdb_trig_e			trig_type;
+	struct xdb_tblm_t	*pTblm;
+	char				*func_name;
+} xdb_stmt_trig_t;
+
 #if 0
 typedef struct xdb_str {
 	char	*ptr;
@@ -265,8 +313,8 @@ typedef struct xdb_str {
 typedef struct xdb_filter_t {
 	uint8_t			cmp_op;		// xdb_token_type
 	//uint8_t			fld_type;	
-	uint16_t		fld_off;
-	uint16_t		fld_id;
+//	uint16_t		fld_off;
+//	uint16_t		fld_id;
 	xdb_field_t		*pField;
 	xdb_value_t		val;
 } xdb_filter_t;
@@ -294,6 +342,8 @@ typedef enum xdb_join_e {
 
 typedef struct {
 	struct xdb_idxm_t	*pIdxm;
+	int					match_cnt;
+	xdb_token_type		match_opt, match_opt2;
 	xdb_value_t 		*pIdxVals[XDB_MAX_MATCH_COL];
 	xdb_filter_t		*pIdxFlts[XDB_MAX_MATCH_COL];
 	int 				idx_flt_cnt;
@@ -374,8 +424,6 @@ typedef struct {
 
 	xdb_setfld_t	set_flds[XDB_MAX_COLUMN];
 
-	xdb_row_t		pRow[XDB_MAX_COLUMN];
-
 	xdb_row_callback 	callback;
 	void 				*pCbArg;
 } xdb_stmt_select_t;
@@ -401,8 +449,11 @@ typedef struct {
 	xdb_field_t		stmt_flds[XDB_MAX_COLUMN];
 	bool			bIfExistOrNot;
 	xdb_stmt_idx_t	stmt_idx[XDB_MAX_INDEX];
+	xdb_stmt_fkey_t	stmt_fkey[XDB_MAX_FKEY];
+
 	char			pkey_idx;
 	uint8_t			idx_count;
+	uint8_t			fkey_count;
 } xdb_stmt_tbl_t;
 
 typedef struct {
@@ -438,6 +489,7 @@ typedef union {
 	xdb_stmt_db_t		db_stmt;
 	xdb_stmt_tbl_t		tbl_stmt;
 	xdb_stmt_idx_t		idx_stmt;
+	xdb_stmt_trig_t		trig_stmt;
 	xdb_stmt_insert_t	insert_stmt;
 	xdb_stmt_select_t	select_stmt;
 	xdb_stmt_set_t		set_stmt;

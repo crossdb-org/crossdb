@@ -100,7 +100,7 @@ xdb_parse_field (xdb_conn_t* pConn, xdb_token_t *pTkn, xdb_stmt_tbl_t *pStmt)
 			return type;
 		}
 		XDB_EXPECT (XDB_TOK_ID==type, XDB_E_STMT, "Expect ID for filed option");
-		// pare option
+		// parse option
 		if (!strcasecmp (pTkn->token, "PRIMARY") || !strcasecmp (pTkn->token, "KEY") || !strcasecmp (pTkn->token, "UNIQUE")) {
 			xdb_stmt_idx_t *pStmtIdx = &pStmt->stmt_idx[pStmt->idx_count++];
 			pStmtIdx->idx_type = XDB_IDX_HASH;
@@ -130,6 +130,14 @@ xdb_parse_field (xdb_conn_t* pConn, xdb_token_t *pTkn, xdb_stmt_tbl_t *pStmt)
 				pStmtIdx->idxName[XDB_NAME_LEN] = '\0';
 				pStmtIdx->idx_name = pStmtIdx->idxName;
 			}
+			if ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "USING")) {
+				type = xdb_next_token (pTkn);
+				if ((XDB_TOK_ID==type) && (!strcasecmp (pTkn->token, "BTREE") || !strcasecmp (pTkn->token, "RBTREE"))) {
+					pStmtIdx->idx_type = XDB_IDX_RBTREE;
+				}
+				XDB_EXPECT ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "HASH"), XDB_E_STMT, "Expect HASH");
+				type = xdb_next_token (pTkn);
+			}
 			pStmtIdx->fld_count = 1;
 			pStmtIdx->idx_col[0] = XDB_OBJ_NAME(pFld);
 		} else if (0 == strcasecmp (pTkn->token, "NOT")) {
@@ -149,12 +157,105 @@ error:
 	return -1;
 }
 
+XDB_STATIC int 
+xdb_parse_fkey (xdb_conn_t* pConn, xdb_token_t *pTkn, xdb_stmt_fkey_t *pStmt, int id)
+{
+	xdb_token_type type = xdb_next_token (pTkn);
+	XDB_EXPECT ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "KEY"), XDB_E_STMT, "FOREIGN KEY Miss KEY");
+	type = xdb_next_token (pTkn);
+	XDB_EXPECT (XDB_TOK_LP == type, XDB_E_STMT, "FOREIGN KEY Miss (");
+	// col list
+	pStmt->fld_count = 0;
+	do {
+		type = xdb_next_token (pTkn);
+		if (XDB_TOK_ID == type) {
+			pStmt->fkey_col[pStmt->fld_count++] = pTkn->token;
+		} else {
+			break;
+		}
+		type = xdb_next_token (pTkn);
+	} while (XDB_TOK_COMMA == type);
+	XDB_EXPECT (XDB_TOK_RP == type, XDB_E_STMT, "FOREIGN KEY Miss )");
+	type = xdb_next_token (pTkn);
+	XDB_EXPECT ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "REFERENCES"), XDB_E_STMT, "FOREIGN KEY Miss REFERENCES");
+	type = xdb_next_token (pTkn);
+	
+	XDB_EXPECT (XDB_TOK_ID == type, XDB_E_STMT, "FOREIGN KEY Miss tbl_name");
+	pStmt->pRefTblm = xdb_find_table (pStmt->pDbm, pTkn->token);
+	XDB_EXPECT (NULL != pStmt->pRefTblm, XDB_E_NOTFOUND, "Reference Table '%s' doesn't exist", pTkn->token);
+	type = xdb_next_token (pTkn);
+	XDB_EXPECT (XDB_TOK_LP == type, XDB_E_STMT, "FOREIGN KEY Miss (");
+	int fld_count = 0;
+	do {
+		type = xdb_next_token (pTkn);
+		if (XDB_TOK_ID == type) {
+			pStmt->pRefFlds[fld_count] = xdb_find_field (pStmt->pRefTblm, pTkn->token, 0);
+			XDB_EXPECT (NULL != pStmt->pRefFlds[fld_count], XDB_E_STMT, "FOREIGN KEY '%s' doesn't exist", pTkn->token);
+			XDB_EXPECT (++fld_count <= pStmt->fld_count, XDB_E_STMT, "FOREIGN KEY too many fields");
+		} else {
+			break;
+		}
+		type = xdb_next_token (pTkn);
+	} while (XDB_TOK_COMMA == type);
+	XDB_EXPECT (XDB_TOK_RP == type, XDB_E_STMT, "FOREIGN KEY Miss )");
+	
+	do {
+		type = xdb_next_token (pTkn);
+		if ((XDB_TOK_ID == type) && !strcasecmp (pTkn->token, "ON")) {
+			type = xdb_next_token (pTkn);
+			XDB_EXPECT (XDB_TOK_ID == type, XDB_E_STMT, "FOREIGN KEY Miss ON action");
+			const char *op = pTkn->token;
+			type = xdb_next_token (pTkn);
+			XDB_EXPECT (XDB_TOK_ID == type, XDB_E_STMT, "FOREIGN KEY Miss ON action");
+			xdb_fkey_action act;
+			if (!strcasecmp (pTkn->token, "RESTRICT")) {
+				act = XDB_FKEY_RESTRICT;
+			} else if (!strcasecmp (pTkn->token, "CASCADE")) {
+				act = XDB_FKEY_CASCADE;
+			} else if (!strcasecmp (pTkn->token, "NO")) {
+				type = xdb_next_token (pTkn);
+				XDB_EXPECT ((XDB_TOK_ID == type) && !strcasecmp (pTkn->token, "ACTION"), XDB_E_STMT, "FOREIGN KEY Miss NO ACTION");
+				act = XDB_FKEY_NOACT;
+			} else if (!strcasecmp (pTkn->token, "SET")) {
+				type = xdb_next_token (pTkn);
+				if ((XDB_TOK_ID == type) && !strcasecmp (pTkn->token, "NULL")) {
+					act = XDB_FKEY_SETNULL;
+				} else {
+					XDB_EXPECT ((XDB_TOK_ID == type) && !strcasecmp (pTkn->token, "DEFAULT"), XDB_E_STMT, "FOREIGN KEY Wrong ON action");
+					act = XDB_FKEY_SETDFT;
+				}
+			} else {
+				XDB_EXPECT (0, XDB_E_STMT, "FOREIGN KEY unknown action");
+			}
+			if (!strcasecmp (op, "DELETE")) {
+				pStmt->on_del_act = act;
+			} else {
+				XDB_EXPECT (!strcasecmp (op, "UPDATE"), XDB_E_STMT, "FOREIGN KEY ON DELETE or ON UPDATE");
+				pStmt->on_upd_act = act;
+			}
+		} else {
+			break;
+		}
+	} while (1);
+
+	if (NULL == pStmt->fkey_name) {
+		xdb_sprintf (pStmt->fkeyName, "%s_%d", pStmt->fkey_col[0], id);
+		pStmt->fkey_name = pStmt->fkeyName;
+	}
+
+	return type;
+
+error:
+	return -1;
+}
+
 XDB_STATIC xdb_stmt_t* 
 xdb_parse_create_table (xdb_conn_t* pConn, xdb_token_t *pTkn)
 {
 	int rc;
 	xdb_stmt_tbl_t *pStmt = &pConn->stmt_union.tbl_stmt;
-	pStmt->stmt_type = XDB_STMT_CREATE_TBL;
+
+	XDB_STMT_INIT(pStmt, XDB_STMT_CREATE_TBL);
 	pStmt->pSql = NULL;
 
 	XDB_EXPECT (NULL != pConn->pCurDbm, XDB_E_NODB, XDB_SQL_NO_DB_ERR);
@@ -234,6 +335,15 @@ xdb_parse_create_table (xdb_conn_t* pConn, xdb_token_t *pTkn)
 					type = xdb_next_token (pTkn);
 				}
 			}
+			if ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "USING")) {
+				type = xdb_next_token (pTkn);
+				if ((XDB_TOK_ID==type) && (!strcasecmp (pTkn->token, "BTREE") || !strcasecmp (pTkn->token, "RBTREE"))) {
+					pStmtIdx->idx_type = XDB_IDX_RBTREE;
+				} else {
+					XDB_EXPECT ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "HASH"), XDB_E_STMT, "Expect HASH");
+				}
+				type = xdb_next_token (pTkn);
+			}
 			if (XDB_TOK_ID == type) {
 				XDB_EXPECT (strcasecmp (idx_type, "PRIMARY"), XDB_E_STMT, "PRIMARY KEY can't give name");
 				pStmtIdx->idx_name = pTkn->token;
@@ -244,6 +354,10 @@ xdb_parse_create_table (xdb_conn_t* pConn, xdb_token_t *pTkn)
 				xdb_sprintf (pStmtIdx->idxName, "%s_%d", pStmtIdx->idx_col[0], pStmt->idx_count);
 				pStmtIdx->idx_name = pStmtIdx->idxName;
 			}
+		} else if (!strcasecmp (pTkn->token, "FOREIGN")) {
+			xdb_stmt_fkey_t *pStmtFkey = &pStmt->stmt_fkey[pStmt->fkey_count];
+			pStmtFkey->pDbm = pStmt->pDbm;
+			rc = xdb_parse_fkey (pConn, pTkn, pStmtFkey, pStmt->fkey_count++);
 		} else {
 			// field
 			rc = xdb_parse_field (pConn, pTkn, pStmt);

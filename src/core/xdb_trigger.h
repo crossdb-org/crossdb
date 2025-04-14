@@ -12,23 +12,6 @@
 #ifndef __XDB_TRIGGER_H__
 #define __XDB_TRIGGER_H__
 
-#define	XDB_TRIG_BEF_INS 0
-#define	XDB_TRIG_AFT_INS 1
-#define	XDB_TRIG_BEF_UPD 2
-#define	XDB_TRIG_AFT_UPD 3
-#define	XDB_TRIG_BEF_DEL 4
-#define	XDB_TRIG_AFT_DEL 5
-#if 0
-#define	XDB_TRIG_ROL_INS 6
-#define	XDB_TRIG_ROL_UPD 7
-#define	XDB_TRIG_ROL_DEL 8
-#endif
-
-typedef int (*xdb_trig_callback) (xdb_conn_t *pConn, uint64_t meta, uint32_t type, xdb_row_t *pNewRow, xdb_row_t *pOldRow, void *pArg, bool bRollback);
-
-int xdb_create_trigger (xdb_conn_t *pConn, const char *name, const char *tbl_name, 
-								int type, xdb_trig_callback cb_func, void *pArg);
-
-int xdb_call_trigger (xdb_conn_t *pConn, xdb_tblm_t *pTblm, uint32_t type, xdb_row_t *pNewRow, xdb_row_t *pOldRow);
+int xdb_call_trigger (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_trig_e type, xdb_row_t *pNewRow, xdb_row_t *pOldRow);
 
 #endif // __XDB_TRIGGER_H__

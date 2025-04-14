@@ -7,42 +7,45 @@
 	<strong>Ultra High-performance Lightweight Embedded and Server OLTP RDBMS✨</strong>
 </p>
 
-**CrossDB** is a ultra high-performance, lightweight embedded and server OLTP RDBMS. 
-It is designed for high-performance scenarios where the main memory can hold the entire database.
-
 ## Features
 
-- Supports multiple OS platforms: Linux, Windows, MacOS, FreeBSD, etc.
-- Supports multiple CPU architectures: X86, ARM, PPC, MIPS, etc.
-- Supports OnDisk, In-memory (IMDB), RamDisk, and Hybrid Storage.
-- Supports the standard RDBMS model.
-- Supports standard SQL and many extensions from MySQL.
-- Supports multiple databases.
-- Supports embedded and client-server modes.
-- Supports primary keys and multiple secondary indexes.
-- Supports HASH and RBTREE (TBD) indexes.
-- Supports multi-column indexes.
-- Supports exact match, leftmost match (TBD), and range match (TBD).
-- Supports standard ACID transactions.
-- Supports WAL for OnDisk storage.
-- Supports multiple threads and multiple processes access.
-- Supports table-level read-write locks.
-- Supports Reader-Writer MVCC (write transaction doesn't block read transactions).
-- Supports an embedded CrossDB shell with convenient auto-completion.
-- Supports multi-statement APIs.
-- Supports prepared statement APIs.
-- Ultra high performance.
-- Very simple: Simple header and library file.
-- Zero config: No complex configuration, truly out-of-the-box.
+| Name  					| **CrossDB**
+ ----                       | ----
+ Description    			| Ultra High-performance Lightweight Embedded and Server OLTP RDBMS✨  
+ Primary database model  	| Relational DBMS  
+ Secondary database models	| Document store (TBD)<br>Key-value store(TBD)
+ Website					| crossdb.org
+ Technical documentation	| crossdb.org/intro
+ Developer					| JC Wang
+ Initial release			| 2023
+ License					| Open Source, MPL
+ Cloud-based only			| no
+ Implementation language	| C
+ Server operating systems	| Server-Less Mode<br>Embedded Server Mode<br>Standalone Server Mode<br>Linux/MacOS/Windows/FreeBSD<br>32-bit or 64-bit X86, ARM, PowerPC, MIPS, etc
+ Data scheme				| yes
+ Typing 					| yes<br>BOOL<br>TINYINT, SMALLINT, INT, BIGINT<br>TIMESTAMP<br>FLOAT, DOUBLE<br>CHAR, VARCHAR<br>BINARY, VARBINARY<br>INET(IPv4/IPv6 host and subnet), MAC address
+ XML support				| no
+ Secondary indexes			| yes<br>HASH, RBTREE
+ SQL 						| yes, many extensions from MySQL
+ APIs and other access methods		| Proprietary native APIs<br>Multi-statement APIs<br>Prepared statement APIs<br>JDBC (TBD)<br>ODBC (TBD)
+ Supported programming languages	| C, C++, Python, GO, Rust<br>More bindings (TBD)
+ Server-side scripts		| LUA (TBD)
+ Triggers					| yes, native languages (TBD)
+ Partitioning methods		| none
+ Replication methods		| Source-replica replication (TBD)<br>Multi-source replication (TBD)<br>Logical Replication (TBD)
+ Data Subscription			| yes (TBD)
+ MapReduce 					| no
+ Consistency concepts		| Immediate Consistency
+ Foreign keys				| yes (TBD)
+ TTL						| yes (TBD)
+ Transaction concepts		| ACID
+ Concurrency 				| yes<br>Table-level read-write locks<br>Row-level read-write locks (TBD)<br>Reader-Writer MVCC (write transaction doesn't block read transactions)<br>PostgreSQL-like MVCC (TBD)
+ Durability 				| yes, WAL
+ In-memory capabilities		| yes
+ User concepts				| yes (TBD)
+ Storage Model				| Row-oriented On-Disk, In-Memory, RamDisk<br>Hybrid Storage (on a table-by-table basis, tables can be designated for in-memory or on-disk storage)
+ Admin						| Embedded shell<br>xdb-cli tool<br>telnet<br>WEB GUI (TBD)
 
-## Use Cases
-
-- High-frequency trading (OLTP).
-- High-performance queries.
-- High-performance data management: Use CrossDB OnDisk DB to store data on HDD/SSD/Flash.
-- High-performance IMDB: Use CrossDB In-Memory DB to manage process runtime data, replacing STL or hand-written data structures.
-- Use CrossDB RamDisk DB to support process restartability and in-service software upgrades (ISSU) easily.
-- Use CrossDB as a super-fast cache DB.
 
 ## Build and Install
 

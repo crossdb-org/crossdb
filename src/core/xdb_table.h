@@ -22,6 +22,7 @@ typedef struct xdb_tblm_t {
 	uint32_t		null_off;
 	uint32_t		blk_size;
 
+	bool			bLog;
 	bool			bMemory;
 	bool			bPrimary;
 	xdb_lockmode_e	lock_mode;
@@ -35,7 +36,7 @@ typedef struct xdb_tblm_t {
 
 	xdb_objm_t		fld_objm;
 
-	xdb_objm_t		trig_objm[9];
+	xdb_objm_t		trig_objm[XDB_TRIG_MAX];
 
 	uint32_t		meta_size;
 	xdb_meta_t		*pMeta;
@@ -43,8 +44,10 @@ typedef struct xdb_tblm_t {
 	xdb_vdatm_t		*pVdatm;
 
 	xdb_objm_t		idx_objm;
-
 	uint8_t			idx_order[XDB_MAX_INDEX];
+
+	xdb_objm_t		fkey_objm;
+	xdb_objm_t		fkeyref_objm;
 
 	xdb_rowid		row_cap;
 
@@ -52,6 +55,10 @@ typedef struct xdb_tblm_t {
 	
 	xdb_rwlock_t	tbl_lock;
 	xdb_rwlock_t	stg_lock;
+
+	xdb_vec_t		sub_list;
+
+	xdb_bmp_t		*pAuditRows;
 } xdb_tblm_t;
 
 typedef struct xdb_tbl_t {

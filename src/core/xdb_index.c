@@ -9,6 +9,13 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/.
 ******************************************************************************/
 
+#if XDB_LOG_FLAGS & XDB_LOG_IDX
+#define xdb_idxlog(...)	xdb_print(__VA_ARGS__)
+#else
+#define xdb_idxlog(...)
+#endif
+
+
 XDB_STATIC xdb_idxm_t* 
 xdb_find_index (xdb_tblm_t *pTblm, const char *idx_name)
 {
@@ -74,9 +81,11 @@ xdb_idx_remRow (xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow)
 }
 
 static xdb_idx_ops s_xdb_hash_ops;
+static xdb_idx_ops s_xdb_rbtree_ops;
 
 static xdb_idx_ops *s_xdb_idx_ops[] = {
-	[XDB_IDX_HASH] = &s_xdb_hash_ops,
+	[XDB_IDX_HASH]		= &s_xdb_hash_ops,
+	[XDB_IDX_RBTREE]	= &s_xdb_rbtree_ops,
 };
 
 
@@ -95,7 +104,7 @@ XDB_STATIC int
 xdb_create_index (xdb_stmt_idx_t *pStmt, bool bCreateTbl)
 {
 	xdb_conn_t		*pConn = pStmt->pConn;
-	//xdb_dbglog ("create index %s on %s %d (", pStmt->idx_name, pStmt->XDB_OBJ_NAME(pTblm), pStmt->fld_count);
+	xdb_idxlog ("create index %s on %s %d (", pStmt->idx_name, pStmt->XDB_OBJ_NAME(pTblm), pStmt->fld_count);
 
 	int rc = -1;
 	xdb_tblm_t	*pTblm = pStmt->pTblm;
@@ -121,6 +130,7 @@ xdb_create_index (xdb_stmt_idx_t *pStmt, bool bCreateTbl)
 	pIdxm->idx_type = pStmt->idx_type;
 	pIdxm->bUnique = pStmt->bUnique;
 	pIdxm->bPrimary = pStmt->bPrimary;
+	pIdxm->idx_type = pStmt->idx_type;
 
 	for (int i = 0; i < pIdxm->fld_count; ++i) {
 		pIdxm->pFields[i] = xdb_find_field (pStmt->pTblm, pStmt->idx_col[i], 0);
@@ -176,7 +186,7 @@ xdb_close_index (xdb_idxm_t *pIdxm)
 {
 	xdb_tblm_t	*pTblm = pIdxm->pTblm;
 
-	xdb_dbglog ("    ------ close index %s\n", XDB_OBJ_NAME(pIdxm));
+	xdb_idxlog ("    ------ close index %s\n", XDB_OBJ_NAME(pIdxm));
 
 	for (int i = 0; i < pIdxm->fld_count; ++i) {
 		pIdxm->pFields[i]->idx_fid[XDB_OBJ_ID(pIdxm)] = -1;
@@ -264,5 +274,15 @@ xdb_init_index (xdb_tblm_t *pTblm)
 			pIdxm->pIdxOps->idx_init (pIdxm);
 		}
 	}
+}
+
+XDB_STATIC const char* 
+xdb_idx2str(xdb_idx_type tp) 
+{
+	const char *id2str[] = {
+		[XDB_IDX_HASH	] = "HASH",
+		[XDB_IDX_RBTREE	] = "RBTREE",
+	};
+	return tp <= XDB_ARY_LEN(id2str) ? id2str[tp] : "Unknown";
 }
 

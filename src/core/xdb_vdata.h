@@ -16,7 +16,7 @@
 //#define XDB_VTYPE_VID		
 #define XDB_VTYPE_DATA		254	// vdata is after row
 #define XDB_VTYPE_PTR		253 // vdata is in ptr array
-#define XDB_VTYPE_MAX		76 // vdata is in ptr array
+#define XDB_VTYPE_MAX		76  // vdata is in db
 
 #define XDB_VTYPE_OK(type)	(type<XDB_VTYPE_MAX)
 
@@ -78,6 +78,10 @@ xdb_vdata_ref (xdb_vdatm_t *pVdatm, uint8_t type, xdb_rowid vid)
 static inline int
 xdb_vdata_expand (xdb_vdatm_t *pVdatm, uint8_t type)
 {
+	xdb_stgmgr_t *pStgMgr = &pVdatm->stg_mgr[type];
+	if (xdb_unlikely (NULL == pStgMgr->pStgHdr)) {
+		xdb_vdata_create (pVdatm, type);
+	}
 	return xdb_stg_expand (&pVdatm->stg_mgr[type]);
 }
 

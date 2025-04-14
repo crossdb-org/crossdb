@@ -269,10 +269,7 @@ xdb_trans_delrow_commit (uint32_t rid, void *pArg)
 	xdb_rowid *pRow = XDB_IDPTR(pStgMgr, rid);
 
 	xdb_idx_remRow (pTblTrans->pTblm, rid, pRow);
-	if (xdb_unlikely (pTblTrans->pTblm->vfld_count > 0)) {
-		xdb_row_vdata_free (pTblTrans->pTblm, pRow);
-	}
-	xdb_stg_free (pStgMgr, rid, pRow);
+	__xdb_row_delete (pTblTrans->pTblm, rid, pRow);
 
 	return XDB_OK;
 }

@@ -56,6 +56,9 @@ xdb_repair_db (xdb_dbm_t *pDbm, int flags);
 XDB_STATIC int 
 xdb_flush_db (xdb_dbm_t *pDbm, uint32_t flags);
 
+XDB_STATIC int 
+xdb_dump_create_db (xdb_dbm_t *pDbm, char buf[], xdb_size size, uint32_t flags);
+
 static inline int 
 xdb_wal_rdlock (struct xdb_dbm_t *pDbm) 
 {

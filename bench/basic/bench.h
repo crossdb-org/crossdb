@@ -135,12 +135,12 @@ bool s_bench_svr = false;
 #define BENCH_SQL_DROP			"DROP TABLE IF EXISTS student"
 #define BENCH_SQL_INSERT		"INSERT INTO student (id,name,age,class,score) VALUES (?,?,?,?,?)"
 #define BENCH_SQL_GET_BYID		"SELECT * FROM student WHERE id=?"
-#define BENCH_SQL_UDPAGE_BYID	"UPDATE student SET age=? WHERE id=?"
+#define BENCH_SQL_UPD_BYID		"UPDATE student SET age=? WHERE id=?"
 #define BENCH_SQL_DEL_BYID		"DELETE FROM student WHERE id=?"
 
 #define BENCH_SQL_INSERT_NET		"INSERT INTO student (id,name,age,class,score) VALUES (%d,'%s',%d,'%s',%d)"
 #define BENCH_SQL_GET_BYID_NET		"SELECT * FROM student WHERE id=%d"
-#define BENCH_SQL_UDPAGE_BYID_NET	"UPDATE student SET age=? WHERE id=%d"
+#define BENCH_SQL_UPD_BYID_NET		"UPDATE student SET age=? WHERE id=%d"
 #define BENCH_SQL_DEL_BYID_NET		"DELETE FROM student WHERE id=%d"
 
 void* bench_open (const char *db);
@@ -171,7 +171,7 @@ void bench_sql_test (void *pConn, int STU_COUNT, bool bRand, bench_result_t *pRe
 	bool ok;
 	const char *sql_insert = !s_bench_svr ? BENCH_SQL_INSERT : BENCH_SQL_INSERT_NET;
 	const char *sql_getbyid = !s_bench_svr ? BENCH_SQL_GET_BYID : BENCH_SQL_GET_BYID_NET;
-	const char *sql_upagebyid = !s_bench_svr ? BENCH_SQL_UDPAGE_BYID : BENCH_SQL_UDPAGE_BYID_NET;
+	const char *sql_upagebyid = !s_bench_svr ? BENCH_SQL_UPD_BYID : BENCH_SQL_UPD_BYID_NET;
 	const char *sql_delbyid = !s_bench_svr ? BENCH_SQL_DEL_BYID : BENCH_SQL_DEL_BYID_NET;
 
 	bench_sql (pConn, BENCH_SQL_DROP);
@@ -257,7 +257,7 @@ void bench_stmt_test (void *pConn, int STU_COUNT, bool bRand, bench_result_t *pR
 	pResult->query_qps += qps_sum / 5;
 	
 	bench_print ("------------ %s UPDATE %s ------------\n", ORDER_STR(bRand), qps2str(UPD_COUNT));
-	pStmt = bench_stmt_prepare (pConn, BENCH_SQL_UDPAGE_BYID);
+	pStmt = bench_stmt_prepare (pConn, BENCH_SQL_UPD_BYID);
 	BENCH_CHECK (pStmt != NULL, bench_print ("Can't prepare '%s'\n", BENCH_SQL_INSERT); goto error);
 	bench_ts_beg();
 	for (int i = 0; i < UPD_COUNT; ++i) {

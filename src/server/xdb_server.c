@@ -94,6 +94,10 @@ xdb_handle_client (void *pArg)
 			}
 		}
 		xdb_exec_out (pConn, sql, len);
+
+		if (NULL != pConn->pSubscribe) {
+			xdb_initial_sync (pConn->pSubscribe);
+		}
 	}
 
 	xdb_svrlog ("close %d\n", clientfd);

@@ -9,73 +9,84 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/.
 ******************************************************************************/
 
-XDB_STATIC void 
+XDB_STATIC int 
+xdb_row2sql (xdb_res_t *pRes, xdb_row_t *pRow, const char *tbl_name, char *buf, int size)
+{
+	int 	len = sprintf (buf, "INSERT INTO %s VALUES (", tbl_name?tbl_name:xdb_table_name(pRes, 0));
+	int 	slen;
+	const char 	*str;
+	const uint8_t	*bin;
+	int		col_count = xdb_column_count (pRes);
+
+	for (int i = 0; i < col_count; ++i) {
+		if (xdb_column_null (pRes, pRow, i)) {
+			len += sprintf (buf+len, "NULL,");
+			continue;
+		}
+		switch (xdb_column_type (pRes, i)) {
+		case XDB_TYPE_INT:
+		case XDB_TYPE_SMALLINT:
+		case XDB_TYPE_TINYINT:
+			len += sprintf (buf+len, "%d,", xdb_column_int (pRes, pRow, i));
+			break;
+		case XDB_TYPE_BOOL:
+			len += sprintf (buf+len, "%s,", xdb_column_bool(pRes, pRow, i) ? "true" : "false");
+			break;
+		case XDB_TYPE_BIGINT:
+			len += sprintf (buf+len, "%"PRIi64",", xdb_column_int64 (pRes, pRow, i));
+			break;
+		case XDB_TYPE_TIMESTAMP:
+			len +=	xdb_timestamp_sprintf (xdb_column_int64 (pRes, pRow, i), buf+len, size - len);
+			break;
+		case XDB_TYPE_FLOAT:
+		case XDB_TYPE_DOUBLE:
+			len += sprintf (buf+len, "%f,", xdb_column_double (pRes, pRow, i));
+			break;
+		case XDB_TYPE_CHAR:
+		case XDB_TYPE_VCHAR:
+			str = xdb_column_str2 (pRes, pRow, i, &slen);
+			*(buf + len++) = '\'';
+			len += xdb_str_escape (buf+len, str, len);
+			*(buf + len++) = '\'';
+			*(buf + len++) = ',';
+			break;
+		case XDB_TYPE_BINARY:
+		case XDB_TYPE_VBINARY:
+			bin = xdb_column_blob (pRes, pRow, i, &slen);
+			*(buf + len++) = 'X';
+			*(buf + len++) = '\'';
+			for (int h = 0; h < slen; ++h) {
+				*(buf + len++) = s_xdb_hex_2_str[bin[h]][0];
+				*(buf + len++) = s_xdb_hex_2_str[bin[h]][1];
+			}
+			*(buf + len++) = '\'';
+			*(buf + len++) = ',';
+			break;
+		case XDB_TYPE_INET:
+			len += xdb_inet_sprintf (xdb_column_inet(pRes, pRow, i), buf, size - len);
+			break;
+		case XDB_TYPE_MAC:
+			len += xdb_mac_sprintf (xdb_column_mac(pRes, pRow, i), buf, size - len);
+			break;
+		default:
+			break;
+		}
+	}
+	buf[len-1] = ')';
+	buf[len++] = ';';
+	buf[len++] = '\0';
+	return len;
+}
+
+XDB_STATIC int 
 xdb_res2sql (FILE *pFile, xdb_res_t *pRes, const char *tbl_name, char *buf, int size)
 {
 	xdb_row_t	*pRow;
-	xdb_meta_t	*pMeta = xdb_fetch_meta (pRes);	
-	xdb_col_t	**pCol = (xdb_col_t**)pMeta->col_list;
-
 	while (NULL != (pRow = xdb_fetch_row (pRes))) {
-		int len = 0;
-		for (int i = 0; i < pMeta->col_count; ++i) {
-			void *pVal = (void*)pRow[i];
-			if (NULL == pVal) {
-				len += sprintf (buf+len, "NULL,");
-				continue;
-			}
-			switch (pCol[i]->col_type) {
-			case XDB_TYPE_INT:
-				len += sprintf (buf+len, "%d,", *(int32_t*)pVal);
-				break;
-			case XDB_TYPE_BOOL:
-				len += sprintf (buf+len, "%s,", *(int8_t*)pVal ? "true" : "false");
-				break;
-			case XDB_TYPE_TINYINT:
-				len += sprintf (buf+len, "%d,", *(int8_t*)pVal);
-				break;
-			case XDB_TYPE_SMALLINT:
-				len += sprintf (buf+len, "%d,", *(int16_t*)pVal);
-				break;
-			case XDB_TYPE_BIGINT:
-			case XDB_TYPE_TIMESTAMP:
-				len += sprintf (buf+len, "%"PRIi64",", *(int64_t*)pVal);
-				break;
-			case XDB_TYPE_FLOAT:
-				len += sprintf (buf+len, "%f,", *(float*)pVal);
-				break;
-			case XDB_TYPE_DOUBLE:
-				len += sprintf (buf+len, "%f,", *(double*)pVal);
-				break;
-			case XDB_TYPE_CHAR:
-			case XDB_TYPE_VCHAR:
-				*(buf + len++) = '\'';
-				len += xdb_str_escape (buf+len, (char*)pVal, *(uint16_t*)(pVal-2));
-				*(buf + len++) = '\'';
-				*(buf + len++) = ',';
-				break;
-			case XDB_TYPE_BINARY:
-			case XDB_TYPE_VBINARY:
-				*(buf + len++) = 'X';
-				*(buf + len++) = '\'';
-				for (int h = 0; h < *(uint16_t*)(pVal-2); ++h) {
-					*(buf + len++) = s_xdb_hex_2_str[((uint8_t*)pVal)[h]][0];
-					*(buf + len++) = s_xdb_hex_2_str[((uint8_t*)pVal)[h]][1];
-				}
-				*(buf + len++) = '\'';
-				*(buf + len++) = ',';
-				break;
-			case XDB_TYPE_INET:
-				len += xdb_inet_sprintf (pVal, buf, size - len);
-				break;
-			case XDB_TYPE_MAC:
-				len += xdb_mac_sprintf (pVal, buf, size - len);
-				break;
-			}
-		}
-		buf[--len] = '\0';
-		fprintf (pFile, "INSERT INTO %s VALUES (%s);\n", tbl_name, buf);
+		int len = xdb_row2sql (pRes, pRow, tbl_name, buf, size);
+		fwrite (buf, 1, len, pFile);
 	}
+	return XDB_OK;
 }
 
 XDB_STATIC int 
@@ -98,8 +109,8 @@ xdb_dump (xdb_conn_t* pConn, xdb_dbm_t *pDbm, const char *file, bool bNoDrop, bo
 
 	xdb_row_t *pRow;
 	while (NULL != (pRow = xdb_fetch_row (pRes))) {
-		const char *tbl_name = (char*)pRow[0];
-		const char *tbl_schema = (char*)pRow[1];
+		const char *tbl_name = xdb_column_str (pRes, pRow, 0);
+		const char *tbl_schema = xdb_column_str (pRes, pRow, 1);
 
 		fprintf (pFile, "\n--\n");
 		fprintf (pFile, "-- Dump Table: %s\n", tbl_name);
@@ -137,6 +148,17 @@ xdb_source (xdb_conn_t* pConn, const char *file)
 	FILE 		*pFile = fopen (file, "rt");
 	uint64_t	lineno = 0;
 
+	char path[XDB_PATH_LEN], cwd[XDB_PATH_LEN];
+	xdb_strcpy (path, file);
+	char *dir = strrchr (path, '/');
+	if (NULL == dir) {
+		dir = strrchr (path, '\\');
+	}
+	if (NULL != dir) {
+		*dir = '\0';
+		xdb_chdir (path, cwd);
+	}
+
 	XDB_EXPECT (NULL != pFile, XDB_E_NOTFOUND, "Can't open '%s', file doesn't exist", file);
 
 	sql_buf = xdb_malloc (XDB_MAX_SQL_BUF);
@@ -169,6 +191,9 @@ xdb_source (xdb_conn_t* pConn, const char *file)
 
 	rc = XDB_OK;
 error:
+	if (NULL != dir) {
+		xdb_chdir (cwd, NULL);
+	}
 	xdb_fclose (pFile);
 	xdb_free (sql_buf);
 	return rc;

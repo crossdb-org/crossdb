@@ -11,12 +11,6 @@
 
 #define xdb_yield() 		sched_yield()
 
-typedef struct {
-	volatile int32_t count; // -1 when W lock held, > 0 when R locks held.
-} xdb_rwlock_t;
-
-#define XDB_RWLOCK_INIT(lock) lock.count = 0
-
 static inline void
 xdb_rwlock_init(xdb_rwlock_t *rwl)
 {

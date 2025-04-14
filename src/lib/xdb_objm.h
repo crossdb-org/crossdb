@@ -19,6 +19,7 @@ typedef struct xdb_obj_t {
 	uint8_t				nm_len;
 	char 				obj_name[XDB_NAME_LEN+1];
 	uint8_t				obj_type;
+	xdb_rwlock_t		lock;
 } xdb_obj_t;
 
 #define XDB_OBJ_ID(pObj)	((pObj)->obj.xoid)
@@ -28,6 +29,11 @@ typedef struct xdb_obj_t {
 #define XDB_OBJM_COUNT(objm)	((objm).obj_count)
 #define XDB_OBJM_MAX(objm)		((objm).obj_max)
 #define XDB_OBJM_GET(objm,id)	(void*)((objm).ppObjPool[id])
+
+#define XDB_OBJ_RDLOCK(pObj)	xdb_rwlock_rdlock(&(pObj)->obj.lock)
+#define XDB_OBJ_RDUNLOCK(pObj)	xdb_rwlock_rdunlock(&(pObj)->obj.lock)
+#define XDB_OBJ_WRLOCK(pObj)	xdb_rwlock_wrlock(&(pObj)->obj.lock)
+#define XDB_OBJ_WRUNLOCK(pObj)	xdb_rwlock_wrunlock(&(pObj)->obj.lock)
 
 typedef struct xdb_objm_t {
 	xdb_obj_t **ppObjPool;

@@ -13,7 +13,17 @@ XDB_STATIC int
 xdb_parse_create_idx_def (xdb_conn_t* pConn, xdb_token_t *pTkn, xdb_stmt_idx_t *pStmt)
 {
 	int type = pTkn->tk_type;
-	
+
+	if ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "USING")) {
+		type = xdb_next_token (pTkn);
+		if ((XDB_TOK_ID==type) && (!strcasecmp (pTkn->token, "BTREE") || !strcasecmp (pTkn->token, "RBTREE"))) {
+			pStmt->idx_type = XDB_IDX_RBTREE;
+		} else {
+			XDB_EXPECT ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "HASH"), XDB_E_STMT, "Expect HASH");
+		}
+		type = xdb_next_token (pTkn);
+	}
+
 	XDB_EXPECT (XDB_TOK_LP==type, XDB_E_STMT, "Index Miss (");
 
 	// col list
@@ -63,7 +73,6 @@ xdb_parse_create_index (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bUnique)
 	pStmt->bUnique = bUnique;
 
 	type = xdb_next_token (pTkn);
-
 	XDB_EXPECT ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "ON"), XDB_E_STMT, "Expect ON");
 
 	type = xdb_next_token (pTkn);

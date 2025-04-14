@@ -140,7 +140,7 @@ xdb_fetch_res_sock (xdb_conn_t *pConn)
 #if XDB_LOG_FLAGS & XDB_LOG_SVR
 		//xdb_hexdump (pRes, sizeof(*pRes) + pRes->data_len);
 #endif
-		pRes->row_data = (uintptr_t)&pQueryRes->rowlist;
+
 		xdb_meta_t *pMeta = (xdb_meta_t*)(pRes + 1);
 		pRes->col_meta = (uintptr_t)pMeta;
 		pMeta->col_list = ((uintptr_t)pQueryRes + sizeof (xdb_queryRes_t) + pRes->data_len + 7) & (~7LL);
@@ -151,7 +151,6 @@ xdb_fetch_res_sock (xdb_conn_t *pConn)
 			pCol = (void*)pCol + pCol->col_len;
 		}
 		xdb_init_rowlist (pQueryRes);
-		xdb_fetch_rows (pRes);
 		pConn->ref_cnt++;
 	}
 	

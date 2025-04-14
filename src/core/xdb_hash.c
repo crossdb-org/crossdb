@@ -9,6 +9,12 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/.
 ******************************************************************************/
 
+#if XDB_LOG_FLAGS & XDB_LOG_HASH
+#define xdb_hashlog(...)	xdb_print(__VA_ARGS__)
+#else
+#define xdb_hashlog(...)
+#endif
+
 #if 0
 XDB_STATIC void 
 xdb_hash_dump (xdb_idxm_t* pIdxm)
@@ -59,7 +65,7 @@ xdb_hash_rehash (xdb_idxm_t *pIdxm, xdb_rowid old_max)
 	uint32_t			hash_mask = pIdxm->slot_mask;
 	xdb_hashNode_t 		*pCurNode, *pNxtNode, *pPreNode;
 
-	//xdb_dbglog ("Rehash %s old_max %d new_max %d node %d rid %d Begin\n", XDB_OBJ_NAME(pIdxm), old_max, new_max, pIdxm->node_cap, pHashHdr->row_count);
+	xdb_hashlog ("Rehash %s old_max %d new_max %d node %d rid %d Begin\n", XDB_OBJ_NAME(pIdxm), old_max, new_max, pIdxm->node_cap, pHashHdr->row_count);
 
 	for (slot = 0; slot < old_max; ++slot) {
 		rid = pHashSlot[slot];
@@ -69,10 +75,10 @@ xdb_hash_rehash (xdb_idxm_t *pIdxm, xdb_rowid old_max)
 			next_rid = pCurNode->next;
 			new_slot = pCurNode->hash_val & hash_mask;
 			if (new_slot != slot) {
-			//xdb_dbglog ("  -- Move rid %d hashval 0x%x from %d to %d\n", rid,  pCurNode->hash_val, slot, new_slot);
+				xdb_hashlog ("  -- Move rid %d hashval 0x%x from %d to %d\n", rid,  pCurNode->hash_val, slot, new_slot);
 				// remove from old slot
 				if (pCurNode->next) {
-					//xdb_dbglog ("  rid %d has next %d, point to its prev %d\n", rid, pCurNode->next, pCurNode->prev & (~XDB_ROWID_MSB));
+					xdb_hashlog ("  rid %d has next %d, point to its prev %d\n", rid, pCurNode->next, pCurNode->prev & (~XDB_ROWID_MSB));
 					pNxtNode = &pHashNode[pCurNode->next];
 					pNxtNode->prev = pCurNode->prev;
 				}
@@ -83,9 +89,9 @@ xdb_hash_rehash (xdb_idxm_t *pIdxm, xdb_rowid old_max)
 					if (0 == pCurNode->next) {
 						pHashHdr->slot_count--;
 					}
-					//xdb_dbglog ("  rid %d's next %d is 1st top rid for slot %d\n", rid, pCurNode->next, slot_id);
+					xdb_hashlog ("  rid %d's next %d is 1st top rid for slot %d\n", rid, pCurNode->next, slot_id);
 				} else if (pCurNode->prev) {
-					//xdb_dbglog ("  rid %d has prev %d, point to it's next %d\n", rid, pCurNode->prev, pCurNode->next);
+					xdb_hashlog ("  rid %d has prev %d, point to it's next %d\n", rid, pCurNode->prev, pCurNode->next);
 					pPreNode = &pHashNode[pCurNode->prev];
 					pPreNode->next = pCurNode->next;
 		 		}
@@ -94,14 +100,14 @@ xdb_hash_rehash (xdb_idxm_t *pIdxm, xdb_rowid old_max)
 				fisrt_rid = pHashSlot[new_slot];
 				if (0 == fisrt_rid) {
 					// first rid
-					//xdb_dbglog ("  insert first %d in slot %d \n", rid, new_slot);
+					xdb_hashlog ("  insert first %d in slot %d \n", rid, new_slot);
 					pHashSlot[new_slot] = rid;
 					pCurNode->next = 0;
 					pCurNode->prev = XDB_ROWID_MSB | new_slot;
 					pHashHdr->slot_count++;
 				} else {
 					// insert head to current slot
-					//xdb_dbglog ("  Insert %d in slot %d at head %d\n", rid, new_slot, fisrt_rid);
+					xdb_hashlog ("  Insert %d in slot %d at head %d\n", rid, new_slot, fisrt_rid);
 					pHashSlot[new_slot] = rid;
 					pCurNode->next = fisrt_rid;
 					pCurNode->prev = XDB_ROWID_MSB | new_slot;
@@ -112,7 +118,7 @@ xdb_hash_rehash (xdb_idxm_t *pIdxm, xdb_rowid old_max)
 		}
 	}
 
-	//xdb_dbglog ("Rehash %s old_max %d new_max %d node %d rid %d End\n", XDB_OBJ_NAME(pIdxm), old_max, new_max, pIdxm->node_cap, pHashHdr->row_count);
+	xdb_hashlog ("Rehash %s old_max %d new_max %d node %d rid %d End\n", XDB_OBJ_NAME(pIdxm), old_max, new_max, pIdxm->node_cap, pHashHdr->row_count);
 
 	return 0;
 }
@@ -145,7 +151,7 @@ xdb_hash_add (xdb_conn_t *pConn, xdb_idxm_t* pIdxm, xdb_rowid new_rid, void *pRo
 	uint32_t hash_val = xdb_row_hash (pIdxm->pTblm, pRow, pIdxm->pFields, pIdxm->fld_count);
 	uint32_t slot_id = hash_val & pIdxm->slot_mask;
 
-	//xdb_dbglog ("add rid %d hash %x slot %d\n", new_rid, hash_val, slot_id);
+	xdb_hashlog ("add rid %d hash %x slot %d\n", new_rid, hash_val, slot_id);
 
 	xdb_hashHdr_t	*pHashHdr  = pIdxm->pHashHdr;	
 	xdb_rowid		*pHashSlot = pIdxm->pHashSlot;	
@@ -158,7 +164,7 @@ xdb_hash_add (xdb_conn_t *pConn, xdb_idxm_t* pIdxm, xdb_rowid new_rid, void *pRo
 	xdb_rowid first_rid = pHashSlot[slot_id];
 
 	if (0 == first_rid) {
-		//xdb_dbglog ("  insert first %d in slot %d \n", new_rid, slot_id);
+		xdb_hashlog ("  insert first %d in slot %d \n", new_rid, slot_id);
 		pHashSlot[slot_id] = new_rid;
 		pNewNode->next = pNewNode->sibling = 0;
 		pNewNode->prev = XDB_ROWID_MSB | slot_id;
@@ -191,7 +197,7 @@ xdb_hash_add (xdb_conn_t *pConn, xdb_idxm_t* pIdxm, xdb_rowid new_rid, void *pRo
 				}
 			}
 
-			//xdb_dbglog ("  Duplicate insert %d in slot %d to rid %d as 1st sibling\n", new_rid, slot_id, rid);
+			xdb_hashlog ("  Duplicate insert %d in slot %d to rid %d as 1st sibling\n", new_rid, slot_id, rid);
 			xdb_rowid sibling_rid = pTopNode->sibling;
 			pTopNode->sibling = new_rid;
 			pNewNode->prev  = 0;
@@ -204,7 +210,7 @@ xdb_hash_add (xdb_conn_t *pConn, xdb_idxm_t* pIdxm, xdb_rowid new_rid, void *pRo
 				pSibNode->sibling = XDB_ROWID_MSB;
 			}
 		} else {
-			//xdb_dbglog ("  Insert %d in slot %d at head %d\n", new_rid, slot_id, first_rid);
+			xdb_hashlog ("  Insert %d in slot %d at head %d\n", new_rid, slot_id, first_rid);
 			pHashSlot[slot_id] = new_rid;
 			pNewNode->next = first_rid;
 			pNewNode->prev = XDB_ROWID_MSB | slot_id;
@@ -228,7 +234,8 @@ error:
 	return -XDB_E_EXISTS;
 }
 
-XDB_STATIC int xdb_hash_rem (xdb_idxm_t* pIdxm, xdb_rowid rid, void *pRow)
+XDB_STATIC int 
+xdb_hash_rem (xdb_idxm_t* pIdxm, xdb_rowid rid, void *pRow)
 {
 	xdb_hashNode_t *pTopNode, *pCurNode, *pNxtNode, *pPreNode, *pSibNode, *pNxtSibNode;
 	uint32_t slot_id;
@@ -239,7 +246,7 @@ XDB_STATIC int xdb_hash_rem (xdb_idxm_t* pIdxm, xdb_rowid rid, void *pRow)
 
 	pCurNode = &pHashNode[rid];
 
-	//xdb_dbglog ("del rid %d hash %x slot %d\n", rid, pCurNode->hash_val, slot_id);
+	xdb_hashlog ("del rid %d hash %x slot %d\n", rid, pCurNode->hash_val, slot_id);
 
 	if (xdb_unlikely (! (pCurNode->next + pCurNode->prev + pCurNode->sibling))) {
 		// not in index
@@ -260,9 +267,9 @@ XDB_STATIC int xdb_hash_rem (xdb_idxm_t* pIdxm, xdb_rowid rid, void *pRow)
 			if (0 == pCurNode->next) {
 				pHashHdr->slot_count--;
 			}
-			//xdb_dbglog ("  rid %d's next %d is 1st top record for slot %d\n", rid, pCurNode->next, slot_id);
+			xdb_hashlog ("  rid %d's next %d is 1st top record for slot %d\n", rid, pCurNode->next, slot_id);
 		} else if (pCurNode->prev) {
-			//xdb_dbglog ("  rid %d has prev %d, point to it's next %d\n", rid, pCurNode->prev, pCurNode->next);
+			xdb_hashlog ("  rid %d has prev %d, point to it's next %d\n", rid, pCurNode->prev, pCurNode->next);
 			pPreNode = &pHashNode[pCurNode->prev];
 			pPreNode->next = pCurNode->next;
  		}
@@ -275,18 +282,18 @@ XDB_STATIC int xdb_hash_rem (xdb_idxm_t* pIdxm, xdb_rowid rid, void *pRow)
 			pTopNode = &pHashNode[pCurNode->sibling];
 			pTopNode->sibling = pCurNode->next;
 			if (pCurNode->next) {
-				//xdb_dbglog ("  1st sibling %d has next sibling %d, prompt to 1st siblinig\n", rid, pCurNode->next);
+				xdb_hashlog ("  1st sibling %d has next sibling %d, prompt to 1st siblinig\n", rid, pCurNode->next);
 				pNxtSibNode = &pHashNode[pCurNode->next];
 				pNxtSibNode->prev = 0;
 				pNxtSibNode->sibling = pCurNode->sibling;
 			}
 		} else {
 			// It's the top node which has sibling
-			//xdb_dbglog ("  Top rid %d has sibling %d, prompt to top\n", rid, pCurNode->sibling);
+			xdb_hashlog ("  Top rid %d has sibling %d, prompt to top\n", rid, pCurNode->sibling);
 			pSibNode = &pHashNode[pCurNode->sibling];
 			// if has next silbing, prompt to first sibling
 			if (pSibNode->next) {
-				//xdb_dbglog ("  1st Sibling %d has next sibling %d, prompt to 1st sibling\n", pCurNode->sibling, pSibNode->next);
+				xdb_hashlog ("  1st Sibling %d has next sibling %d, prompt to 1st sibling\n", pCurNode->sibling, pSibNode->next);
 				pNxtSibNode = &pHashNode[pSibNode->next];
 				pNxtSibNode->sibling = pNxtSibNode->prev;
 				pNxtSibNode->prev = 0;
@@ -294,7 +301,7 @@ XDB_STATIC int xdb_hash_rem (xdb_idxm_t* pIdxm, xdb_rowid rid, void *pRow)
 			pSibNode->sibling = pSibNode->next;
 			pSibNode->next = pCurNode->next;
 			if (pCurNode->next) {
-				//xdb_dbglog ("  rid %d has next %d, point to it's sibling %d\n", rid, pCurNode->next, pCurNode->sibling);
+				xdb_hashlog ("  rid %d has next %d, point to it's sibling %d\n", rid, pCurNode->next, pCurNode->sibling);
 				pNxtNode = &pHashNode[pCurNode->next];
 				pNxtNode->prev = pCurNode->sibling;
 			}
@@ -302,9 +309,9 @@ XDB_STATIC int xdb_hash_rem (xdb_idxm_t* pIdxm, xdb_rowid rid, void *pRow)
 			if (pCurNode->prev & XDB_ROWID_MSB) {
 				slot_id = pCurNode->prev & XDB_ROWID_MASK;
 				pHashSlot[slot_id] = pCurNode->sibling;
-				//xdb_dbglog ("  rid %d's 1st sibing %d prompt to 1st top for slot %d\n", rid, pCurNode->sibling, slot_id);
+				xdb_hashlog ("  rid %d's 1st sibing %d prompt to 1st top for slot %d\n", rid, pCurNode->sibling, slot_id);
 			} else if (pCurNode->prev) {
-				//xdb_dbglog ("  rid %d has prev %d, point to it's sibling %d\n", rid, pCurNode->prev, pCurNode->sibling);
+				xdb_hashlog ("  rid %d has prev %d, point to it's sibling %d\n", rid, pCurNode->prev, pCurNode->sibling);
 				pPreNode = &pHashNode[pCurNode->prev];
 				pPreNode->next = pCurNode->sibling;
 			}
@@ -345,7 +352,7 @@ xdb_hash_query (xdb_conn_t *pConn, xdb_idxfilter_t *pIdxFilter, xdb_rowset_t *pR
 
 	xdb_rowid rid = pHashSlot[slot_id];
 
-	//xdb_dbglog ("hash_get_slot hash 0x%x mod 0x%x slot %d 1st row %d\n", hash_val, pIdxm->slot_mask, slot_id, rid);
+	xdb_hashlog ("hash_get_slot hash 0x%x mod 0x%x slot %d 1st row %d\n", hash_val, pIdxm->slot_mask, slot_id, rid);
 
 	xdb_hashNode_t	*pCurNode;
 	for (; rid > 0; rid = pCurNode->next) {
@@ -405,7 +412,7 @@ xdb_hash_query2 (xdb_conn_t *pConn, struct xdb_idxm_t* pIdxm, void *pRow2)
 
 	xdb_rowid rid = pHashSlot[slot_id];
 
-	//xdb_dbglog ("hash_get_slot hash 0x%x mod 0x%x slot %d 1st row %d\n", hash_val, pIdxm->slot_mask, slot_id, rid);
+	xdb_hashlog ("hash_get_slot hash 0x%x mod 0x%x slot %d 1st row %d\n", hash_val, pIdxm->slot_mask, slot_id, rid);
 
 	xdb_hashNode_t	*pCurNode;
 	for (; rid > 0; rid = pCurNode->next) {
@@ -519,6 +526,8 @@ xdb_hash_init (xdb_idxm_t *pIdxm)
 XDB_STATIC int 
 xdb_hash_sync (xdb_idxm_t *pIdxm)
 {
+	xdb_stg_sync (&pIdxm->stg_mgr,    0, 0, false);
+	xdb_stg_sync (&pIdxm->stg_mgr2,   0, 0, false);
 	return 0;
 }
 

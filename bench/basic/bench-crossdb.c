@@ -36,7 +36,7 @@ bool bench_sql (void *pConn, const char *sql)
 bool bench_sql_insert (void *pConn, const char *sql, int id, const char *name, int age, const char *cls, int score)
 {
 	xdb_res_t	*pRes = xdb_bexec (pConn, sql, id, name, age, cls, score);
-	return 1 == pRes->affected_rows;
+	return 1 == xdb_affected_rows(pRes);
 }
 
 bool bench_sql_get_byid (void *pConn, const char *sql, int id, stu_callback callback, void *pArg)
@@ -44,7 +44,8 @@ bool bench_sql_get_byid (void *pConn, const char *sql, int id, stu_callback call
 	xdb_res_t	*pRes = xdb_bexec (pConn, sql, id);
 	xdb_row_t	*pRow = xdb_fetch_row (pRes);
 	if (NULL != pRow) { 
-		callback (pArg, *(int*)pRow[0], (char*)pRow[1], *(int*)pRow[2], (char*)pRow[3], *(int*)pRow[4]);
+		callback (pArg, xdb_column_int(pRes, pRow, 0), xdb_column_str(pRes, pRow, 1), 
+				xdb_column_int(pRes, pRow, 2), xdb_column_str(pRes, pRow, 3), xdb_column_int(pRes, pRow, 4));
 	}
 	xdb_free_result (pRes);
 	return pRow != NULL;
@@ -53,16 +54,16 @@ bool bench_sql_get_byid (void *pConn, const char *sql, int id, stu_callback call
 bool bench_sql_updAge_byid (void *pConn, const char *sql, int id, int age)
 {
 	xdb_res_t	*pRes = xdb_bexec (pConn, sql, age, id);
-	if (pRes->affected_rows != 1) {
+	if (xdb_affected_rows(pRes) != 1) {
 		printf ("wrong\n"); 
 	}
-	return 1 == pRes->affected_rows;
+	return 1 == xdb_affected_rows(pRes);
 }
 
 bool bench_sql_del_byid (void *pConn, const char *sql, int id)
 {
 	xdb_res_t	*pRes = xdb_bexec (pConn, sql, id);
-	return 1 == pRes->affected_rows;
+	return 1 == xdb_affected_rows(pRes);
 }
 
 
@@ -79,7 +80,7 @@ void bench_stmt_close (void *pStmt)
 bool bench_stmt_insert (void *pStmt, int id, const char *name, int age, const char *cls, int score)
 {
 	xdb_res_t	*pRes = xdb_stmt_bexec (pStmt, id, name, age, cls, score);
-	return 1 == pRes->affected_rows;
+	return 1 == xdb_affected_rows(pRes);
 }
 
 bool bench_stmt_get_byid (void *pStmt, int id, stu_callback callback, void *pArg)
@@ -87,7 +88,8 @@ bool bench_stmt_get_byid (void *pStmt, int id, stu_callback callback, void *pArg
 	xdb_res_t	*pRes = xdb_stmt_bexec (pStmt, id);
 	xdb_row_t	*pRow = xdb_fetch_row (pRes);
 	if (NULL != pRow) { 
-		callback (pArg, *(int*)pRow[0], (char*)pRow[1], *(int*)pRow[2], (char*)pRow[3], *(int*)pRow[4]);
+		callback (pArg, xdb_column_int(pRes, pRow, 0), xdb_column_str(pRes, pRow, 1), 
+				xdb_column_int(pRes, pRow, 2), xdb_column_str(pRes, pRow, 3), xdb_column_int(pRes, pRow, 4));
 	}
 	xdb_free_result (pRes);
 	return pRow != NULL;
@@ -96,11 +98,11 @@ bool bench_stmt_get_byid (void *pStmt, int id, stu_callback callback, void *pArg
 bool bench_stmt_updAge_byid (void *pStmt, int id, int age)
 {
 	xdb_res_t	*pRes = xdb_stmt_bexec (pStmt, age, id);
-	return 1 == pRes->affected_rows;
+	return 1 == xdb_affected_rows(pRes);
 }
 
 bool bench_stmt_del_byid (void *pStmt, int id)
 {
 	xdb_res_t	*pRes = xdb_stmt_bexec (pStmt, id);
-	return 1 == pRes->affected_rows;
+	return 1 == xdb_affected_rows(pRes);
 }

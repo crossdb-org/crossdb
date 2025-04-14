@@ -383,6 +383,7 @@ xdb_wal_redo_row (xdb_tblm_t *pTblm, xdb_walrow_t *pWalRow, void *pArg)
 			xdb_fprint_dbrow (stdout, pTblm, pRow, 0);
 			xdb_wallog ("\n");
 			#endif
+			xdb_idx_remRow (pTblm, rid, pRow);
 			__xdb_row_delete (pTblm, rid, pRow);
 		} else {
 			xdb_wallog ("    WAL Redo delete invalid rowid=%d\n", rid);

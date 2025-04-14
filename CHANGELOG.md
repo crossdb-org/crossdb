@@ -26,7 +26,30 @@
 - Support simple SQL inner join
 - Support new statements: `FLUSH` `REPAIR`
 
+- Support RBTREE index for exact match, range match and leftmost match
+- Support REPLACE statement
+
 -->
+
+## 0.12.0 <small>(2025-04-14)</small>
+
+**Features**
+
+- Support data types: `INET`(IPv4 and IPv6 host and subnet), `MAC` address
+- Support SQL statements: `SHOW CREATE DATABASE`
+- Support Update SET value from NULL to valid or valid to NULL
+- Support embedded SOURCE sql file
+- Add many new APIs and change many APIs prototypes
+
+**Improvements**
+
+**Test**
+
+**Bug Fixes**
+
+- Hash index flush doesn't do flush action
+- Fix BOOL type bugs
+
 
 ## 0.11.0 <small>(2024-11-11)</small>
 

@@ -16,12 +16,13 @@
 	CrossDB Config
 ******************************************************************************/
 
-#define XDB_VERSION			"0.11.0"
+#define XDB_VERSION			"0.12.0"
 
 #define XDB_MAX_DB			1024 // at most 4096
 #define XDB_MAX_TBL			4095 // per DB
 #define XDB_MAX_COLUMN		1024 // per table
 #define XDB_MAX_INDEX		16	 // at most 64 per table
+#define XDB_MAX_FKEY		16
 #define XDB_NAME_LEN		64
 #define XDB_MAX_MATCH_COL	64
 #define XDB_MAX_ROWS		((1U<<31) - 1)
@@ -35,7 +36,7 @@
 #endif
 
 #ifndef XDB_ENABLE_PUBSUB
-#define XDB_ENABLE_PUBSUB	0
+#define XDB_ENABLE_PUBSUB	1
 #endif
 
 #endif // __CROSS_CFG_H__

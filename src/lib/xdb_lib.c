@@ -13,14 +13,15 @@
 #include "xdb_str.c"
 #include "xdb_file.c"
 #include "xdb_mmap.c"
+#include "xdb_thread.c"
 #include "xdb_objm.c"
 #include "xdb_bmp.c"
 #include "xdb_time.c"
 #include "xdb_dynbuf.c"
-#include "xdb_thread.c"
 #if (XDB_ENABLE_SERVER == 1)
 #include "xdb_sock.c"
 #endif
+#include "xdb_vector.c"
 
 static char s_xdb_hex_2_str[256][2];
 

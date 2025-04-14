@@ -105,7 +105,7 @@ xdb_objm_add (xdb_objm_t *pObjm, void *obj)
 		pObjm->obj_max = pObj->xoid + 1;
 	}
 
-	return -XDB_ERROR;
+	return XDB_OK;
 }
 
 XDB_STATIC int 

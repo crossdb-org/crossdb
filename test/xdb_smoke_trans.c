@@ -127,7 +127,7 @@ UTEST_I(XdbTestRows, trans_commit, 2)
 	xdb_conn_t *pConn = utest_fixture->pConn;
 
 	pRes = xdb_exec (pConn, "BEGIN");
-	ASSERT_EQ (pRes->errcode, XDB_OK);
+	ASSERT_EQ (xdb_errcode(pRes), XDB_OK);
 
 	pRes = xdb_bexec (pConn, "INSERT INTO student (id,name,age,height,weight,class,score) VALUES ("STU2_1007")");
 	CHECK_AFFECT (pRes, 1);
@@ -137,7 +137,7 @@ UTEST_I(XdbTestRows, trans_commit, 2)
 	CHECK_AFFECT (pRes, 1);
 
 	pRes = xdb_exec (pConn, "COMMIT");
-	ASSERT_EQ (pRes->errcode, XDB_OK);
+	ASSERT_EQ (xdb_errcode(pRes), XDB_OK);
 
 	pRes = xdb_bexec (pConn, "SELECT * FROM student WHERE id=1001");
 	CHECK_QUERY(pRes, 1, stu.age+=1);		
@@ -156,7 +156,7 @@ UTEST_I(XdbTestRows, trans_rollback, 2)
 	xdb_conn_t *pConn = utest_fixture->pConn;
 
 	pRes = xdb_exec (pConn, "BEGIN");
-	ASSERT_EQ (pRes->errcode, XDB_OK);
+	ASSERT_EQ (xdb_errcode(pRes), XDB_OK);
 
 	pRes = xdb_bexec (pConn, "INSERT INTO student (id,name,age,height,weight,class,score) VALUES ("STU2_1007")");
 	CHECK_AFFECT (pRes, 1);
@@ -166,7 +166,7 @@ UTEST_I(XdbTestRows, trans_rollback, 2)
 	CHECK_AFFECT (pRes, 1);
 
 	pRes = xdb_exec (pConn, "ROLLBACK");
-	ASSERT_EQ (pRes->errcode, XDB_OK);
+	ASSERT_EQ (xdb_errcode(pRes), XDB_OK);
 
 	pRes = xdb_bexec (pConn, "SELECT * FROM student WHERE id=1007");
 	CHECK_QUERY(pRes, 0);		
@@ -181,7 +181,7 @@ UTEST_I(XdbTestRows, trans_commit_dup, 2)
 	xdb_conn_t *pConn = utest_fixture->pConn;
 
 	pRes = xdb_exec (pConn, "BEGIN");
-	ASSERT_EQ (pRes->errcode, XDB_OK);
+	ASSERT_EQ (xdb_errcode(pRes), XDB_OK);
 
 	pRes = xdb_bexec (pConn, "INSERT INTO student (id,name,age,height,weight,class,score) VALUES ("STU2_1007")");
 
@@ -195,13 +195,13 @@ UTEST_I(XdbTestRows, trans_commit_dup, 2)
 	CHECK_QUERY (pRes, 1, stu.age+=1);	
 
 	pRes = xdb_exec (pConn, "UPDATE student SET id=1001 WHERE id=1007");
-	ASSERT_NE (pRes->errcode, XDB_OK);
+	ASSERT_NE (xdb_errcode(pRes), XDB_OK);
 
 	pRes = xdb_exec (pConn, "DELETE FROM student WHERE id=1007");
 	CHECK_AFFECT (pRes, 1);
 
 	pRes = xdb_exec (pConn, "COMMIT");
-	ASSERT_EQ (pRes->errcode, XDB_OK);
+	ASSERT_EQ (xdb_errcode(pRes), XDB_OK);
 
 	pRes = xdb_bexec (pConn, "SELECT * FROM student");
 	CHECK_QUERY(pRes, 7);
@@ -214,7 +214,7 @@ UTEST_I(XdbTestRows, trans_rollback_dup, 2)
 	xdb_conn_t *pConn = utest_fixture->pConn;
 
 	pRes = xdb_exec (pConn, "BEGIN");
-	ASSERT_EQ (pRes->errcode, XDB_OK);
+	ASSERT_EQ (xdb_errcode(pRes), XDB_OK);
 
 	pRes = xdb_bexec (pConn, "INSERT INTO student (id,name,age,height,weight,class,score) VALUES ("STU2_1007")");
 
@@ -228,13 +228,13 @@ UTEST_I(XdbTestRows, trans_rollback_dup, 2)
 	CHECK_QUERY (pRes, 1, stu.age+=1);	
 
 	pRes = xdb_exec (pConn, "UPDATE student SET id=1001 WHERE id=1007");
-	ASSERT_NE (pRes->errcode, XDB_OK);
+	ASSERT_NE (xdb_errcode(pRes), XDB_OK);
 
 	pRes = xdb_exec (pConn, "DELETE FROM student WHERE id=1007");
 	CHECK_AFFECT (pRes, 1);
 
 	pRes = xdb_exec (pConn, "ROLLBACK");
-	ASSERT_EQ (pRes->errcode, XDB_OK);
+	ASSERT_EQ (xdb_errcode(pRes), XDB_OK);
 
 	pRes = xdb_bexec (pConn, "SELECT * FROM student");
 	CHECK_QUERY(pRes, 7);

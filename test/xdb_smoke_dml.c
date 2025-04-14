@@ -67,10 +67,10 @@ UTEST_I(XdbTestRows, query_exp, 2)
 	xdb_conn_t *pConn = utest_fixture->pConn;
 
 	pRes = xdb_exec (pConn, "SELECT age+5,age FROM student");
-	CHECK_EXP (pRes, 7, ASSERT_EQ(*(int64_t*)pRow[0], *(char*)pRow[1]+5));
+	CHECK_EXP (pRes, 7, ASSERT_EQ(xdb_column_int(pRes, pRow, 0), xdb_column_int(pRes, pRow, 1) + 5));
 
 	pRes = xdb_exec (pConn, "SELECT age+score,age,score FROM student");
-	CHECK_EXP (pRes, 7, ASSERT_EQ(*(int64_t*)pRow[0], *(char*)pRow[1]+*(short*)pRow[2]));
+	CHECK_EXP (pRes, 7, ASSERT_EQ(xdb_column_int(pRes, pRow, 0), xdb_column_int(pRes, pRow, 1) + xdb_column_int(pRes, pRow, 2)));
 }
 
 UTEST_I(XdbTestRows, query_many_id, 2)
@@ -448,7 +448,7 @@ UTEST_I(XdbTestRows, update_pk_dup, 2)
 	xdb_conn_t *pConn = utest_fixture->pConn;
 
 	pRes = xdb_exec (pConn, "UPDATE student SET id=1002 WHERE id=1001");
-	ASSERT_NE (pRes->errcode, XDB_OK);
+	ASSERT_NE (xdb_errcode(pRes), XDB_OK);
 
 	pRes = xdb_exec (pConn, "SELECT * FROM student");
 	CHECK_QUERY (pRes, 7);	
@@ -561,13 +561,13 @@ UTEST_I(XdbTestRows, idx_query, 2)
 	CHECK_QUERY (pRes, 3, ASSERT_STREQ(stu.name, "jack"));
 
 	pRes = xdb_exec (pConn, "CREATE INDEX idx_name ON student (name)");
-	ASSERT_EQ (pRes->errcode, XDB_OK);
+	ASSERT_EQ (xdb_errcode(pRes), XDB_OK);
 
 	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name='jack'");
 	CHECK_QUERY (pRes, 3, ASSERT_STREQ(stu.name, "jack"));
 
 	pRes = xdb_exec (pConn, "DROP INDEX idx_name ON student");
-	ASSERT_EQ (pRes->errcode, XDB_OK);
+	ASSERT_EQ (xdb_errcode(pRes), XDB_OK);
 
 	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name='jack'");
 	CHECK_QUERY (pRes, 3, ASSERT_STREQ(stu.name, "jack"));
@@ -583,7 +583,7 @@ UTEST_I(XdbTestRows, idx_query_update, 2)
 	CHECK_QUERY (pRes, 3, ASSERT_STREQ(stu.name, "jack"));
 
 	pRes = xdb_exec (pConn, "CREATE INDEX idx_name ON student (name)");
-	ASSERT_EQ (pRes->errcode, XDB_OK);
+	ASSERT_EQ (xdb_errcode(pRes), XDB_OK);
 
 	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name='jack'");
 	CHECK_QUERY (pRes, 3, ASSERT_STREQ(stu.name, "jack"));
@@ -601,7 +601,7 @@ UTEST_I(XdbTestRows, idx_query_update, 2)
 	CHECK_AFFECT (pRes, 1);
 
 	pRes = xdb_exec (pConn, "DROP INDEX idx_name ON student");
-	ASSERT_EQ (pRes->errcode, XDB_OK);
+	ASSERT_EQ (xdb_errcode(pRes), XDB_OK);
 
 	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name='jackson'");
 	CHECK_QUERY (pRes, 2, stu.name="jackson");
@@ -617,13 +617,13 @@ UTEST_I(XdbTestRows, idx_composite_query, 2)
 	CHECK_QUERY (pRes, 2, ASSERT_STREQ(stu.name, "jack"); ASSERT_EQ(stu.age, 11));
 
 	pRes = xdb_exec (pConn, "CREATE INDEX idx_nameage ON student (name,age)");
-	ASSERT_EQ (pRes->errcode, XDB_OK);
+	ASSERT_EQ (xdb_errcode(pRes), XDB_OK);
 
 	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name='jack' AND age=11");
 	CHECK_QUERY (pRes, 2, ASSERT_STREQ(stu.name, "jack"); ASSERT_EQ(stu.age, 11));
 
 	pRes = xdb_exec (pConn, "DROP INDEX idx_nameage ON student");
-	ASSERT_EQ (pRes->errcode, XDB_OK);
+	ASSERT_EQ (xdb_errcode(pRes), XDB_OK);
 
 	pRes = xdb_exec (pConn, "SELECT * FROM student WHERE name='jack' AND age=11");
 	CHECK_QUERY (pRes, 2, ASSERT_STREQ(stu.name, "jack"); ASSERT_EQ(stu.age, 11));

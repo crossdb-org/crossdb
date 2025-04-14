@@ -39,9 +39,9 @@ int main (int argc, char **argv)
 
 	// Select
 	pRes = xdb_exec (pConn, "SELECT * from student");
-	printf ("=== Select all %d rows\n", (int)pRes->row_count);
+	printf ("=== Select all %d rows\n", xdb_row_count(pRes));
 	while (NULL != (pRow = xdb_fetch_row (pRes))) {
-		xdb_print_row (pRes->col_meta, pRow, 0);
+		xdb_print_row (pRes, pRow, 0);
 		printf ("\n");
 	}
 	xdb_free_result (pRes);
@@ -52,22 +52,16 @@ int main (int argc, char **argv)
 	XDB_RESCHK(pRes, printf ("Can't update id=%d\n",2); goto error;);
 
 	pRes = xdb_exec (pConn, "SELECT id,name,age,class,score from student WHERE id = 2");
-	printf ("  select %d rows\n  ", (int)pRes->row_count);
+	printf ("  select %d rows\n  ", xdb_row_count(pRes));
 	while (NULL != (pRow = xdb_fetch_row (pRes))) {
-		xdb_print_row (pRes->col_meta, pRow, 0);
+		xdb_print_row (pRes, pRow, 0);
 		printf ("\n");
 		printf ("  id=%d name='%s' age=%d class='%s' score=%f\n", 
-			xdb_column_int (pRes->col_meta, pRow, 0), 
-			xdb_column_str (pRes->col_meta, pRow, 1), 
-			xdb_column_int (pRes->col_meta, pRow, 2), 
-			xdb_column_str (pRes->col_meta, pRow, 3), 
-			xdb_column_float(pRes->col_meta, pRow, 4));
-		printf ("  id=%d name='%s' age=%d class='%s' score=%f\n", 
-			*(int*)pRow[0], 
-			(char*)pRow[1], 
-			*(int*)pRow[2], 
-			(char*)pRow[3], 
-			*(float*)pRow[4]);
+			xdb_column_int (pRes, pRow, 0), 
+			xdb_column_str (pRes, pRow, 1), 
+			xdb_column_int (pRes, pRow, 2), 
+			xdb_column_str (pRes, pRow, 3), 
+			xdb_column_float(pRes, pRow, 4));
 	}
 	xdb_free_result (pRes);
 
@@ -77,9 +71,9 @@ int main (int argc, char **argv)
 	XDB_RESCHK(pRes, printf ("Can't delete id=%d\n",3); goto error;);
 
 	pRes = xdb_exec (pConn, "SELECT * from student WHERE id = 3");
-	printf ("  select %d rows\n", (int)pRes->row_count);
+	printf ("  select %d rows\n", xdb_row_count(pRes));
 	while (NULL != (pRow = xdb_fetch_row (pRes))) {
-		xdb_print_row (pRes->col_meta, pRow, 0);
+		xdb_print_row (pRes, pRow, 0);
 		printf ("\n");
 	}
 	xdb_free_result (pRes);
@@ -87,22 +81,16 @@ int main (int argc, char **argv)
 	// Aggregation function
 	printf ("\n=== AGG COUNT,MIN,MAX,SUM,AVG\n");
 	pRes = xdb_exec (pConn, "SELECT COUNT(*),MIN(score),MAX(score),SUM(score),AVG(score) FROM student");
-	printf ("  --- select %d rows\n  ", (int)pRes->row_count);
+	printf ("  --- select %d rows\n  ", xdb_row_count(pRes));
 	if (NULL != (pRow = xdb_fetch_row (pRes))) {
-		xdb_print_row (pRes->col_meta, pRow, 0);
+		xdb_print_row (pRes, pRow, 0);
 		printf ("\n");
 		printf ("  COUNT(*)=%d MIN(score)=%f MAX(score)=%f SUM(score)=%f AVG(score)=%f\n", 
-			xdb_column_int (pRes->col_meta, pRow, 0), 
-			xdb_column_float(pRes->col_meta, pRow, 1), 
-			xdb_column_float(pRes->col_meta, pRow, 2), 
-			xdb_column_double(pRes->col_meta, pRow, 3), 
-			xdb_column_double(pRes->col_meta, pRow, 4));
-		printf ("  COUNT(*)=%d MIN(score)=%f MAX(score)=%f SUM(score)=%f AVG(score)=%f\n", 
-			(int)*(int64_t*)pRow[0], 
-			*(float*)pRow[1], 
-			*(float*)pRow[2], 
-			*(double*)pRow[3], 
-			*(double*)pRow[4]);
+			xdb_column_int (pRes, pRow, 0), 
+			xdb_column_float(pRes, pRow, 1), 
+			xdb_column_float(pRes, pRow, 2), 
+			xdb_column_double(pRes, pRow, 3), 
+			xdb_column_double(pRes, pRow, 4));
 	}
 	xdb_free_result (pRes);
 
@@ -112,18 +100,18 @@ int main (int argc, char **argv)
 	printf ("  update age=15 for id = 2\n");
 	pRes = xdb_exec (pConn, "UPDATE student set age=15 WHERE id = 2");
 	pRes = xdb_exec (pConn, "SELECT id,name,age from student WHERE id = 2");
-	printf ("  select %d rows: ", (int)pRes->row_count);
+	printf ("  select %d rows: ", xdb_row_count(pRes));
 	if (NULL != (pRow = xdb_fetch_row (pRes))) {
-		xdb_print_row (pRes->col_meta, pRow, 0);
+		xdb_print_row (pRes, pRow, 0);
 		printf ("\n");
 	}
 	xdb_free_result (pRes);
 	printf ("  -- rollback\n");
 	xdb_rollback (pConn);
 	pRes = xdb_exec (pConn, "SELECT id,name,age from student WHERE id = 2");
-	printf ("  select %d rows: ", (int)pRes->row_count);
+	printf ("  select %d rows: ", xdb_row_count(pRes));
 	if (NULL != (pRow = xdb_fetch_row (pRes))) {
-		xdb_print_row (pRes->col_meta, pRow, 0);
+		xdb_print_row (pRes, pRow, 0);
 		printf ("\n");
 	}
 	xdb_free_result (pRes);
@@ -134,18 +122,18 @@ int main (int argc, char **argv)
 	printf ("  update age=15 for id = 2\n");
 	pRes = xdb_exec (pConn, "UPDATE student set age=15 WHERE id = 2");
 	pRes = xdb_exec (pConn, "SELECT * from student WHERE id = 2");
-	printf ("  select %d rows: ", (int)pRes->row_count);
+	printf ("  select %d rows: ", xdb_row_count(pRes));
 	if (NULL != (pRow = xdb_fetch_row (pRes))) {
-		xdb_print_row (pRes->col_meta, pRow, 0);
+		xdb_print_row (pRes, pRow, 0);
 		printf ("\n");
 	}
 	xdb_free_result (pRes);
 	printf ("  -- commit\n");
 	xdb_commit (pConn);
 	pRes = xdb_exec (pConn, "SELECT * from student WHERE id = 2");
-	printf ("  select %d rows: ", (int)pRes->row_count);
+	printf ("  select %d rows: ", xdb_row_count(pRes));
 	if (NULL != (pRow = xdb_fetch_row (pRes))) {
-		xdb_print_row (pRes->col_meta, pRow, 0);
+		xdb_print_row (pRes, pRow, 0);
 		printf ("\n");
 	}
 	xdb_free_result (pRes);
@@ -156,7 +144,7 @@ int main (int argc, char **argv)
 	printf ("  -- 1st result: ");
 	// count(*)	
 	if (NULL != (pRow = xdb_fetch_row (pRes))) {
-		xdb_print_row (pRes->col_meta, pRow, 0);
+		xdb_print_row (pRes, pRow, 0);
 		printf ("\n");
 	}
 	xdb_free_result (pRes);
@@ -165,7 +153,7 @@ int main (int argc, char **argv)
 	pRes = xdb_next_result (pConn);
 	if (NULL != pRes) {
 		if (NULL != (pRow = xdb_fetch_row (pRes))) {
-			xdb_print_row (pRes->col_meta, pRow, 0);
+			xdb_print_row (pRes, pRow, 0);
 			printf ("\n");
 		}
 		xdb_free_result (pRes);

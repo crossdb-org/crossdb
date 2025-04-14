@@ -56,13 +56,13 @@ UTEST_I_SETUP(XdbTest)
 	ASSERT_TRUE (pConn!=NULL);
 	utest_fixture->pConn = pConn;
 	xdb_res_t *pRes = xdb_exec (pConn, "CREATE TABLE student (id INT PRIMARY KEY, name VARCHAR(32), age TINYINT, height FLOAT, weight DOUBLE, class CHAR(16), score SMALLINT)");
-	ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));
+	ASSERT_EQ_MSG (xdb_errcode(pRes), XDB_OK, xdb_errmsg(pRes));
 }
 UTEST_I_TEARDOWN(XdbTest)
 {
 	xdb_conn_t *pConn = utest_fixture->pConn;
 	xdb_res_t *pRes = xdb_exec (pConn, "DROP TABLE student");
-	ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));
+	ASSERT_EQ_MSG (xdb_errcode(pRes), XDB_OK, xdb_errmsg(pRes));
 	xdb_close (pConn);
 }
 
@@ -72,13 +72,13 @@ UTEST_F_SETUP(XdbTest)
 	ASSERT_TRUE (pConn!=NULL);
 	utest_fixture->pConn = pConn;
 	xdb_res_t *pRes = xdb_exec (pConn, "CREATE TABLE student (id INT PRIMARY KEY, name VARCHAR(32), age TINYINT, height FLOAT, weight DOUBLE, class CHAR(16), score SMALLINT)");
-	ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));
+	ASSERT_EQ_MSG (xdb_errcode(pRes), XDB_OK, xdb_errmsg(pRes));
 }
 UTEST_F_TEARDOWN(XdbTest)
 {
 	xdb_conn_t *pConn = utest_fixture->pConn;
 	xdb_res_t *pRes = xdb_exec (pConn, "DROP TABLE student");
-	ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));
+	ASSERT_EQ_MSG (xdb_errcode(pRes), XDB_OK, xdb_errmsg(pRes));
 	xdb_close (pConn);
 }
 
@@ -88,97 +88,84 @@ UTEST_I_SETUP(XdbTestRows)
 	ASSERT_TRUE (pConn!=NULL);
 	utest_fixture->pConn = pConn;
 	xdb_res_t *pRes = xdb_exec (pConn, "CREATE TABLE student (id INT PRIMARY KEY, name VARCHAR(32), age TINYINT, height FLOAT, weight DOUBLE, class CHAR(16), score SMALLINT)");
-	ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));
+	ASSERT_EQ_MSG (xdb_errcode(pRes), XDB_OK, xdb_errmsg(pRes));
 
 	pRes = xdb_bexec (pConn, "INSERT INTO student (id,name,age,height,weight,class,score) VALUES (?,?,?,?,?,?,?),(?,?,?,?,?,?,?),(?,?,?,?,?,?,?),(?,?,?,?,?,?,?),(?,?,?,?,?,?,?),(?,?,?,?,?,?,?),(?,?,?,?,?,?,?)",
 								STU_1000, STU_1001, STU_1002, STU_1003, STU_1004, STU_1005, STU_1006);
-	ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));
-	ASSERT_EQ (pRes->affected_rows, 7);
+	ASSERT_EQ_MSG (xdb_errcode(pRes), XDB_OK, xdb_errmsg(pRes));
+	ASSERT_EQ (xdb_affected_rows(pRes), 7);
 }
 UTEST_I_TEARDOWN(XdbTestRows)
 {
 	xdb_conn_t *pConn = utest_fixture->pConn;
 	xdb_res_t *pRes = xdb_exec (pConn, "DROP TABLE student");
-	ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));
+	ASSERT_EQ_MSG (xdb_errcode(pRes), XDB_OK, xdb_errmsg(pRes));
 	xdb_close (pConn);
 }
 
-#define STU_ID(pRow)	(*(int*)pRow[0])
-#define STU_NAME(pRow)	((char*)pRow[1])
-#define STU_AGE(pRow)	(*(char*)pRow[2])
+#define STU_ID(pRow)	xdb_column_int (pRes, pRow, 0)
+#define STU_NAME(pRow)	xdb_column_str (pRes, pRow, 1)
+#define STU_AGE(pRow)	xdb_column_int (pRes, pRow, 2)
 
-#define CHECK_STUDENT(pRow, stu)	\
-	ASSERT_EQ (*(int*)pRow[0], stu.id);	\
-	ASSERT_STREQ ((char*)pRow[1], stu.name);	\
-	ASSERT_EQ (*(uint16_t*)(pRow[1]-2), strlen(stu.name));	\
-	ASSERT_EQ (*(char*)pRow[2], stu.age);	\
-	ASSERT_NEAR (*(float*)pRow[3], stu.height, 0.000001);	\
-	ASSERT_NEAR (*(double*)pRow[4], stu.weight, 0.000001);	\
-	ASSERT_STREQ ((char*)pRow[5], stu.cls);	\
-	ASSERT_EQ (*(uint16_t*)(pRow[5]-2), strlen(stu.cls));	\
-	ASSERT_EQ (*(short*)pRow[6], stu.score);
-
-#define CHECK_STUDENT_API(pMeta, pRow, stu)	\
-	ASSERT_EQ (xdb_column_int (pMeta, pRow, 0), stu.id);	\
-	ASSERT_STREQ (xdb_column_str (pMeta, pRow, 1), stu.name);	\
-	ASSERT_STREQ (xdb_column_str2 (pMeta, pRow, 1, &len), stu.name);	\
+#define CHECK_STUDENT(pRes, pRow, stu)	\
+	ASSERT_EQ (xdb_column_int (pRes, pRow, 0), stu.id);	\
+	ASSERT_STREQ (xdb_column_str (pRes, pRow, 1), stu.name);	\
+	ASSERT_STREQ (xdb_column_str2 (pRes, pRow, 1, &len), stu.name);	\
 	ASSERT_EQ (len, strlen(stu.name));	\
-	ASSERT_EQ (xdb_column_int (pMeta, pRow, 2), stu.age);	\
-	ASSERT_NEAR (xdb_column_float (pMeta, pRow, 3), stu.height, 0.000001);	\
-	ASSERT_NEAR (xdb_column_double (pMeta, pRow, 4), stu.weight, 0.000001);	\
-	ASSERT_STREQ (xdb_column_str2 (pMeta, pRow, 5, &len), stu.cls);	\
+	ASSERT_EQ (xdb_column_int (pRes, pRow, 2), stu.age);	\
+	ASSERT_NEAR (xdb_column_float (pRes, pRow, 3), stu.height, 0.000001);	\
+	ASSERT_NEAR (xdb_column_double (pRes, pRow, 4), stu.weight, 0.000001);	\
+	ASSERT_STREQ (xdb_column_str2 (pRes, pRow, 5, &len), stu.cls);	\
 	ASSERT_EQ (len, strlen(stu.cls));	\
-	ASSERT_EQ (xdb_column_int (pMeta, pRow, 6), stu.score);
+	ASSERT_EQ (xdb_column_int (pRes, pRow, 6), stu.score);
 
 #define CHECK_QUERY(pRes, num, action...)	\
 do {	\
 	int count;	\
 	bool id_mark[8] = {0};	\
-	ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));	\
-	ASSERT_EQ (pRes->row_count, num);	\
+	ASSERT_EQ_MSG (xdb_errcode(pRes), XDB_OK, xdb_errmsg(pRes));	\
+	ASSERT_EQ (xdb_row_count(pRes), num);	\
 	for (count = 0; (pRow = xdb_fetch_row (pRes)); count++) {	\
 		int len;	\
 		ASSERT_EQ(id_mark[STU_ID(pRow) - 1000], false);	\
 		id_mark[STU_ID(pRow) - 1000] = true;	\
 		student_t stu = stu_info[STU_ID(pRow) - 1000];	\
 		action;	\
-		CHECK_STUDENT (pRow, stu);	\
-		CHECK_STUDENT_API (pRes->col_meta, pRow, stu);	\
+		CHECK_STUDENT (pRes, pRow, stu);	\
 	}	\
-	ASSERT_EQ (pRes->row_count, count);	\
+	ASSERT_EQ (xdb_row_count(pRes), count);	\
 	xdb_free_result (pRes);	\
 } while (0)
 
 #define CHECK_EXP(pRes, num, action...)	\
 	do {	\
 		int count;	\
-		ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));	\
-		ASSERT_EQ (pRes->row_count, num);	\
+		ASSERT_EQ_MSG (xdb_errcode(pRes), XDB_OK, xdb_errmsg(pRes));	\
+		ASSERT_EQ (xdb_row_count(pRes), num);	\
 		for (count = 0; (pRow = xdb_fetch_row (pRes)); count++) {	\
 			action; \
 		}	\
-		ASSERT_EQ (pRes->row_count, count); \
+		ASSERT_EQ (xdb_row_count(pRes), count); \
 		xdb_free_result (pRes); \
 	} while (0)
 
 #define CHECK_QUERY_ONE(pRes, stu, action...)	\
 do {	\
 	int count;	\
-	ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));	\
-	ASSERT_EQ (pRes->row_count, 1);	\
+	ASSERT_EQ_MSG (xdb_errcode(pRes), XDB_OK, xdb_errmsg(pRes));	\
+	ASSERT_EQ (xdb_row_count(pRes), 1);	\
 	for (count = 0; (pRow = xdb_fetch_row (pRes)); count++) {	\
 		int len;	\
 		action;	\
-		CHECK_STUDENT (pRow, stu);	\
-		CHECK_STUDENT_API (pRes->col_meta, pRow, stu);	\
+		CHECK_STUDENT (pRes, pRow, stu);	\
 	}	\
-	ASSERT_EQ (pRes->row_count, count);	\
+	ASSERT_EQ (xdb_row_count(pRes), count);	\
 	xdb_free_result (pRes);	\
 } while (0)
 
 #define CHECK_AFFECT(pRes, num, action...)	\
-	ASSERT_EQ_MSG (pRes->errcode, XDB_OK, xdb_errmsg(pRes));	\
-	ASSERT_EQ (pRes->affected_rows, num);	\
+	ASSERT_EQ_MSG (xdb_errcode(pRes), XDB_OK, xdb_errmsg(pRes));	\
+	ASSERT_EQ (xdb_affected_rows(pRes), num);	\
 	action;
 
 #include "xdb_smoke_ddl.c"

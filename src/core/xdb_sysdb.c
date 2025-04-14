@@ -17,8 +17,11 @@ xdb_sysdb_add_db (xdb_dbm_t *pDbm)
 	if (!s_xdb_bInit) {
 		return;
 	}
-	xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "INSERT INTO databases (database,engine) VALUES('%s','%s')", 
-		XDB_OBJ_NAME(pDbm), pDbm->bMemory?"MEMORY":"MMAP");
+
+	char buf[65536];
+	xdb_dump_create_db (pDbm, buf, sizeof(buf), 0);
+	xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "INSERT INTO databases (database,engine,schema) VALUES('%s','%s','%s')", 
+		XDB_OBJ_NAME(pDbm), pDbm->bMemory?"MEMORY":"MMAP", buf);
 	if (pRes->errcode != XDB_E_NOTFOUND) {
 		XDB_RESCHK(pRes, xdb_errlog("Can't add to system table database %s\n", XDB_OBJ_NAME(pDbm)));
 	}
@@ -92,7 +95,7 @@ xdb_sysdb_add_idx (xdb_idxm_t *pIdxm)
 	xdb_tblm_t *pTblm = pIdxm->pTblm;
 	xdb_fld2str (collist, sizeof(collist), pIdxm->pFields, pIdxm->fld_count);
 	xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "INSERT INTO indexes (database,table,idx_key,type,col_list) VALUES('%s','%s','%s','%s','%s')",
-			XDB_OBJ_NAME(pTblm->pDbm), XDB_OBJ_NAME(pTblm), XDB_OBJ_NAME(pIdxm), "HASH", collist);
+			XDB_OBJ_NAME(pTblm->pDbm), XDB_OBJ_NAME(pTblm), XDB_OBJ_NAME(pIdxm), xdb_idx2str(pIdxm->idx_type), collist);
 	if (pRes->errcode != XDB_E_NOTFOUND) {
 		XDB_RESCHK (pRes, xdb_errlog("Can't add system table index '%s','%s','%s','%s','%s')\n", XDB_OBJ_NAME(pTblm->pDbm), XDB_OBJ_NAME(pTblm), XDB_OBJ_NAME(pIdxm), "HASH", collist));
 	}
@@ -199,6 +202,34 @@ xdb_sysdb_del_svr (xdb_server_t *pSvr)
 	}
 }
 
+XDB_STATIC void 
+xdb_sysdb_add_pub (xdb_pub_t *pPub)
+{
+	if (!s_xdb_bInit) {
+		return;
+	}
+
+	xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "INSERT INTO publications (pubname, database) VALUES('%s','%s')", 
+		XDB_OBJ_NAME(pPub), "");
+	if (pRes->errcode != XDB_E_NOTFOUND) {
+		XDB_RESCHK(pRes, xdb_errlog("Can't add to system table publications %s\n", XDB_OBJ_NAME(pPub)));
+	}
+}
+
+XDB_STATIC void 
+xdb_sysdb_add_sub (xdb_subscribe_t *pSub)
+{
+	if (!s_xdb_bInit) {
+		return;
+	}
+
+	xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "INSERT INTO subscriptions (subname, tables) VALUES('%s','%s')", 
+		XDB_OBJ_NAME(pSub), pSub->tables?pSub->tables:"");
+	if (pRes->errcode != XDB_E_NOTFOUND) {
+		XDB_RESCHK(pRes, xdb_errlog("Can't add to system table subscriptions %s\n", XDB_OBJ_NAME(pSub)));
+	}
+}
+
 XDB_STATIC int 
 xdb_sysdb_init ()
 {
@@ -222,12 +253,12 @@ xdb_sysdb_init ()
 	}
 
 	// will update indexes which doesn't exist yet
-	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS tables (database CHAR(64), table CHAR(64), engine CHAR(8), primary_key VARCHAR(1024), total_rows INT, data_path VARCHAR(255), schema VARCHAR(65535), PRIMARY KEY (database,table))");
+	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS tables (database CHAR(64), table CHAR(64), engine CHAR(8), primary_key VARCHAR, total_rows INT, data_path VARCHAR, schema VARCHAR, PRIMARY KEY (database,table))");
 	if (pRes->errcode != XDB_E_NOTFOUND) {
 		XDB_RESCHK(pRes, xdb_errlog ("Can't create system table tables\n"));
 	}
 
-	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS indexes (database CHAR(64), table CHAR(64), idx_key CHAR(64), type CHAR(8), col_list VARCHAR(255), PRIMARY KEY (database,table,idx_key))");
+	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS indexes (database CHAR(64), table CHAR(64), idx_key CHAR(64), type CHAR(8), col_list VARCHAR, PRIMARY KEY (database,table,idx_key))");
 	XDB_RESCHK(pRes, xdb_errlog ("Can't create system table indexes\n"));
 
 	xdb_tblm_t *pTblm = xdb_find_table (s_xdb_sysdb_pConn->pCurDbm, "columns");
@@ -239,11 +270,17 @@ xdb_sysdb_init ()
 		xdb_sysdb_add_tbl (pTblm, false, false, true);
 	}
 
-	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS databases (database CHAR(64), engine CHAR(8), data_path VARCHAR(1024), PRIMARY KEY (database))");
+	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS databases (database CHAR(64), engine CHAR(8), data_path VARCHAR, schema VARCHAR, PRIMARY KEY (database))");
 	XDB_RESCHK(pRes, xdb_errlog ("Can't create system table databases\n"));
 
 	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS servers (server CHAR(64), port INT)");
 	XDB_RESCHK(pRes, xdb_errlog ("Can't create system table databases\n"));
+
+	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS publications (pubname CHAR(64), database CHAR(64))");
+	XDB_RESCHK(pRes, xdb_errlog ("Can't create system table publications\n"));
+
+	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS subscriptions (subname CHAR(64), tables VARCHAR)");
+	XDB_RESCHK(pRes, xdb_errlog ("Can't create system table subscriptions\n"));
 
 	xdb_sysdb_add_db (pConn->pCurDbm);
 

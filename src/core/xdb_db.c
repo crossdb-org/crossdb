@@ -392,6 +392,8 @@ xdb_flush_db (xdb_dbm_t *pDbm, uint32_t flags)
 		xdb_stg_sync (&pDbm->pWalmBak->stg_mgr, 0, 0, false);
 	}
 
+	pDb->flush_time = xdb_timestamp();
+
 exit:
 	xdb_wrunlock_db (pDbm);
 	return 0;
@@ -423,4 +425,17 @@ xdb_repair_db (xdb_dbm_t *pDbm, int flags)
 	xdb_print ("=== End Recover database %s ===\n", XDB_OBJ_NAME (pDbm));
 
 	return XDB_OK;
+}
+
+XDB_STATIC int 
+xdb_dump_create_db (xdb_dbm_t *pDbm, char buf[], xdb_size size, uint32_t flags)
+{
+	xdb_size			len = 0;
+
+	if (!pDbm->bMemory) {
+		len += sprintf (buf+len, "CREATE DATABASE %s;", XDB_OBJ_NAME(pDbm));
+	} else {
+		len += sprintf (buf+len, "CREATE DATABASE %s ENGINE=MEMORY;", XDB_OBJ_NAME(pDbm));
+	}
+	return len;
 }

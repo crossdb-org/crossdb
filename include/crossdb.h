@@ -71,6 +71,7 @@ typedef enum {
 	XDB_TYPE_BOOL		= 16, // 1 byte
 	XDB_TYPE_INET		= 17, // 18 bytes
 	XDB_TYPE_MAC		= 18, // 6 bytes
+	XDB_TYPE_ARRAY		= 19, // array(TDB)
 	XDB_TYPE_MAX        = 32
 } xdb_type_t;
 
@@ -84,92 +85,16 @@ typedef struct {
 	uint8_t		addr[6];
 } xdb_mac_t;
 
+typedef int	xdb_rowid;
+
 
 /******************************************************************************
 	CrossDB Reuslt
 ******************************************************************************/
 
-typedef enum {
-	XDB_RET_ROW = 0,
-	XDB_RET_REPLY,
-	XDB_RET_META,
-	XDB_RET_MSG,
-	XDB_RET_COMPRESS,
-	XDB_RET_INSERT,	// (meta + row)
-	XDB_RET_DELETE, // (meta + row)
-	XDB_RET_UPDATE, // (old meta, old row, set meta, set row)
-	XDB_RET_EOF = 0xF,
-} xdb_restype_t;
+typedef void xdb_row_t;
 
-typedef enum {
-	XDB_STATUS_MORE_RESULTS 	= (1<<3),
-} xdb_status_t;
-
-typedef uint64_t xdb_row_t;	// xdb_rowdat_t
-
-#define XDB_ROW_COL_CNT		4096
-
-typedef struct {
-	uint32_t	rl_count;
-	uint32_t	rl_curid;
-	xdb_row_t 	rl_pRows[XDB_ROW_COL_CNT];
-} xdb_rowlist_t;
-
-typedef struct {
-	uint32_t	len_type;		// MSB 4bit are type xdb_restype_t
-	uint16_t	errcode;		// 4
-	uint16_t	status;			// 6 xdb_status_t
-
-	uint32_t	meta_len;		// 8
-	uint16_t	col_count;		// 12
-	uint8_t		stmt_type;		// 14 SQL type(create/delete/drop/show/select/delete/update...)
-	uint8_t		rsvd;
-
-	uint64_t	row_count;		// 2*8 SELECT/SHOW
-	uint64_t	affected_rows;	// 3*8 INSERT/UPDATE/DELETE
-	uint64_t	insert_id;		// 4*8 INSERT
-	uint64_t	col_meta;		// 5*8 xdb_meta_t, <ptr:ptr off: 0 following is meta>
-	uint64_t	row_data;		// 6*8 xdb_rowlist_t, ptr: base ptr or error str or information xdb_msg_t
-	uint64_t	data_len;		// 7*8
-} xdb_res_t;
-
-typedef struct {
-	uint32_t	len_type;		// MSB 4bit are type
-	uint16_t	len;
-	char		msg[2048];
-} xdb_msg_t;
-
-typedef struct {
-	uint32_t	len_type;		// MSB 4bit are type
-	uint8_t		rowdat[];
-} xdb_rowdat_t;
-
-typedef struct {
-	uint8_t		col_len;		// colum total len
-	uint8_t		col_type;		// 1 xdb_type_t
-	uint16_t	col_flags;		// 2
-	uint32_t	col_off;		// 4
-	uint16_t	rsvd;			// 8
-	//uint8_t		col_decimal;	// 8
-	//uint8_t		col_charset;	// 9
-	uint8_t		col_dtid;		// 10 db.table id in xdb_meta_t.tbl_name
-	uint8_t		rsvd1;			// 11
-	uint8_t		col_nmlen;		// 12
-	char		col_name[];		// 13
-} xdb_col_t;
-
-typedef struct {
-	uint32_t	len_type;		// MSB 4bit are type
-	uint16_t	col_count;		// 4
-	uint16_t	cols_off;		// 6
-	uint64_t	col_list;		// 8 xdb_col_t list
-	uint32_t	row_size;		// 16
-	uint32_t	null_off;		// 20
-	uint32_t	rsvd[4];		// 24
-	uint16_t	tbl_nmlen;		// 40 list of db.tbl,db.tbl,db.tbl
-	char		tbl_name[];		// 42
-	//xdb_col_t	cols[];
-} xdb_meta_t;
+typedef struct xdb_res_t xdb_res_t;
 
 typedef struct xdb_conn_t xdb_conn_t;
 
@@ -221,7 +146,7 @@ xdb_more_result (xdb_conn_t *pConn);
 void
 xdb_free_result (xdb_res_t *pRes);
 
-typedef int (*xdb_row_callback) (uint64_t meta, xdb_row_t *pRow, void *pArg);
+typedef int (*xdb_row_callback) (xdb_res_t* pRes, xdb_row_t *pRow, void *pArg);
 
 #if 0
 xdb_res_t*
@@ -239,38 +164,98 @@ xdb_poll (xdb_conn_t *pConn, int *pLen, uint32_t timeout);
  Result
 ***************************************/
 
-xdb_col_t* 
-xdb_column_meta (uint64_t meta, uint16_t iCol);
+xdb_errno_e
+xdb_errcode (xdb_res_t *pRes);
+
+const char*
+xdb_errmsg (xdb_res_t *pRes);
+
+int
+xdb_column_count (xdb_res_t *pRes);
 
 xdb_type_t 
-xdb_column_type (uint64_t meta, uint16_t iCol);
+xdb_column_type (xdb_res_t *pRes, uint16_t iCol);
 
 const char* 
-xdb_column_name (uint64_t meta, uint16_t iCol);
+xdb_column_name (xdb_res_t *pRes, uint16_t iCol);
+
+const char* 
+xdb_table_name (xdb_res_t *pRes, uint16_t id);
+
+int 
+xdb_column_id (xdb_res_t *pRes, const char *name);
 
 xdb_row_t*
 xdb_fetch_row (xdb_res_t *pRes);
 
+xdb_rowid
+xdb_row_count (xdb_res_t *pRes);
+
+xdb_rowid
+xdb_affected_rows (xdb_res_t *pRes);
+
+bool 
+xdb_column_null (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol);
+
+bool 
+xdb_column_bool (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol);
+
 int 
-xdb_column_int (uint64_t meta, xdb_row_t *pRow, uint16_t iCol);
+xdb_column_int (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol);
 
 int64_t 
-xdb_column_int64 (uint64_t meta, xdb_row_t *pRow, uint16_t iCol);
+xdb_column_int64 (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol);
 
 float
-xdb_column_float (uint64_t meta, xdb_row_t *pRow, uint16_t iCol);
+xdb_column_float (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol);
 
 double
-xdb_column_double (uint64_t meta, xdb_row_t *pRow, uint16_t iCol);
+xdb_column_double (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol);
 
 const char*
-xdb_column_str (uint64_t meta, xdb_row_t *pRow, uint16_t iCol);
+xdb_column_str (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol);
 
 const char*
-xdb_column_str2 (uint64_t meta, xdb_row_t *pRow, uint16_t iCol, int *pLen);
+xdb_column_str2 (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol, int *pLen);
 
 const void*
-xdb_column_blob (uint64_t meta, xdb_row_t *pRow, uint16_t iCol, int *pLen);
+xdb_column_blob (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol, int *pLen);
+
+const xdb_mac_t*
+xdb_column_mac (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol);
+
+const xdb_inet_t*
+xdb_column_inet (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol);
+
+bool 
+xdb_col_bool (xdb_res_t *pRes, xdb_row_t *pRow, const char *name);
+
+int 
+xdb_col_int (xdb_res_t *pRes, xdb_row_t *pRow, const char *name);
+
+int64_t 
+xdb_col_int64 (xdb_res_t *pRes, xdb_row_t *pRow, const char *name);
+
+float
+xdb_col_float (xdb_res_t *pRes, xdb_row_t *pRow, const char *name);
+
+double
+xdb_col_double (xdb_res_t *pRes, xdb_row_t *pRow, const char *name);
+
+const char*
+xdb_col_str (xdb_res_t *pRes, xdb_row_t *pRow, const char *name);
+
+const char*
+xdb_col_str2 (xdb_res_t *pRes, xdb_row_t *pRow, const char *name, int *pLen);
+
+const void*
+xdb_col_blob (xdb_res_t *pRes, xdb_row_t *pRow, const char *name, int *pLen);
+
+const xdb_mac_t*
+xdb_col_mac (xdb_res_t *pRes, xdb_row_t *pRow, const char *name);
+
+const xdb_inet_t*
+xdb_col_inet (xdb_res_t *pRes, xdb_row_t *pRow, const char *name);
 
 
 /**************************************
@@ -340,6 +325,31 @@ xdb_rollback (xdb_conn_t* pConn);
 
 
 /**************************************
+ Trigger
+***************************************/
+
+typedef enum {
+	XDB_TRIG_BEF_INS,
+	XDB_TRIG_AFT_INS,
+	XDB_TRIG_BEF_UPD,
+	XDB_TRIG_AFT_UPD,
+	XDB_TRIG_BEF_DEL,
+	XDB_TRIG_AFT_DEL,
+	XDB_TRIG_MAX,
+} xdb_trig_e;
+
+typedef int (*xdb_trig_callback) (xdb_conn_t *pConn, xdb_res_t *pRes, xdb_trig_e type, xdb_row_t *pNewRow, xdb_row_t *pOldRow, void *pArg);
+
+typedef enum {
+	XDB_FUNC_TRIG,
+	XDB_FUNC_MAX,
+} xdb_func_e;
+
+int 
+xdb_create_func (const char *name, xdb_func_e type, const char *lang, void *cb_func, void *pArg);
+
+
+/**************************************
  Misc
 ***************************************/
 
@@ -352,16 +362,13 @@ xdb_rollback (xdb_conn_t* pConn);
 #endif
 
 #define XDB_CHECK(expr, ...)	if (xdb_unlikely(!(expr))) { __VA_ARGS__; }
-#define XDB_RESCHK(pRes, ...)	if (xdb_unlikely(pRes->errcode)) { fprintf (stderr, "==== ERROR %d: %s\n", pRes->errcode, xdb_errmsg(pRes)); __VA_ARGS__; }
+#define XDB_RESCHK(pRes, ...)	if (xdb_unlikely(xdb_errcode(pRes))) { fprintf (stderr, "==== ERROR %d: %s\n", xdb_errcode(pRes), xdb_errmsg(pRes)); __VA_ARGS__; }
 
 const char*
 xdb_type2str (xdb_type_t type);
 
-const char*
-xdb_errmsg (xdb_res_t *pRes);
-
 int 
-xdb_print_row (uint64_t meta, xdb_row_t *pRow, int format);
+xdb_print_row (xdb_res_t *pRes, xdb_row_t *pRow, int format);
 
 const char*
 xdb_version();

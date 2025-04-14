@@ -42,7 +42,7 @@ error:
 #endif
 
 XDB_STATIC int 
-xdb_inet_sprintf (xdb_inet_t *pInet, char *buf, int size)
+xdb_inet_sprintf (const xdb_inet_t *pInet, char *buf, int size)
 {
 	int len = 0;
 	if (4 == pInet->family) {
@@ -86,7 +86,7 @@ xdb_inet_scanf (xdb_inet_t *pInet, const char *addr)
 }
 
 XDB_STATIC int 
-xdb_mac_sprintf (xdb_mac_t *pMac, char *buf, int size)
+xdb_mac_sprintf (const xdb_mac_t *pMac, char *buf, int size)
 {
 	return sprintf (buf, "%02x:%02x:%02x:%02x:%02x:%02x", pMac->addr[0],pMac->addr[1],pMac->addr[2],pMac->addr[3],pMac->addr[4],pMac->addr[5]);	
 }
@@ -173,7 +173,7 @@ xdb_timestamp_scanf (const char *time_str)
 }
 
 XDB_STATIC xdb_stmt_t* 
-xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
+xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt, bool bReplace)
 {
 	xdb_stmt_insert_t *pStmt;
 
@@ -184,7 +184,7 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 		pStmt = &pConn->stmt_union.insert_stmt;
 	}
 
-	pStmt->stmt_type = XDB_STMT_INSERT;
+	pStmt->stmt_type = !bReplace ? XDB_STMT_INSERT : XDB_STMT_REPLACE;
 	pStmt->pSql = NULL;
 	pStmt->pRowsBuf = NULL;
 
@@ -236,6 +236,10 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 	} else {
 		memset (null_bmp, 0xFF, XDB_ALIGN8(pTblm->null_bytes));
 		pStmt->fld_count = pTblm->fld_count;
+		if (bReplace) {
+			// if update will use it
+			memcpy (pStmt->pFldList, pTblm->ppFields, pStmt->fld_count * sizeof (void*));
+		}
 	}
 
 	XDB_EXPECT ((XDB_TOK_ID == type) && !strcasecmp (pTkn->token, "VALUES"), XDB_E_STMT, "Expect VALUES");
@@ -294,7 +298,8 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 
 		// Single row values
 		int fld_seq = 0;
-		xdb_str_t *pVStr = pRow + pTblm->row_size, *pStr;
+		xdb_str_t *pVStr = pRow + pTblm->row_size, *pStr;		
+		*((uint8_t*)pRow + pTblm->vtype_off) = XDB_VTYPE_PTR;
 
 		do {
 			type = xdb_next_token (pTkn);
@@ -514,6 +519,7 @@ xdb_parse_val (xdb_stmt_select_t *pStmt, xdb_field_t *pField, xdb_value_t *pVal,
 
 	pVal->val_str.str = pTkn->token;
 	pVal->val_str.len = pTkn->tk_len;
+	pVal->pField = NULL;
 	
 	switch (pTkn->tk_type) {
 	case XDB_TOK_NUM:
@@ -539,6 +545,23 @@ xdb_parse_val (xdb_stmt_select_t *pStmt, xdb_field_t *pField, xdb_value_t *pVal,
 		type = xdb_next_token (pTkn);
 		break;
 	case XDB_TOK_ID:
+		if (!strcasecmp(pTkn->token, "NULL")) {
+			pVal->val_type = XDB_TYPE_NULL;
+			type = xdb_next_token (pTkn);
+			break;
+		} else if (!strcasecmp(pTkn->token, "true")) {
+			pVal->val_type = XDB_TYPE_BIGINT;
+			pVal->sup_type = XDB_TYPE_BIGINT;
+			pVal->ival = 1;
+			type = xdb_next_token (pTkn);
+			break;
+		} else if (!strcasecmp(pTkn->token, "false")) {
+			pVal->val_type = XDB_TYPE_BIGINT;
+			pVal->sup_type = XDB_TYPE_BIGINT;
+			pVal->ival = 0;
+			type = xdb_next_token (pTkn);
+			break;
+		}
 		if (pStmt->pTblm != NULL) {
 			pVal->pField = xdb_find_field (pStmt->pTblm, pTkn->token, pTkn->tk_len);
 			XDB_EXPECT(pVal->pField != NULL, XDB_E_STMT, "Can't find field '%s'", pTkn->token);
@@ -596,6 +619,11 @@ xdb_find_idx (xdb_tblm_t	*pTblm, xdb_singfilter_t *pSigFlt, uint8_t 	bmp[])
 			xdb_dbglog ("use index %s\n", XDB_OBJ_NAME(pIdxm));
 			xdb_idxfilter_t *pIdxFilter = &pSigFlt->idx_filter;
 			pIdxFilter->idx_flt_cnt = 0;
+			if (xdb_unlikely (XDB_IDX_RBTREE == pIdxm->idx_type)) {
+				pIdxFilter->match_opt = XDB_TOK_EQ;
+				pIdxFilter->match_opt2 = -1;
+				pIdxFilter->match_cnt = pIdxm->fld_count;
+			}
 			pIdxFilter->pIdxm = pIdxm;
 			int 		idx_id = XDB_OBJ_ID(pIdxm);
 
@@ -621,9 +649,9 @@ xdb_find_idx (xdb_tblm_t	*pTblm, xdb_singfilter_t *pSigFlt, uint8_t 	bmp[])
 XDB_STATIC int 
 xdb_parse_where (xdb_conn_t* pConn, xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 {
-	uint8_t 	bmp[8], i = 0;
+	uint8_t 	bmp[XDB_MAX_COLUMN], i = 0;
 	xdb_tblm_t	*pTblm = pStmt->pTblm;
-	memset (bmp, 0, sizeof(bmp));
+	memset (bmp, 0, (pTblm->fld_count+7)>>3);
 	xdb_token_type	type;
 	xdb_token_type	vtype;
 	int				vlen, flen;
@@ -1399,6 +1427,36 @@ xdb_parse_delete (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 	}
 
 	XDB_EXPECT (type >= XDB_TOK_END, XDB_E_STMT, "Unkown token");
+
+	return (xdb_stmt_t*)pStmt;
+
+error:
+	xdb_stmt_free ((xdb_stmt_t*)pStmt);
+	return NULL;
+}
+
+XDB_STATIC xdb_stmt_t* 
+xdb_parse_audit (xdb_conn_t* pConn, xdb_token_t *pTkn)
+{
+	xdb_stmt_select_t 	*pStmt = &pConn->stmt_union.select_stmt;
+
+	pStmt->stmt_type = 0;
+	pStmt->pSql = NULL;
+
+	xdb_token_type	type = xdb_next_token (pTkn);
+	XDB_EXPECT (type == XDB_TOK_ID, XDB_E_STMT, "Miss action");
+
+	if (! strcasecmp (pTkn->token, "MARK")) {
+		pStmt->stmt_type = XDB_STMT_AUDIT_MARK;
+	} else if (! strcasecmp (pTkn->token, "SWEEP")) {
+		pStmt->stmt_type = XDB_STMT_AUDIT_SWEEP;
+	}
+
+	type = xdb_next_token (pTkn);
+
+	XDB_EXPECT(type<=XDB_TOK_STR, XDB_E_STMT, "Miss table name");
+
+	XDB_PARSE_DBTBLNAME();
 
 	return (xdb_stmt_t*)pStmt;
 

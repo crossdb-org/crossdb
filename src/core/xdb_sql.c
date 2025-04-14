@@ -64,21 +64,22 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 		switch (pStmt->stmt_type) {
 		case XDB_STMT_UPDATE: 
 		case XDB_STMT_INSERT:
+		case XDB_STMT_REPLACE:
 		case XDB_STMT_DELETE:
 			if (xdb_unlikely (!pConn->bInTrans)) {
 				xdb_begin2 (pConn, pConn->bAutoCommit);
 			}
-			if (xdb_likely (XDB_STMT_INSERT != pStmt->stmt_type)) {
-				pTblm = ((xdb_stmt_select_t*)pStmt)->pTblm;
-			} else {
+			if (xdb_unlikely ((XDB_STMT_INSERT == pStmt->stmt_type) || (XDB_STMT_REPLACE == pStmt->stmt_type))) {
 				pTblm = ((xdb_stmt_insert_t*)pStmt)->pTblm;
+			} else {
+				pTblm = ((xdb_stmt_select_t*)pStmt)->pTblm;
 			}
 			if (xdb_unlikely (!(pTblm->bMemory && pConn->bAutoTrans))) {
 				xdb_wrlock_table (pConn, pTblm);
 			}
 			if (xdb_likely (XDB_STMT_UPDATE == pStmt->stmt_type)) {
 				pRes->affected_rows = xdb_sql_update ((xdb_stmt_select_t*)pStmt);
-			} else if (XDB_STMT_INSERT == pStmt->stmt_type) {
+			} else if ((XDB_STMT_INSERT == pStmt->stmt_type) || (XDB_STMT_REPLACE == pStmt->stmt_type)) {
 				pRes->affected_rows = xdb_sql_insert ((xdb_stmt_insert_t*)pStmt);
 			} else {
 				pRes->affected_rows = xdb_sql_delete ((xdb_stmt_select_t*)pStmt);
@@ -168,6 +169,9 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 		case XDB_STMT_DROP_IDX:
 			rc = xdb_drop_index (((xdb_stmt_idx_t*)pStmt)->pIdxm);
 			break;
+		case XDB_STMT_CREATE_TRIG:
+			rc = xdb_create_trigger ((xdb_stmt_trig_t*)pStmt);
+			break;
 		case XDB_STMT_OPEN_DB:
 			rc = xdb_create_db ((xdb_stmt_db_t*)pStmt);
 			break;
@@ -226,9 +230,12 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 			break;
 		case XDB_STMT_SHELL:
 			{
-				char cur_db[XDB_NAME_LEN+2];
+				char cur_db[XDB_NAME_LEN+2], prompt[XDB_NAME_LEN+4];
 				xdb_strcpy (cur_db, xdb_curdb(pConn));
-				rc = xdb_shell_loop (pStmt->pConn, NULL, xdb_curdb(pConn), true);
+				if (NULL != pStmt->pArg) {
+					xdb_strcpy (prompt, pStmt->pArg);
+				}
+				rc = xdb_shell_loop (pStmt->pConn, pStmt->pArg?prompt:NULL, xdb_curdb(pConn), true);
 				// reover current db
 				if (*cur_db != '\0') {
 					pRes = xdb_pexec (pStmt->pConn, "USE %s", cur_db);
@@ -256,6 +263,12 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 		case XDB_STMT_REPAIR_DB:
 			xdb_repair_db (pConn->pCurDbm, 0);
 			break;
+		case XDB_STMT_AUDIT_MARK:
+			xdb_audit_mark ((xdb_stmt_select_t*)pStmt);
+			break;
+		case XDB_STMT_AUDIT_SWEEP:
+			xdb_audit_sweep ((xdb_stmt_select_t*)pStmt);
+			break;
 		case XDB_STMT_HELP:
 			break;
 		default:
@@ -267,8 +280,7 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 		if (xdb_unlikely (pConn->conn_msg.len > 0)) {
 			pRes->data_len = sizeof (xdb_msg_t) - sizeof(pConn->conn_msg.msg) + pConn->conn_msg.len + 1;
 			pRes->row_data = (uintptr_t)pConn->conn_msg.msg;
-		}
-		if (rc != XDB_OK) {
+		} else if (rc != XDB_OK) {
 			XDB_SETERR (rc, "Failed");
 		}
 	}
@@ -622,6 +634,7 @@ xdb_bind_int64 (xdb_stmt_t *pStmt, uint16_t para_id, int64_t val)
 		}
 		break;
 	case XDB_STMT_INSERT:
+	case XDB_STMT_REPLACE:
 		{
 			xdb_stmt_insert_t 	*pStmtIns = (void*)pStmt;
 			if (xdb_unlikely (--para_id > pStmtIns->bind_count)) {
@@ -659,6 +672,7 @@ xdb_bind_double (xdb_stmt_t *pStmt, uint16_t para_id, double val)
 		}
 		break;
 	case XDB_STMT_INSERT:
+	case XDB_STMT_REPLACE:
 		{
 			xdb_stmt_insert_t	*pStmtIns = (void*)pStmt;
 			if (xdb_unlikely (--para_id > pStmtIns->bind_count)) {
@@ -698,6 +712,7 @@ xdb_bind_str2 (xdb_stmt_t *pStmt, uint16_t para_id, const char *str, int len)
 		}
 		break;
 	case XDB_STMT_INSERT:
+	case XDB_STMT_REPLACE:
 		{
 			xdb_stmt_insert_t	*pStmtIns = (void*)pStmt;
 			if (xdb_unlikely (--para_id > pStmtIns->bind_count)) {
@@ -779,6 +794,7 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 		break;
 
 	case XDB_STMT_INSERT:
+	case XDB_STMT_REPLACE:
 		{
 			xdb_stmt_insert_t *pStmtIns = (void*)pStmt;
 			for (int i = 0; i < pStmtIns->bind_count; ++i) {

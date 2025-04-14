@@ -24,15 +24,12 @@ typedef enum {
 	XDB_FMT_NATIVEBE,
 } xdb_format_t;
 
-typedef struct {
+typedef struct xdb_queryRes_t {
 	uint64_t			buf_len;
 	uint64_t			buf_free; // if not -1 means but not freed yet
-	xdb_rowdat_t		*pCurRow;
 	xdb_stmt_select_t	*pStmt;
 	
-	xdb_rowlist_t		rowlist;	// fetch row col, at most 8192/cols
-	xdb_row_t			rowbuf[XDB_ROW_COL_CNT]; // store row pointer list
-
+	xdb_objm_t			*pMetaHash;
 	xdb_conn_t			*pConn; // pConn must be before res
 	xdb_res_t			res; // must be last
 } xdb_queryRes_t;
@@ -47,7 +44,7 @@ typedef struct xdb_conn_t {
 	struct xdb_dbm_t*	pCurDbm;
 
 	xdb_conn_t			*pConn; // pConn must be before conn_res
-	xdb_res_t			conn_res;
+	xdb_res_t			conn_res; // store query result without meta and rows
 	xdb_msg_t			conn_msg; // conn_msg must be after conn_res
 
 	int 				sockfd;
@@ -86,6 +83,8 @@ typedef struct xdb_conn_t {
 
 	char				*poll_buf;
 	uint32_t			poll_size;
+
+	struct xdb_subscribe_t 	*pSubscribe;
 } xdb_conn_t;
 
 XDB_STATIC void 
@@ -94,12 +93,7 @@ xdb_conn_init (xdb_conn_t* pConn);
 static inline void 
 xdb_init_rowlist (xdb_queryRes_t *pQueryRes)
 {
-	pQueryRes->pCurRow = (void*)pQueryRes + sizeof (*pQueryRes) + pQueryRes->res.meta_len;
-	pQueryRes->rowlist.rl_count	= XDB_ROW_COL_CNT / pQueryRes->res.col_count;
-	if (xdb_unlikely (pQueryRes->rowlist.rl_count > pQueryRes->res.row_count)) {
-		pQueryRes->rowlist.rl_count = pQueryRes->res.row_count;
-	}
-	pQueryRes->rowlist.rl_curid= 0;
+	pQueryRes->res.row_data = (uintptr_t)((void*)pQueryRes + sizeof (*pQueryRes) + pQueryRes->res.meta_len);
 }
 
 #endif // __XDB_CONN_H__
