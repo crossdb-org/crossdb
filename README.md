@@ -30,7 +30,7 @@
  APIs and other access methods		| Proprietary native APIs<br>Multi-statement APIs<br>Prepared statement APIs<br>JDBC (TBD)<br>ODBC (TBD)
  Supported programming languages	| C, C++, Python, GO, Rust<br>More bindings (TBD)
  Server-side scripts		| LUA (TBD)
- Triggers					| yes, native languages (TBD)
+ Triggers					| yes, native languages
  Partitioning methods		| none
  Replication methods		| Source-replica replication (TBD)<br>Multi-source replication (TBD)<br>Logical Replication (TBD)
  Data Subscription			| yes (TBD)

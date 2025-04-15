@@ -348,7 +348,7 @@ typedef enum {
 	XDB_FUNC_MAX,
 } xdb_func_e;
 
-int 
+xdb_ret 
 xdb_create_func (const char *name, xdb_func_e type, const char *lang, void *cb_func, void *pArg);
 
 

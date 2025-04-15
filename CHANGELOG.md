@@ -40,6 +40,9 @@
 
 **Bug Fixes**
 
+- Can't open existing database
+- Crash when there's query error
+
 -->
 
 ## 0.12.0 <small>(2025-04-14)</small>

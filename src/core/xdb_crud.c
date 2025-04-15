@@ -1403,7 +1403,7 @@ bool
 xdb_column_null (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol)
 {
 	xdb_meta_t 		*pMeta = (xdb_meta_t*)pRes->col_meta;
-	if (xdb_unlikely ((NULL == pMeta) || (iCol >= pMeta->col_count))) {
+	if (xdb_unlikely (iCol >= pRes->col_count)) {
 		return true;
 	}
 	if (xdb_likely (0 == pMeta->null_off)) {
@@ -1416,11 +1416,21 @@ xdb_column_null (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol)
 	return true;	
 }
 
+bool 
+xdb_column_update (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol)
+{
+	uint8_t *pUpdBmp = (uint8_t*)pRes->data_len;
+	if (xdb_unlikely (iCol >= pRes->col_count)) {
+		return 0;
+	}
+	return XDB_BMP_GET(pUpdBmp, iCol) != 0;
+}
+
 int64_t
 xdb_column_int64 (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol)
 {
 	xdb_meta_t *pMeta = (xdb_meta_t*)pRes->col_meta;
-	if (xdb_unlikely ((NULL == pMeta) || (iCol >= pMeta->col_count))) {
+	if (xdb_unlikely (iCol >= pRes->col_count)) {
 		return 0;
 	}
 	xdb_col_t	*pCol = ((xdb_col_t**)pMeta->col_list)[iCol];
@@ -1445,7 +1455,7 @@ double
 xdb_column_double (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol)
 {
 	xdb_meta_t *pMeta = (xdb_meta_t*)pRes->col_meta;
-	if (xdb_unlikely ((NULL == pMeta) || (iCol >= pMeta->col_count))) {
+	if (xdb_unlikely (iCol >= pRes->col_count)) {
 		return 0;
 	}
 	xdb_col_t	*pCol = ((xdb_col_t**)pMeta->col_list)[iCol];
@@ -1464,7 +1474,7 @@ const char*
 xdb_column_str2 (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol, int *pLen)
 {
 	xdb_meta_t *pMeta = (xdb_meta_t*)pRes->col_meta;
-	if (xdb_unlikely ((NULL == pMeta) || (iCol >= pMeta->col_count))) {
+	if (xdb_unlikely (iCol >= pRes->col_count)) {
 		return NULL;
 	}
 	xdb_col_t	*pCol = ((xdb_col_t**)pMeta->col_list)[iCol];
@@ -1512,7 +1522,7 @@ const xdb_mac_t*
 xdb_column_mac (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol)
 {
 	xdb_meta_t *pMeta = (xdb_meta_t*)pRes->col_meta;
-	if (xdb_unlikely ((NULL == pMeta) || (iCol >= pMeta->col_count))) {
+	if (xdb_unlikely (iCol >= pRes->col_count)) {
 		return NULL;
 	}
 	xdb_col_t	*pCol = ((xdb_col_t**)pMeta->col_list)[iCol];
@@ -1530,7 +1540,7 @@ const xdb_inet_t*
 xdb_column_inet (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol)
 {
 	xdb_meta_t *pMeta = (xdb_meta_t*)pRes->col_meta;
-	if (xdb_unlikely ((NULL == pMeta) || (iCol >= pMeta->col_count))) {
+	if (xdb_unlikely (iCol >= pRes->col_count)) {
 		return NULL;
 	}
 	xdb_col_t	*pCol = ((xdb_col_t**)pMeta->col_list)[iCol];
@@ -1573,6 +1583,12 @@ bool
 xdb_col_null (xdb_res_t *pRes, xdb_row_t *pRow, const char *name)
 {
 	return xdb_column_null (pRes, pRow, xdb_column_id(pRes, name));
+}
+
+bool
+xdb_col_update (xdb_res_t *pRes, xdb_row_t *pRow, const char *name)
+{
+	return xdb_column_update (pRes, pRow, xdb_column_id(pRes, name));
 }
 
 bool 

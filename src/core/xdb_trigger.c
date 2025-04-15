@@ -32,7 +32,7 @@ xdb_find_trigfunc (const char *name)
 	return xdb_objm_get (&s_xdb_trigfunc, name);
 }
 
-int 
+xdb_ret 
 xdb_create_func (const char *name, xdb_func_e type, const char *lang, void *cb_func, void *pArg)
 {
 	xdb_trigfunc_t *pTrigf = xdb_find_trigfunc (name);
