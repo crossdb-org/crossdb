@@ -170,6 +170,12 @@ xdb_create_db (xdb_stmt_db_t *pStmt)
 
 	XDB_EXPECT (strlen(real_db_name) < sizeof (pDbm->db_path), XDB_E_PARAM, "Too long path");
 	xdb_strcpy (pDbm->db_path, real_db_name);
+	if (!pDbm->bMemory) {
+		char pwd[XDB_PATH_LEN+1];
+		xdb_chdir (real_db_name, pwd);
+		xdb_getcwd (pDbm->db_path);
+		xdb_chdir (pwd, NULL);
+	}
 
 	xdb_strcpy (XDB_OBJ_NAME(pDbm), db_name);
 	XDB_OBJ_ID(pDbm) = -1;

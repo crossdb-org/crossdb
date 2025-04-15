@@ -27,7 +27,18 @@
 - Support new statements: `FLUSH` `REPAIR`
 
 - Support RBTREE index for exact match, range match and leftmost match
+
+## 0.13.0 <small>(2025-04-20)</small>
+
+**Features**
+
 - Support REPLACE statement
+
+**Improvements**
+
+**Test**
+
+**Bug Fixes**
 
 -->
 

@@ -76,6 +76,9 @@ xdb_row_t*
 xdb_fetch_row (xdb_res_t *pRes)
 {
 	xdb_rowdat_t *pCurRow = (xdb_rowdat_t*)pRes->row_data;
+	if (xdb_unlikely (pRes->errcode)) {
+		return NULL;
+	}
 	if (pCurRow->len_type > 0) {
 		pRes->row_data += pCurRow->len_type;
 		return (xdb_row_t*)pCurRow->rowdat;
@@ -2991,6 +2994,7 @@ xdb_sql_insert (xdb_stmt_insert_t *pStmt)
 					xdb_value_t		*pVal = &set_flds[i].exp.op_val[0];
 					pVal->pField = set_flds[i].pField;
 					xdb_row_getVal(pRow, pVal);
+					pVal->val_type = pVal->sup_type;
 				}
 				void *ptr = XDB_IDPTR (&pTblm->stg_mgr, rid2);
 				if (xdb_unlikely (pTblm->pAuditRows != NULL)) {

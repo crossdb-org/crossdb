@@ -205,6 +205,7 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 
 	for (int i = 0; i < pStmt->idx_count; ++i) {
 		xdb_stmt_idx_t *pStmtIdx = &pStmt->stmt_idx[i];
+		pStmtIdx->pConn = pStmt->pConn;
 		pStmtIdx->pTblm = pTblm;
 		xdb_create_index (pStmtIdx, true);
 	}
