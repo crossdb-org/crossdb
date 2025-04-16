@@ -134,8 +134,8 @@ xdb_stmt_exec (xdb_stmt_t *pStmt)
 			rc = xdb_create_pub ((xdb_stmt_pub_t*)pStmt);
 			break;
 
-		case XDB_STMT_CREATE_SUB:
-			rc = xdb_create_sub ((xdb_stmt_sub_t*)pStmt);
+		case XDB_STMT_CREATE_REPLICA:
+			rc = xdb_create_replica ((xdb_stmt_replica_t*)pStmt);
 			break;
 
 		case XDB_STMT_SUBSCRIBE:

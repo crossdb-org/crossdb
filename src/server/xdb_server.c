@@ -102,6 +102,11 @@ xdb_handle_client (void *pArg)
 
 	xdb_svrlog ("close %d\n", clientfd);
 	XDB_BUF_FREE(sqlbuf);
+
+	if (NULL != pConn->pSubscribe) {
+		pConn->pSubscribe->pConn = NULL;;
+	}
+
 	xdb_close (pConn);
 	return NULL;
 }

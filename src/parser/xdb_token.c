@@ -277,3 +277,15 @@ parse_ch:
 	pTkn->tk_type = s_tok_type[(uint8_t)*pTkn->tk_sql++];
 	return pTkn->tk_type;
 }
+
+XDB_STATIC xdb_token_type 
+xdb_next_token2 (xdb_token_t *pTkn, char ch)
+{
+	pTkn->tk_sql = strchr (pTkn->tk_sql, ch);
+	if (NULL == pTkn->tk_sql) {
+		return XDB_TOK_ERR;
+	}
+	*pTkn->tk_sql++ = '\0';
+	pTkn->tk_type	= 0;
+	return xdb_next_token (pTkn);
+}

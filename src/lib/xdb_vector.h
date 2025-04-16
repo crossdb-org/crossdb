@@ -21,9 +21,23 @@ typedef struct {
 	int			count;
 } xdb_vec_t;
 
+static inline int 
+xdb_vec_find (xdb_vec_t *pVec, void *pE)
+{
+	for (int i = 0; i < pVec->count; ++i) {
+		if (pVec->pEle[i] == pE) {
+			return i;
+		}
+	}
+	return -1;
+}
+
 static inline bool 
 xdb_vec_add (xdb_vec_t *pVec, void *pE)
 {
+	if (xdb_vec_find (pVec, pE) >= 0) {
+		return true;
+	}
 	if (xdb_unlikely (pVec->count >= pVec->cap)) {
 		void *pEle = xdb_realloc (pVec->pEle, pVec->cap + 64*sizeof(void*));
 		if (NULL == pEle) {

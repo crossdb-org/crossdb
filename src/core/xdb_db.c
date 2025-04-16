@@ -327,7 +327,8 @@ xdb_dump_db_schema (xdb_dbm_t *pDbm, const char *out)
 		xdb_tblm_t *pTblm = XDB_OBJM_GET(pDbm->db_objm, i);
 		if (NULL != pTblm) {
 			char buf[65536];
-			int schema_len = xdb_dump_create_table (pTblm, buf, sizeof(buf), 1);
+			int schema_len = xdb_dump_create_table (pTblm, buf, sizeof(buf), XDB_DUMP_XOID);
+			buf[schema_len++]='\n';
 			int len = fwrite (buf, 1, schema_len, pFile);
 			if (len  != schema_len) {
 				xdb_errlog ("Failed to write schema file\n");
@@ -438,10 +439,7 @@ xdb_dump_create_db (xdb_dbm_t *pDbm, char buf[], xdb_size size, uint32_t flags)
 {
 	xdb_size			len = 0;
 
-	if (!pDbm->bMemory) {
-		len += sprintf (buf+len, "CREATE DATABASE %s;", XDB_OBJ_NAME(pDbm));
-	} else {
-		len += sprintf (buf+len, "CREATE DATABASE %s ENGINE=MEMORY;", XDB_OBJ_NAME(pDbm));
-	}
+	len += sprintf (buf+len, "CREATE DATABASE%s %s%s;", (flags & XDB_DUMP_EXIST) ? " IF NOT EXISTS" : "", XDB_OBJ_NAME(pDbm), pDbm->bMemory?" ENGINE=MEMORY":"");
+
 	return len;
 }

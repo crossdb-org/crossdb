@@ -38,14 +38,14 @@ error:
 }
 
 XDB_STATIC xdb_stmt_t* 
-xdb_parse_create_sub (xdb_conn_t* pConn, xdb_token_t *pTkn)
+xdb_parse_create_replica (xdb_conn_t* pConn, xdb_token_t *pTkn)
 {
-	xdb_stmt_sub_t *pStmt = &pConn->stmt_union.sub_stmt;
+	xdb_stmt_replica_t *pStmt = &pConn->stmt_union.replica_stmt;
 	memset (pStmt, 0, sizeof (*pStmt));
-	pStmt->stmt_type = XDB_STMT_CREATE_SUB;
+	pStmt->stmt_type = XDB_STMT_CREATE_REPLICA;
 
 	xdb_token_type type = xdb_next_token (pTkn);
-	XDB_EXPECT (XDB_TOK_STR>=type, XDB_E_STMT, "Miss subscription name");
+	XDB_EXPECT (XDB_TOK_STR>=type, XDB_E_STMT, "Miss replica name");
 
 	if ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "IF")) {
 		type = xdb_next_token (pTkn);
@@ -53,11 +53,11 @@ xdb_parse_create_sub (xdb_conn_t* pConn, xdb_token_t *pTkn)
 		type = xdb_next_token (pTkn);
 		XDB_EXPECT ((XDB_TOK_ID==type) && !strcasecmp (pTkn->token, "EXISTS"), XDB_E_STMT, "Miss EXISTS");
 		type = xdb_next_token (pTkn);
-		XDB_EXPECT (XDB_TOK_ID==type, XDB_E_STMT, "Miss subscription name");
+		XDB_EXPECT (XDB_TOK_ID==type, XDB_E_STMT, "Miss repica name");
 		pStmt->bIfExistOrNot = true;
 	}
-	pStmt->sub_name	= pTkn->token;
-	pStmt->pub_port = XDB_SVR_PORT;
+	pStmt->rep_name	= pTkn->token;
+	pStmt->svr_port = XDB_SVR_PORT;
 
 	do {
 		type = xdb_next_token (pTkn);
@@ -71,24 +71,25 @@ xdb_parse_create_sub (xdb_conn_t* pConn, xdb_token_t *pTkn)
 		XDB_EXPECT (XDB_TOK_EQ==type, XDB_E_STMT, "Expect EQ");
 		type = xdb_next_token (pTkn);
 	
-		if (!strcasecmp (var, "PUBLICATION")) {
-			XDB_EXPECT (XDB_TOK_ID == type, XDB_E_STMT, "Expect publication name");
-			pStmt->pub_name = pTkn->token;				
-		} else if (!strcasecmp (var, "TABLES")) {
-			XDB_EXPECT (XDB_TOK_STR == type, XDB_E_STMT, "Expect TABLES");
-			pStmt->tables = pTkn->token;
+		if (!strcasecmp (var, "DO_DB")) {
+			XDB_EXPECT (XDB_TOK_LP==type, XDB_E_STMT, "Expect (");
+			pStmt->dbs = pTkn->token + 1;
+			type = xdb_next_token2 (pTkn, ')');
+		} else if (!strcasecmp (var, "DO_TABLE")) {
+			XDB_EXPECT (XDB_TOK_LP==type, XDB_E_STMT, "Expect (");
+			pStmt->tables = pTkn->token + 1;
+			type = xdb_next_token2 (pTkn, ')');
 		} else if (!strcasecmp (var, "HOST")) {
 			XDB_EXPECT (XDB_TOK_STR == type, XDB_E_STMT, "Expect HOST");
-			pStmt->pub_host = pTkn->token;
+			pStmt->svr_host = pTkn->token;
 		} else if (!strcasecmp (var, "PORT")) {
 			XDB_EXPECT (XDB_TOK_NUM == type, XDB_E_STMT, "Expect number");
-			pStmt->pub_port = atoi (pTkn->token);
+			pStmt->svr_port = atoi (pTkn->token);
 		}
 		type = xdb_next_token (pTkn);
 	} while (XDB_TOK_COMMA == type);
 
-	XDB_EXPECT (pStmt->pub_name != NULL, XDB_E_STMT, "Expect publication name");
-	XDB_EXPECT (pStmt->pub_host != NULL, XDB_E_STMT, "Expect HOST");
+	XDB_EXPECT (pStmt->svr_host != NULL, XDB_E_STMT, "Expect Server HOST");
 
 	return (xdb_stmt_t*)pStmt;
 
@@ -127,7 +128,7 @@ xdb_parse_subscribe (xdb_conn_t* pConn, xdb_token_t *pTkn)
 	xdb_token_type type = xdb_next_token (pTkn);
 	XDB_EXPECT (XDB_TOK_STR>=type, XDB_E_STMT, "Miss publication name");
 
-	pStmt->pub_name	= pTkn->token;
+	pStmt->sub_name	= pTkn->token;
 
 	do {
 		type = xdb_next_token (pTkn);
@@ -140,13 +141,12 @@ xdb_parse_subscribe (xdb_conn_t* pConn, xdb_token_t *pTkn)
 		XDB_EXPECT (XDB_TOK_EQ==type, XDB_E_STMT, "Expect EQ");
 		type = xdb_next_token (pTkn);
 
-		if (0 == strcasecmp (var, "CLIENT")) {
-			XDB_EXPECT (XDB_TOK_STR==type, XDB_E_STMT, "Miss Client Name");
-			pStmt->sub_name = pTkn->token;
-		} else if (0 == strcasecmp (var, "TABLES")) {
+		if (0 == strcasecmp (var, "DB")) {
+			pStmt->dbs = pTkn->token;
+		} else if (0 == strcasecmp (var, "TABLE")) {
 			pStmt->tables = pTkn->token;
-		} else if (0 == strcasecmp (var, "CREATE")) {
-			pStmt->bCreate = atoi (pTkn->token);
+		} else if (0 == strcasecmp (var, "REPLICA")) {
+			pStmt->bReplica = atoi (pTkn->token);
 		}
 		type = xdb_next_token (pTkn);
 	} while (XDB_TOK_COMMA == type);

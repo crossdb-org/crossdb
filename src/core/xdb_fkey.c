@@ -20,7 +20,7 @@ xdb_create_fkey (xdb_stmt_fkey_t *pStmt)
 {
 	xdb_conn_t		*pConn = pStmt->pConn;
 
-	xdb_dbglog ("create fkeys %s on %s %d", pStmt->fkey_name, pStmt->XDB_OBJ_NAME(pStmt->pTblm), pStmt->fld_count);
+	xdb_dbglog ("create fkeys %s on %s %d", pStmt->fkey_name, XDB_OBJ_NAME(pStmt->pTblm), pStmt->fld_count);
 
 	int rc = -1;
 	xdb_tblm_t	*pTblm = pStmt->pTblm;

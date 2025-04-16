@@ -194,6 +194,12 @@ typedef struct {
 
 static bool s_xdb_vdat[XDB_TYPE_MAX];
 
+typedef enum {
+	XDB_DUMP_XOID 		= (1<<0),
+	XDB_DUMP_EXIST 		= (1<<1),
+	XDB_DUMP_FULLNAME	= (1<<2),
+} xdb_dump_flag_e;
+
 
 /******************************************************************************
 	Types

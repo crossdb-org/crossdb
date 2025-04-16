@@ -2565,8 +2565,10 @@ xdb_dbrow_log (xdb_tblm_t *pTblm, uint32_t type, void *pNewRow, void *pOldRow, x
 	xdb_field_t	**ppFields, *pField;
 	int			count;
 
-	if (!pTblm->bLog || pTblm->pDbm->bSysDb) {
-		return XDB_OK;
+	if (0 == pTblm->sub_list.count) {
+		if (!pTblm->bLog || pTblm->pDbm->bSysDb) {
+			return XDB_OK;
+		}
 	}
 
 	uint8_t *pNullN = pNewRow + pTblm->pMeta->null_off;
@@ -2631,7 +2633,9 @@ xdb_dbrow_log (xdb_tblm_t *pTblm, uint32_t type, void *pNewRow, void *pOldRow, x
 		buf[len++] = '\0';
 	}
 
-	printf ("DBLOG %d: %s\n", len, buf);
+	if (xdb_unlikely (pTblm->bLog)) {
+		printf ("DBLOG %d: %s\n", len, buf);
+	}
 #if (XDB_ENABLE_PUBSUB == 1)
 	xdb_pub_notify (pTblm, buf, len);
 #endif

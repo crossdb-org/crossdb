@@ -12,15 +12,15 @@
 #ifndef __XDB_PUBSUB_H__
 #define __XDB_PUBSUB_H__
 
-typedef struct xdb_sub_t {
+typedef struct xdb_replica_t {
 	xdb_obj_t			obj;
 	xdb_conn_t			*pConn;
-	char				pub_name[XDB_NAME_LEN + 1];
-	char				pub_host[XDB_NAME_LEN*2 + 1];
+	char				svr_host[XDB_NAME_LEN*2 + 1];
+	char				*dbs;
 	char				*tables;
-	int					pub_port;
+	int					svr_port;
 	xdb_thread_t		tid;
-} xdb_sub_t;
+} xdb_replica_t;
 
 typedef struct xdb_pub_t {
 	xdb_obj_t			obj;
@@ -31,10 +31,12 @@ typedef struct xdb_pub_t {
 typedef struct xdb_subscribe_t {
 	xdb_obj_t			obj;
 	xdb_conn_t			*pConn;
-	bool				bCreate;
+	bool				bReplica;
+	char				*dbs;
 	char				*tables;
 	char				client[XDB_NAME_LEN + 1];
 	xdb_pub_t			*pPub;	
+	xdb_vec_t			db_list;
 	xdb_vec_t			tbl_list;
 	bool				bSync;
 	xdb_vec_t			cud_cache;

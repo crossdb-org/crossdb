@@ -66,7 +66,7 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 {
 	int			rc;
 	xdb_conn_t	*pConn = pStmt->pConn;
-	xdb_dbm_t*	pDbm = pConn->pCurDbm;
+	xdb_dbm_t*	pDbm = pStmt->pDbm;
 	xdb_tblm_t *pTblm = NULL;
 
 	if (NULL != pStmt->pTblm) {
@@ -329,7 +329,10 @@ xdb_dump_create_table (xdb_tblm_t *pTblm, char buf[], xdb_size size, uint32_t fl
 {
 	xdb_size			len = 0;
 
-	len += sprintf (buf+len, "CREATE TABLE %s (\n", XDB_OBJ_NAME(pTblm));
+	len += sprintf (buf+len, "CREATE TABLE%s %s%s%s (\n", (flags & XDB_DUMP_EXIST) ? " IF NOT EXISTS" : "", 
+						(flags & XDB_DUMP_FULLNAME) ? XDB_OBJ_NAME(pTblm->pDbm) : "", 
+						(flags & XDB_DUMP_FULLNAME) ? "." : "",
+						XDB_OBJ_NAME(pTblm));
 
 	// dump field
 	for (int i = 0; i < pTblm->fld_count; ++i) {
@@ -375,16 +378,11 @@ xdb_dump_create_table (xdb_tblm_t *pTblm, char buf[], xdb_size size, uint32_t fl
 	if (pTblm->bMemory && !pTblm->pDbm->bMemory) {
 		len += sprintf (buf+len, " ENGINE=MEMORY");
 	}
-	if (0 == flags) {
-		len += sprintf (buf+len, ";\n");
-	} else {
-		len += sprintf (buf+len, " XOID=%d;\n", XDB_OBJ_ID(pTblm));
+	if (flags&XDB_DUMP_XOID) {
+		len += sprintf (buf+len, " XOID=%d", XDB_OBJ_ID(pTblm));
 	}
-
-	if (0 == flags) {
-		len --;
-		buf[len] = '\0';
-	}
+	buf[len++] = ';';
+	buf[len] = '\0';
 
 	return len;
 }

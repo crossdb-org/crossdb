@@ -109,10 +109,6 @@ xdb_parse_create (xdb_conn_t* pConn, xdb_token_t *pTkn)
 			#if (XDB_ENABLE_SERVER == 1)
 				return xdb_parse_create_server (pConn, pTkn);
 			#endif
-			#if (XDB_ENABLE_PUBSUB == 1)
-			} else if (!strcasecmp (pTkn->token, "SUBSCRIPTION")) {
-				return xdb_parse_create_sub (pConn, pTkn);
-			#endif
 			}
 			break;
 		case 'U':
@@ -128,6 +124,14 @@ xdb_parse_create (xdb_conn_t* pConn, xdb_token_t *pTkn)
 			#if (XDB_ENABLE_PUBSUB == 1)
 			if (!strcasecmp (pTkn->token, "PUBLICATION")) {
 				return xdb_parse_create_pub (pConn, pTkn);
+			}
+			#endif
+			break;
+		case 'R':
+		case 'r':
+			#if (XDB_ENABLE_PUBSUB == 1)
+			if (!strcasecmp (pTkn->token, "REPLICA")) {
+				return xdb_parse_create_replica (pConn, pTkn);
 			}
 			#endif
 			break;

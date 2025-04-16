@@ -100,18 +100,14 @@ xdb_fetch_res_sock (xdb_conn_t *pConn)
 
 	// read result
 	uint32_t len = xdb_sock_read (pConn->sockfd, pRes, sizeof(*pRes));
-	if (len < sizeof(*pRes)) {
-		return NULL;
-	}
+	XDB_EXPECT (len >= sizeof(*pRes), XDB_E_SOCK, "Featch wrong header");
 	
 	// read 
 	int reslen = sizeof (xdb_queryRes_t) + pRes->data_len;
 	if (0 == pRes->meta_len) {
 		if (pRes->data_len > 0) {
 			len = xdb_sock_read (pConn->sockfd, &pConn->conn_msg, pRes->data_len);
-			if (len < pRes->data_len) {
-				return NULL;
-			}
+			XDB_EXPECT (len >= pRes->data_len, XDB_E_SOCK, "Featch wrong data");
 			pRes->row_data = (uintptr_t)pConn->conn_msg.msg;
 		}
 	} else {
@@ -153,7 +149,8 @@ xdb_fetch_res_sock (xdb_conn_t *pConn)
 		xdb_init_rowlist (pQueryRes);
 		pConn->ref_cnt++;
 	}
-	
+
+error:	
 	return pRes;	
 }
 

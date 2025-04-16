@@ -28,6 +28,8 @@ typedef struct xdb_dbm_t {
 
 	xdb_rwlock_t		wal_lock;
 	xdb_rwlock_t		db_lock;
+
+	xdb_vec_t		sub_list;
 } xdb_dbm_t;
 
 typedef struct xdb_dbobj_t {

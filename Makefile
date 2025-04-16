@@ -22,7 +22,7 @@ endif
 	cp include/crossdb.h build/
 
 debug:
-	$(CC) -o build/libcrossdb.so -fPIC -lpthread -shared -g src/crossdb.c
+	$(CC) -o build/libcrossdb.so -fPIC -lpthread -shared -g -DXDB_DEBUG src/crossdb.c
 	$(CC) -o build/xdb-cli src/xdb-cli.c -lpthread -g
 	cp include/crossdb.h build/
 

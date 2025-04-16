@@ -47,21 +47,6 @@ typedef enum {
 	XDB_STMT_LOCK,
 	XDB_STMT_UNLOCK,
 		
-	// Prepared STMT
-		
-	// Relication
-	XDB_STMT_CREATE_PUB		= 20,
-	XDB_STMT_ALTER_PUB,
-	XDB_STMT_DROP_PUB,
-	XDB_STMT_SHOW_PUB,
-
-	// Subscription
-	XDB_STMT_CREATE_SUB		= 25,
-	XDB_STMT_ALTER_SUB,
-	XDB_STMT_DROP_SUB,
-	XDB_STMT_SHOW_SUB,
-	XDB_STMT_SUBSCRIBE,
-
 	///////////////////////////
 
 	// DB
@@ -132,16 +117,34 @@ typedef enum {
 	XDB_STMT_RENAME_USR,
 	XDB_STMT_SHOW_USR,
 	XDB_STMT_SHOW_CREATE_USR,
-	
+
 	XDB_STMT_CREATE_ROLE	= 100,
 	XDB_STMT_DROP_ROLE,
 	XDB_STMT_GRANT,
 	XDB_STMT_REVOKE,
 
+	// Prepared STMT
+
+	///////////////////////////
+
+	// Publication
+	XDB_STMT_CREATE_PUB		= 100,
+	XDB_STMT_ALTER_PUB,
+	XDB_STMT_DROP_PUB,
+	XDB_STMT_SHOW_PUB,
+
+	// Replication
+	XDB_STMT_CREATE_REPLICA,
+	XDB_STMT_ALTER_REPLICA,
+	XDB_STMT_DROP_REPLICA,
+	XDB_STMT_SHOW_REPLICA,
+	XDB_STMT_SUBSCRIBE,
+
+
 	///////////////////////////
 
 	// Misc
-	XDB_STMT_EXPLAIN		= 110,
+	XDB_STMT_EXPLAIN		= 150,
 	XDB_STMT_SET,
 	XDB_STMT_AUTH,
 	XDB_STMT_REPAIR_DB,
@@ -224,20 +227,20 @@ typedef struct {
 typedef struct {
 	XDB_STMT_COMMON;
 	bool			bIfExistOrNot;
-	char 	 		*pub_name;
-	char 	 		*sub_name;
+	char 	 		*rep_name;
+	char			*dbs;
 	char			*tables;
-	char			*pub_host;
-	int				pub_port;
-} xdb_stmt_sub_t;
+	char			*svr_host;
+	int				svr_port;
+} xdb_stmt_replica_t;
 
 typedef struct {
 	XDB_STMT_COMMON;
 	bool			bIfExistOrNot;
-	char 	 		*pub_name;
 	char 	 		*sub_name;
+	char			*dbs;
 	char			*tables;
-	bool			bCreate;
+	bool			bReplica;
 } xdb_stmt_subscribe_t;
 
 typedef enum {
@@ -496,7 +499,7 @@ typedef union {
 	xdb_stmt_svr_t		svr_stmt;
 	xdb_stmt_pub_t		pub_stmt;
 	xdb_stmt_subscribe_t		subscribe_stmt;
-	xdb_stmt_sub_t		sub_stmt;
+	xdb_stmt_replica_t	replica_stmt;
 	xdb_stmt_lock_t		lock_stmt;
 	xdb_stmt_backup_t	backup_stmt;
 } xdb_stmt_union_t;
