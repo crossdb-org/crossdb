@@ -101,18 +101,18 @@ xdb_fetch_res_sock (xdb_conn_t *pConn)
 	// read result
 	uint32_t len = xdb_sock_read (pConn->sockfd, pRes, sizeof(*pRes));
 	XDB_EXPECT (len >= sizeof(*pRes), XDB_E_SOCK, "Featch wrong header");
-	
+
 	// read 
 	int reslen = sizeof (xdb_queryRes_t) + pRes->data_len;
 	if (0 == pRes->meta_len) {
 		if (pRes->data_len > 0) {
 			len = xdb_sock_read (pConn->sockfd, &pConn->conn_msg, pRes->data_len);
-			XDB_EXPECT (len >= pRes->data_len, XDB_E_SOCK, "Featch wrong data");
+			XDB_EXPECT (len >= pRes->data_len, XDB_E_SOCK, "Featch wrong header");
 			pRes->row_data = (uintptr_t)pConn->conn_msg.msg;
 		}
 	} else {
-
-		pRes = xdb_queryres_alloc (pConn, reslen + pRes->meta_len + pRes->col_count * 8 + 7);
+		int buf_len = reslen + pRes->meta_len + pRes->col_count * 8 + 7;
+		pRes = xdb_queryres_alloc (pConn, buf_len);
 		if (NULL != pRes) {
 			return pRes;
 		}
@@ -142,15 +142,25 @@ xdb_fetch_res_sock (xdb_conn_t *pConn)
 		pMeta->col_list = ((uintptr_t)pQueryRes + sizeof (xdb_queryRes_t) + pRes->data_len + 7) & (~7LL);
 		uint64_t *pColList = (uint64_t*)pMeta->col_list;
 		xdb_col_t *pCol = (xdb_col_t*)((void*)pMeta + pMeta->cols_off);
+		int col_cnt = 0;
+		//xdb_hexdump (pMeta, pRes->meta_len);
 		while (pCol->col_len) {
 			*pColList++ = (uintptr_t)pCol;
+			if (++col_cnt >= pMeta->col_count) {
+				break;
+			}
 			pCol = (void*)pCol + pCol->col_len;
+			if ((uintptr_t)pCol - (uintptr_t)pRes > buf_len) {
+				xdb_free_result (pRes);
+				pRes = &pConn->conn_res;
+				XDB_EXPECT (0, XDB_E_SOCK, "Featch wrong meta");
+			}
 		}
 		xdb_init_rowlist (pQueryRes);
 		pConn->ref_cnt++;
 	}
 
-error:	
+error:
 	return pRes;	
 }
 

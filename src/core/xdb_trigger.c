@@ -136,6 +136,7 @@ int xdb_call_trigger (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_trig_e type, xdb
 	xdb_res_t	res;
 	res.col_meta = (uintptr_t)pTblm->pMeta;
 	res.row_data = (uintptr_t)pTblm;
+	res.col_count = pTblm->pMeta->col_count;
 	for (int i = 0; i < count; ++i) {
 		xdb_trig_t *pTrig = XDB_OBJM_GET(*pTrigObj, i);
 		pTrig->pTrigf->cb_func (pConn, &res, type, pNewRow, pOldRow, pTrig->pTrigf->pArg);

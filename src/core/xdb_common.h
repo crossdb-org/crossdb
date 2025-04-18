@@ -51,14 +51,13 @@ typedef struct {
 	uint8_t		col_len;		// colum total len
 	uint8_t		col_type;		// 1 xdb_type_t
 	uint16_t	col_flags;		// 2
-	uint32_t	col_off;		// 4
-	uint16_t	rsvd;			// 8
+	uint16_t	col_off;		// 4
+	uint16_t	rsvd[4];		// 6
 	//uint8_t		col_decimal;	// 8
 	//uint8_t		col_charset;	// 9
-	uint8_t		col_dtid;		// 10 db.table id in xdb_meta_t.tbl_name
-	uint8_t		rsvd1;			// 11
-	uint8_t		col_nmlen;		// 12
-	char		col_name[];		// 13
+	uint8_t		col_dtid;		// 14 db.table id in xdb_meta_t.tbl_name
+	uint8_t		col_nmlen;		// 15
+	char		col_name[];		// 16
 } xdb_col_t;
 
 typedef struct xdb_meta_t {
@@ -68,9 +67,10 @@ typedef struct xdb_meta_t {
 	uint64_t	col_list;		// 8 xdb_col_t list
 	uint32_t	row_size;		// 16
 	uint32_t	null_off;		// 20
-	uint32_t	rsvd[4];		// 24
-	uint16_t	tbl_nmlen;		// 40 list of db.tbl,db.tbl,db.tbl
-	char		tbl_name[];		// 42
+	uint32_t	rsvd[3];		// 24
+	uint16_t	rsvd2;			// 36
+	uint16_t	tbl_nmlen;		// 38 list of db.tbl,db.tbl,db.tbl
+	char		tbl_name[];		// 40
 	//xdb_col_t	cols[];
 } xdb_meta_t;
 

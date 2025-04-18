@@ -835,7 +835,7 @@ xdb_parse_select_cols (xdb_conn_t *pConn, xdb_stmt_select_t *pStmt, int meta_siz
 {
 	xdb_tblm_t		*pTblm = pStmt->pTblm;
 
-	meta_size += sizeof (xdb_col_t) * pStmt->col_count + pTblm->pMeta->tbl_nmlen + 1;
+	meta_size += sizeof (xdb_col_t) * pStmt->col_count + pTblm->pMeta->tbl_nmlen + 1 + 4;
 	meta_size = XDB_ALIGN8 (meta_size);
 	if (meta_size + pStmt->col_count * 8 <= sizeof (pStmt->set_flds)) {
 		pStmt->pMeta = (void*)pStmt->set_flds;
@@ -998,6 +998,9 @@ xdb_parse_select_cols (xdb_conn_t *pConn, xdb_stmt_select_t *pStmt, int meta_siz
 		offset = XDB_ALIGN4(offset + ((pStmt->col_count+7)>>3) + 2);
 		pStmt->pMeta->row_size = offset;
 	}
+
+	*(int*)pCol = 0;
+	//xdb_hexdump (pStmt->pMeta, meta_size);
 
 	pStmt->pMeta->len_type = meta_size | (XDB_RET_META<<28);
 
