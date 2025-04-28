@@ -41,7 +41,7 @@ error:
 }
 #endif
 
-XDB_STATIC int 
+int 
 xdb_inet_sprintf (const xdb_inet_t *pInet, char *buf, int size)
 {
 	int len = 0;
@@ -61,7 +61,7 @@ xdb_inet_sprintf (const xdb_inet_t *pInet, char *buf, int size)
 	return len;
 }
 
-XDB_STATIC bool 
+bool 
 xdb_inet_scanf (xdb_inet_t *pInet, const char *addr)
 {
 	int rc;
@@ -85,13 +85,13 @@ xdb_inet_scanf (xdb_inet_t *pInet, const char *addr)
 	return rc == 1;
 }
 
-XDB_STATIC int 
+int 
 xdb_mac_sprintf (const xdb_mac_t *pMac, char *buf, int size)
 {
 	return sprintf (buf, "%02x:%02x:%02x:%02x:%02x:%02x", pMac->addr[0],pMac->addr[1],pMac->addr[2],pMac->addr[3],pMac->addr[4],pMac->addr[5]);	
 }
 
-XDB_STATIC bool 
+bool 
 xdb_mac_scanf (xdb_mac_t *pMac, const char *addr)
 {
 	int hex1, hex2;
@@ -113,7 +113,7 @@ xdb_mac_scanf (xdb_mac_t *pMac, const char *addr)
 	return *addr == '\0';
 }
 
-XDB_STATIC int 
+int 
 xdb_timestamp_sprintf (uint64_t timestamp, char *buf, int size)
 {
 	struct tm tm_val;
@@ -131,7 +131,7 @@ xdb_timestamp_sprintf (uint64_t timestamp, char *buf, int size)
 	return len;
 }
 
-XDB_STATIC int64_t 
+int64_t 
 xdb_timestamp_scanf (const char *time_str)
 {
 	struct tm tm;
@@ -475,8 +475,8 @@ xdb_parse_orderby (xdb_conn_t* pConn, xdb_stmt_select_t *pStmt, xdb_token_t *pTk
 			} else if (strcasecmp (pTkn->token, "ASC")) {
 				break;
 			}
+			type = xdb_next_token (pTkn);
 		}
-		type = xdb_next_token (pTkn);
 	} while (XDB_TOK_COMMA == type);
 
 	return type;

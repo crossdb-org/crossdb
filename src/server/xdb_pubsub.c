@@ -70,6 +70,11 @@ xdb_run_replica (void *pArg)
 	xdb_replica_t *pReplica = pArg;
 
 	xdb_conn_t* pPubConn;
+	xdb_conn_t* pConn = xdb_connect (NULL, NULL, NULL, NULL, 0);
+	if (NULL == pConn) {
+		xdb_errlog ("Can't create local replica connection\n");
+		return NULL;
+	}
 
 	while (1) {
 		while (1) {
@@ -95,8 +100,8 @@ xdb_run_replica (void *pArg)
 			int len;
 			const char * sql = xdb_poll (pPubConn, &len, 0);
 			if (sql != NULL) {
-				printf ("=== Recv %d: %s\n", len, sql);
-				pRes = xdb_exec (pReplica->pConn, sql);
+				xdb_pubsublog ("=== Recv %d: %s\n", len, sql);
+				pRes = xdb_exec (pConn, sql);
 			} else {
 				xdb_errlog ("REPLICA '%s' socket error, reconnect...\n", XDB_OBJ_NAME(pReplica));
 				break;
@@ -120,7 +125,6 @@ xdb_create_replica (xdb_stmt_replica_t *pStmt)
 	XDB_EXPECT (NULL != pReplica, XDB_E_MEMORY, "Can't alloc memory");
 	xdb_strcpy (XDB_OBJ_NAME(pReplica), pStmt->rep_name);
 
-	pReplica->pConn = pConn;
 	xdb_strcpy (pReplica->svr_host, pStmt->svr_host);
 	pReplica->svr_port = pStmt->svr_port;
 	if (NULL != pStmt->dbs) {

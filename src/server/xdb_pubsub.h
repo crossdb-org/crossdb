@@ -14,7 +14,6 @@
 
 typedef struct xdb_replica_t {
 	xdb_obj_t			obj;
-	xdb_conn_t			*pConn;
 	char				svr_host[XDB_NAME_LEN*2 + 1];
 	char				*dbs;
 	char				*tables;

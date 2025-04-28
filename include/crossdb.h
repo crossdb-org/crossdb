@@ -76,8 +76,8 @@ typedef enum {
 } xdb_type_t;
 
 typedef struct {
-	uint8_t		mask;
 	uint8_t		family;	// 4=ipv4, 6=ipv6 
+	uint8_t		mask;
 	uint8_t		addr[16];
 } xdb_inet_t;
 
@@ -350,6 +350,29 @@ typedef enum {
 
 xdb_ret 
 xdb_create_func (const char *name, xdb_func_e type, const char *lang, void *cb_func, void *pArg);
+
+
+/**************************************
+ Types Utilis
+***************************************/
+
+int 
+xdb_inet_sprintf (const xdb_inet_t *pInet, char *buf, int size);
+
+bool 
+xdb_inet_scanf (xdb_inet_t *pInet, const char *addr);
+
+int 
+xdb_mac_sprintf (const xdb_mac_t *pMac, char *buf, int size);
+
+bool 
+xdb_mac_scanf (xdb_mac_t *pMac, const char *addr);
+
+int 
+xdb_timestamp_sprintf (uint64_t timestamp, char *buf, int size);
+
+int64_t 
+xdb_timestamp_scanf (const char *time_str);
 
 
 /**************************************

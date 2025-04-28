@@ -36,7 +36,10 @@ xdb_row2sql (xdb_res_t *pRes, xdb_row_t *pRow, const char *tbl_name, char *buf, 
 			len += sprintf (buf+len, "%"PRIi64",", xdb_column_int64 (pRes, pRow, i));
 			break;
 		case XDB_TYPE_TIMESTAMP:
+			*(buf + len++) = '\'';
 			len +=	xdb_timestamp_sprintf (xdb_column_int64 (pRes, pRow, i), buf+len, size - len);
+			*(buf + len++) = '\'';
+			*(buf + len++) = ',';
 			break;
 		case XDB_TYPE_FLOAT:
 		case XDB_TYPE_DOUBLE:
@@ -63,10 +66,16 @@ xdb_row2sql (xdb_res_t *pRes, xdb_row_t *pRow, const char *tbl_name, char *buf, 
 			*(buf + len++) = ',';
 			break;
 		case XDB_TYPE_INET:
-			len += xdb_inet_sprintf (xdb_column_inet(pRes, pRow, i), buf, size - len);
+			*(buf + len++) = '\'';
+			len += xdb_inet_sprintf (xdb_column_inet(pRes, pRow, i), buf+len, size - len);
+			*(buf + len++) = '\'';
+			*(buf + len++) = ',';
 			break;
 		case XDB_TYPE_MAC:
-			len += xdb_mac_sprintf (xdb_column_mac(pRes, pRow, i), buf, size - len);
+			*(buf + len++) = '\'';
+			len += xdb_mac_sprintf (xdb_column_mac(pRes, pRow, i), buf+len, size - len);
+			*(buf + len++) = '\'';
+			*(buf + len++) = ',';
 			break;
 		default:
 			break;

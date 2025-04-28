@@ -354,15 +354,15 @@ xdb_row_isequal2 (xdb_tblm_t *pTblm, void *pRowL, void *pRowR, xdb_field_t **ppF
 XDB_STATIC int 
 xdb_inet_cmp (const xdb_inet_t* pInetL, const xdb_inet_t* pInetR)
 {
-	int cmp = memcmp (&pInetL->family, &pInetR->family, 4 == pInetL->family ? 5 : 17);
+	if (xdb_unlikely (pInetL->family != pInetR->family)) {
+		return pInetL->family - pInetR->family;
+	}
+	int mask = pInetL->mask <= pInetR->mask ? pInetL->mask : pInetR->mask;		
+	int cmp = memcmp (&pInetL->addr, &pInetR->addr, mask);
 	if (cmp) {
 		return cmp;
 	}
-	cmp = pInetL->mask - pInetR->mask;
-	if (cmp) {
-		return cmp;
-	}
-	return 0;
+	return pInetL->mask - pInetR->mask;
 }
 
 XDB_STATIC int 
@@ -2568,17 +2568,17 @@ xdb_sprint_field (xdb_field_t *pField, void *pRow, char *buf, uint8_t *pNull)
 		break;
 	case XDB_TYPE_TIMESTAMP:
 		*(buf + len++) = '\'';
-		len += xdb_timestamp_sprintf (*(int64_t*)pVal, buf, 1024);
+		len += xdb_timestamp_sprintf (*(int64_t*)pVal, buf+len, 1024);
 		*(buf + len++) = '\'';
 		break;
 	case XDB_TYPE_INET:
 		*(buf + len++) = '\'';
-		len += xdb_inet_sprintf (pVal, buf, 1024);
+		len += xdb_inet_sprintf (pVal, buf+len, 1024);
 		*(buf + len++) = '\'';
 		break;
 	case XDB_TYPE_MAC:
 		*(buf + len++) = '\'';
-		len += xdb_mac_sprintf (pVal, buf, 1024);
+		len += xdb_mac_sprintf (pVal, buf+len, 1024);
 		*(buf + len++) = '\'';
 		break;
 	}
@@ -2666,9 +2666,14 @@ xdb_dbrow_log (xdb_tblm_t *pTblm, uint32_t type, void *pNewRow, void *pOldRow, x
 		buf[len++] = '\0';
 	}
 
+#ifndef XDB_DEBUG
 	if (xdb_unlikely (pTblm->bLog)) {
+#endif
 		printf ("DBLOG %d: %s\n", len, buf);
+#ifndef XDB_DEBUG
 	}
+#endif
+
 #if (XDB_ENABLE_PUBSUB == 1)
 	xdb_pub_notify (pTblm, buf, len);
 #endif
