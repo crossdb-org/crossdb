@@ -10,14 +10,14 @@
 ******************************************************************************/
 
 static inline xdb_rowid
-xdb_row_vdata_info (uint32_t row_size, void *pRow, uint8_t *pType)
+xdb_row_vdata_info (uint32_t row_size, const void *pRow, uint8_t *pType)
 {
 	*pType = *(uint8_t*)(pRow + row_size - 1);
 	return *(xdb_rowid*)(pRow + row_size);
 }
 
 static inline void*
-xdb_row_vdata_get (xdb_tblm_t *pTblm, void *pRow)
+xdb_row_vdata_get (xdb_tblm_t *pTblm, const void *pRow)
 {
 	uint8_t type;
 	xdb_rowid vid = xdb_row_vdata_info (pTblm->row_size, pRow, &type);
@@ -25,12 +25,25 @@ xdb_row_vdata_get (xdb_tblm_t *pTblm, void *pRow)
 }
 
 static inline void*
-xdb_fld_vdata_get (xdb_field_t *pField, void *pRow, int *pLen)
+xdb_row_vdata_get_off (xdb_tblm_t *pTblm, const void *pRow, int voff)
+{
+	if (xdb_unlikely (0 == voff)) {
+		return NULL;
+	}
+	void *pVdat = xdb_row_vdata_get (pTblm, pRow);
+	if (xdb_unlikely (pVdat == NULL)) {
+		return NULL;
+	}
+	return pVdat + 4 + voff;
+}
+
+static inline void*
+xdb_fld_vdata_get (xdb_field_t *pField, const void *pRow, int *pLen)
 {
 	uint8_t type;
 	xdb_rowid vid = xdb_row_vdata_info (pField->pTblm->row_size, pRow, &type);
 	if (xdb_unlikely (XDB_VTYPE_PTR == type)) {
-		xdb_str_t *pVStr = pRow + pField->pTblm->row_size;
+		const xdb_str_t *pVStr = pRow + pField->pTblm->row_size;
 		*pLen = pVStr[pField->fld_vid].len;
 		return pVStr[pField->fld_vid].str;
 	}
@@ -50,7 +63,7 @@ xdb_fld_vdata_get (xdb_field_t *pField, void *pRow, int *pLen)
 }
 
 static inline void*
-xdb_row_vdata_get2 (xdb_tblm_t *pTblm, void *pRow)
+xdb_row_vdata_get2 (xdb_tblm_t *pTblm, const void *pRow)
 {
 	uint8_t type;
 	xdb_rowid vid = xdb_row_vdata_info (pTblm->row_size, pRow, &type);
@@ -75,6 +88,7 @@ xdb_row_vdata_free (xdb_tblm_t *pTblm, void *pRow)
 xdb_row_t*
 xdb_fetch_row (xdb_res_t *pRes)
 {
+	if (xdb_unlikely (NULL == pRes)) { return NULL; }
 	xdb_rowdat_t *pCurRow = (xdb_rowdat_t*)pRes->row_data;
 	if (xdb_unlikely (pRes->errcode)) {
 		return NULL;
@@ -91,6 +105,7 @@ xdb_fetch_row (xdb_res_t *pRes)
 int
 xdb_rewind_result (xdb_res_t *pRes)
 {
+	if (xdb_unlikely (NULL == pRes)) { return -XDB_E_PARAM; }
 	xdb_queryRes_t *pQueryRes = (void*)pRes - offsetof(xdb_queryRes_t, res);
 	xdb_init_rowlist (pQueryRes);
 	return XDB_OK;
@@ -99,21 +114,19 @@ xdb_rewind_result (xdb_res_t *pRes)
 xdb_rowid
 xdb_affected_rows (xdb_res_t *pRes)
 {
-	return pRes->affected_rows;
+	return pRes ? pRes->affected_rows : -1;
 }
 
 xdb_rowid
 xdb_row_count (xdb_res_t *pRes)
 {
-	return pRes->row_count;
+	return pRes ? pRes->row_count : -1;
 }
 
 void
 xdb_free_result (xdb_res_t* pRes)
 {
-	if (xdb_unlikely(NULL == pRes)) {
-		return;
-	}
+	if (xdb_unlikely(NULL == pRes)) { return; }
 
 	xdb_conn_t	*pConn = *(xdb_conn_t**)((void*)pRes - (XDB_OFFSET(xdb_conn_t, conn_res) - XDB_OFFSET(xdb_conn_t, pConn)));
 	xdb_queryRes_t *pQueryRes = pConn->pQueryRes;
@@ -396,7 +409,6 @@ xdb_row_cmp (xdb_tblm_t *pTblm, void *pRow, xdb_field_t **ppFields, xdb_value_t 
 			break;
 		case XDB_TYPE_VCHAR:
 			voff = *(int32_t*)pFldVal;
-			pFldVal = NULL;
 			if (0 == voff) { return -1; }
 			pFldVal = xdb_row_vdata_get (pTblm, pRow) + 4 + voff;
 			// fall through
@@ -446,6 +458,7 @@ xdb_row_cmp2 (const void *pRowL, const void *pRowR, xdb_field_t **ppFields, int 
 		const xdb_field_t *pField = *ppField;
 		const void *pRowValL = pRowL + pField->fld_off;
 		const void *pRowValR = pRowR + pField->fld_off;
+		uint32_t  zerobin = 0;
 		int	lenL, lenR;
 		switch (pField->fld_type) {
 		case XDB_TYPE_INT:
@@ -492,16 +505,34 @@ xdb_row_cmp2 (const void *pRowL, const void *pRowR, xdb_field_t **ppFields, int 
 				return cmpf > 0 ? 1 : -1;
 			}
 			break;
-		case XDB_TYPE_CHAR:
 		case XDB_TYPE_VCHAR:
+			pRowValL = xdb_row_vdata_get_off (pField->pTblm, pRowL, *(int32_t*)pRowValL);
+			pRowValR = xdb_row_vdata_get_off (pField->pTblm, pRowR, *(int32_t*)pRowValR);
+			if (xdb_unlikely (NULL == pRowValL)) {
+				pRowValL = "";
+			}
+			if (xdb_unlikely (NULL == pRowValR)) {
+				pRowValR = "";
+			}
+			// fall through
+		case XDB_TYPE_CHAR:
 			cmp = strcasecmp (pRowValL, pRowValR);
 			if (cmp) {
 				*pCount = i;
 				return cmp;
 			}
 			break;
-		case XDB_TYPE_BINARY:
 		case XDB_TYPE_VBINARY:
+			pRowValL = xdb_row_vdata_get_off (pField->pTblm, pRowL, *(int32_t*)pRowValL);
+			pRowValR = xdb_row_vdata_get_off (pField->pTblm, pRowR, *(int32_t*)pRowValR);
+			if (xdb_unlikely (NULL == pRowValL)) {
+				pRowValL = (uint8_t*)&zerobin + 2;
+			}
+			if (xdb_unlikely (NULL == pRowValR)) {
+				pRowValR = (uint8_t*)&zerobin + 2;
+			}
+			// fall through
+		case XDB_TYPE_BINARY:
 			lenL = *(uint16_t*)(pRowValL-2);
 			lenR = *(uint16_t*)(pRowValR-2);
 			cmp = memcmp (pRowValL, pRowValR, lenL>lenR?lenR:lenL);
@@ -1120,10 +1151,12 @@ xdb_val_hash (xdb_value_t **ppValues, int count)
 			hash = (uint64_t)pValue->fval;
 			break;
 		case XDB_TYPE_CHAR:
+		case XDB_TYPE_VCHAR:
 			//hash = xdb_wyhash (pValue->str.str, pValue->str.len);
 			hash = xdb_strcasehash (pValue->str.str, pValue->str.len);
 			break;
 		case XDB_TYPE_BINARY:
+		case XDB_TYPE_VBINARY:
 			hash = xdb_wyhash (pValue->str.str, pValue->str.len);
 			break;
 		case XDB_TYPE_INET:
