@@ -312,6 +312,7 @@ xdb_close_all_db (xdb_conn_t *pConn)
 	for (int i = 0; i < XDB_OBJM_MAX(s_xdb_db_list); ++i) {
 		xdb_dbm_t *pDbm = XDB_OBJM_GET(s_xdb_db_list, i);
 		if (NULL != pDbm) {
+			xdb_dbglog ("====== close db %s ======\n", XDB_OBJ_NAME(pDbm));
 			xdb_close_db (pConn, pDbm);
 		}
 	}

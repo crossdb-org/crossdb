@@ -126,6 +126,8 @@ xdb_row_count (xdb_res_t *pRes)
 void
 xdb_free_result (xdb_res_t* pRes)
 {
+	// For GC lang like Python, cursor may close later after connection close and pRes has been freed
+	if (xdb_unlikely(!s_xdb_bInit)) { return; }
 	if (xdb_unlikely(NULL == pRes)) { return; }
 
 	xdb_conn_t	*pConn = *(xdb_conn_t**)((void*)pRes - (XDB_OFFSET(xdb_conn_t, conn_res) - XDB_OFFSET(xdb_conn_t, pConn)));

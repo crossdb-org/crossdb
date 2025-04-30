@@ -188,8 +188,6 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt, bool bRepla
 	pStmt->pSql = NULL;
 	pStmt->pRowsBuf = NULL;
 
-	XDB_EXPECT (pConn->pCurDbm != NULL, XDB_E_NODB, XDB_SQL_NO_DB_ERR);
-
 	xdb_token_type	type = xdb_next_token (pTkn);
 
 	XDB_EXPECT ((XDB_TOK_ID == type) && !strcasecmp (pTkn->token, "INTO"), XDB_E_STMT, "Expect INTO");
