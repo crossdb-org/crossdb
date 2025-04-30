@@ -358,7 +358,7 @@ xdb_inet_cmp (const xdb_inet_t* pInetL, const xdb_inet_t* pInetR)
 		return pInetL->family - pInetR->family;
 	}
 	int mask = pInetL->mask <= pInetR->mask ? pInetL->mask : pInetR->mask;		
-	int cmp = memcmp (&pInetL->addr, &pInetR->addr, mask);
+	int cmp = memcmp (&pInetL->addr, &pInetR->addr, (4==pInetL->family) ? 4 : 16);
 	if (cmp) {
 		return cmp;
 	}
