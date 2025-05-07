@@ -17,18 +17,19 @@ int main (int argc, char **argv)
 	char		ch;
 	bool		bServer = false, bNeedPasswd = false, bQuite = false;
 	#if (XDB_ENABLE_SERVER == 1)
-	char		*datadir = NULL, *host = NULL, *user = NULL, *password = NULL;
+	char		*datadir = NULL, *svrid = "1", *host = NULL, *user = NULL, *password = NULL;
 	int			port = 0;
 	#endif
 	char		*esql = NULL;
 
-	while ((ch = getopt(argc, argv, "h:u:p:e:P:D:R:Sq")) != -1) {
+	while ((ch = getopt(argc, argv, "h:u:p:e:P:D:R:I:Sq")) != -1) {
 		switch (ch) {
 		case '?':
 			xdb_print ("Usage: xdb-cli [OPTIONS] [[path]/db_name]\n");
             xdb_print ("  -?                        Show this help\n");
 		#if (XDB_ENABLE_SERVER == 1)
             xdb_print ("  -S                        Server: Start in server mode, default port %d\n", XDB_SVR_PORT);
+			xdb_print ("  -I                        Server ID: <string>\n");
             xdb_print ("  -h <ip>                   IP address to bind to or connect to\n");
             xdb_print ("  -P <port>                 Port to listen or connect\n");
             xdb_print ("  -D <datadir>              Server: Data directory to store databases, default '%s'\n", XDB_DATA_DIR);
@@ -47,6 +48,9 @@ int main (int argc, char **argv)
 			if (NULL == datadir) {
 				datadir = XDB_DATA_DIR;
 			}
+			break;
+		case 'I':
+			svrid = optarg;
 			break;
 		case 'h':
 			host = optarg;
@@ -81,7 +85,7 @@ int main (int argc, char **argv)
 
 	if (bServer) {
 	#if (XDB_ENABLE_SERVER == 1)
-		xdb_start_server (host, port, datadir, bQuite);
+		xdb_start_server (host, port, svrid, datadir, bQuite);
 	#endif
 	} else {
 		s_xdb_cli = true;

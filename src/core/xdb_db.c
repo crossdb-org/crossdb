@@ -18,6 +18,7 @@
 static xdb_objm_t	s_xdb_db_list;
 
 static char			s_xdb_datadir[XDB_PATH_LEN + 1];
+static char			s_xdb_svrid[XDB_NAME_LEN + 1];
 
 XDB_STATIC xdb_dbm_t* 
 xdb_find_db (const char *db_name)

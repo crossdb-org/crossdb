@@ -240,6 +240,7 @@ typedef struct {
 	char 	 		*sub_name;
 	char			*dbs;
 	char			*tables;
+	char			*client_id;
 	bool			bReplica;
 } xdb_stmt_subscribe_t;
 
@@ -435,6 +436,7 @@ typedef struct {
 	XDB_STMT_COMMON;
 	const		char *datadir;
 	const		char *format;
+	const		char *svrid;
 } xdb_stmt_set_t;
 
 typedef struct {

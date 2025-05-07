@@ -147,6 +147,8 @@ xdb_parse_subscribe (xdb_conn_t* pConn, xdb_token_t *pTkn)
 			pStmt->tables = pTkn->token;
 		} else if (0 == strcasecmp (var, "REPLICA")) {
 			pStmt->bReplica = atoi (pTkn->token);
+		} else if (0 == strcasecmp (var, "CLIENT_ID")) {
+			pStmt->client_id = pTkn->token;
 		}
 		type = xdb_next_token (pTkn);
 	} while (XDB_TOK_COMMA == type);

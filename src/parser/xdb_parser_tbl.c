@@ -256,7 +256,6 @@ xdb_parse_create_table (xdb_conn_t* pConn, xdb_token_t *pTkn)
 	xdb_stmt_tbl_t *pStmt = &pConn->stmt_union.tbl_stmt;
 
 	XDB_STMT_INIT(pStmt, XDB_STMT_CREATE_TBL);
-	pStmt->pSql = NULL;
 
 	XDB_EXPECT (NULL != pConn->pCurDbm, XDB_E_NODB, XDB_SQL_NO_DB_ERR);
 

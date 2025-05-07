@@ -359,7 +359,6 @@ xdb_inet_cmp (const xdb_inet_t* pInetL, const xdb_inet_t* pInetR)
 	if (xdb_unlikely (pInetL->family != pInetR->family)) {
 		return pInetL->family - pInetR->family;
 	}
-	int mask = pInetL->mask <= pInetR->mask ? pInetL->mask : pInetR->mask;		
 	int cmp = memcmp (&pInetL->addr, &pInetR->addr, (4==pInetL->family) ? 4 : 16);
 	if (cmp) {
 		return cmp;

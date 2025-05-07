@@ -167,9 +167,9 @@ XDB_STATIC xdb_stmt_t*
 xdb_parse_set (xdb_conn_t* pConn, xdb_token_t *pTkn)
 {
 	xdb_stmt_set_t *pStmt = &pConn->stmt_union.set_stmt;
-	pStmt->stmt_type = XDB_STMT_SET;
-	pStmt->pSql = NULL;
 	xdb_token_type	type;
+
+	XDB_STMT_INIT(pStmt, XDB_STMT_SET);
 
 	do {
 		type = xdb_next_token (pTkn);
@@ -186,6 +186,8 @@ xdb_parse_set (xdb_conn_t* pConn, xdb_token_t *pTkn)
 			pStmt->datadir = pTkn->token;
 		} else if (!strcasecmp (var, "FORMAT")) {
 			pStmt->format = pTkn->token;
+		} else if (!strcasecmp (var, "SERVER_ID")) {
+			pStmt->svrid = pTkn->token;
 		}
 		type = xdb_next_token (pTkn);
 	} while (XDB_TOK_COMMA == type);

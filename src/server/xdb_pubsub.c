@@ -89,11 +89,11 @@ xdb_run_replica (void *pArg)
 		//XDB_RESCHK(pRes);
 
 		if (NULL != pReplica->dbs) {
-			pRes = xdb_pexec (pPubConn, "SUBSCRIBE %s REPLICA=1, DB='%s'", XDB_OBJ_NAME(pReplica), pReplica->dbs);
+			pRes = xdb_pexec (pPubConn, "SUBSCRIBE %s CLIENT_ID='%s', REPLICA=1, DB='%s'", XDB_OBJ_NAME(pReplica), s_xdb_svrid, pReplica->dbs);
 		} else if (NULL != pReplica->tables) {
-			pRes = xdb_pexec (pPubConn, "SUBSCRIBE %s REPLICA=1, TABLE='%s'", XDB_OBJ_NAME(pReplica), pReplica->tables);
+			pRes = xdb_pexec (pPubConn, "SUBSCRIBE %s CLIENT_ID='%s', REPLICA=1, TABLE='%s'", XDB_OBJ_NAME(pReplica), s_xdb_svrid, pReplica->tables);
 		} else {
-			pRes = xdb_pexec (pPubConn, "SUBSCRIBE %s REPLICA=1", XDB_OBJ_NAME(pReplica));
+			pRes = xdb_pexec (pPubConn, "SUBSCRIBE %s CLIENT_ID='%s', REPLICA=1", XDB_OBJ_NAME(pReplica), s_xdb_svrid);
 		}
 		XDB_RESCHK(pRes);
 		while (1) {
@@ -171,7 +171,7 @@ xdb_subscribe_send (xdb_subscribe_t *pSub, const char *sql, int len)
 	if (NULL != pSub->pPub) {
 		xdb_pubsublog ("pub '%s' send to '%s' %d: %s%s\n", XDB_OBJ_NAME(pSub->pPub), XDB_OBJ_NAME(pSub), len, buf, sql);
 	} else {
-		xdb_pubsublog ("sub '%s' send to '%s' %d: %s%s\n", XDB_OBJ_NAME(pSub), pSub->client, len, buf, sql);
+		xdb_pubsublog ("sub '%s' send to '%s' %d: %s%s\n", XDB_OBJ_NAME(pSub), pSub->client_id, len, buf, sql);
 	}
 
 	return 0;
@@ -396,7 +396,10 @@ xdb_subscribe (xdb_stmt_subscribe_t *pStmt)
 	xdb_buf_init (&dbuf);
 	bool		bGlobal = false;
 
-	xdb_subscribe_t *pSubscribe = xdb_find_subscriber (pStmt->sub_name);
+	char sub_name[XDB_NAME_LEN + 1];
+	xdb_sprintf (sub_name, "%s.%s", pStmt->client_id, pStmt->sub_name);
+
+	xdb_subscribe_t *pSubscribe = xdb_find_subscriber (sub_name);
 	if (pSubscribe != NULL) {
 		pSubscribe->pConn = pConn;
 		return XDB_OK;
@@ -404,9 +407,11 @@ xdb_subscribe (xdb_stmt_subscribe_t *pStmt)
 	
 	pSubscribe = xdb_calloc (sizeof(xdb_subscribe_t));
 	XDB_EXPECT (NULL != pSubscribe, XDB_E_MEMORY, "Can't alloc memory");
-	xdb_strcpy (XDB_OBJ_NAME(pSubscribe), pStmt->sub_name);
+	xdb_strcpy (XDB_OBJ_NAME(pSubscribe), sub_name);
 	pSubscribe->pConn = pConn;
 	pSubscribe->bReplica = pStmt->bReplica;
+	xdb_strcpy (pSubscribe->sub_name, pStmt->sub_name);
+	xdb_strcpy (pSubscribe->client_id, pStmt->client_id);
 	pConn->pSubscribe = pSubscribe;
 
 #if 0

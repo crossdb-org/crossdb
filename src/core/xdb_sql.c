@@ -21,6 +21,10 @@ xdb_sql_set (xdb_stmt_set_t *pStmt)
 		xdb_strcpy (s_xdb_datadir, pStmt->datadir);
 	}
 
+	if (NULL != pStmt->svrid) {
+		xdb_strcpy (s_xdb_svrid, pStmt->svrid);
+	}
+
 	if (NULL != pStmt->format) {
 		if (pConn->res_format >= XDB_FMT_NATIVELE) {
 			XDB_EXPECT_RETE(pConn->res_format < XDB_FMT_NATIVELE, XDB_E_CONSTRAINT, 
@@ -841,26 +845,21 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 					*(uint16_t*)(pAddr - 2) = len;
 					memcpy (pAddr, str, len);
 					break;
-				case XDB_TYPE_VCHAR:
-					str = va_arg (ap, char *);
-					len = strlen (str);
-					if (xdb_unlikely (len > pFld->fld_len)) {
-						XDB_SETERR(XDB_E_PARAM, "Field '%s' max len %d < input %d", XDB_OBJ_NAME(pFld), pFld->fld_len, len);
-						return &pConn->conn_res;
-					} else {
-						xdb_str_t *pVstr = pStmtIns->pBindRow[i] + pStmtIns->pTblm->row_size;
-						xdb_str_t *pStr = &pVstr[pFld->fld_vid];
-						pStr->len = len;
-						pStr->str = str;
-					}
-					break;
 				case XDB_TYPE_VBINARY:
 					len = va_arg (ap, int);
+					// fall through
+				case XDB_TYPE_VCHAR:
 					str = va_arg (ap, char *);
+					if (xdb_unlikely (NULL == str)) {
+						len = 0;
+					} else if (XDB_TYPE_VCHAR == pFld->fld_type) {
+						len = strlen (str);
+					}
 					if (xdb_unlikely (len > pFld->fld_len)) {
 						XDB_SETERR(XDB_E_PARAM, "Field '%s' max len %d < input %d", XDB_OBJ_NAME(pFld), pFld->fld_len, len);
 						return &pConn->conn_res;
-					} else {
+					}
+					{
 						xdb_str_t *pVstr = pStmtIns->pBindRow[i] + pStmtIns->pTblm->row_size;
 						xdb_str_t *pStr = &pVstr[pFld->fld_vid];
 						pStr->len = len;

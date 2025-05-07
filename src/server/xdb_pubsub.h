@@ -33,7 +33,8 @@ typedef struct xdb_subscribe_t {
 	bool				bReplica;
 	char				*dbs;
 	char				*tables;
-	char				client[XDB_NAME_LEN + 1];
+	char				sub_name[XDB_NAME_LEN + 1];
+	char				client_id[XDB_NAME_LEN + 1];
 	xdb_pub_t			*pPub;	
 	xdb_vec_t			db_list;
 	xdb_vec_t			tbl_list;

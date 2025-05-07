@@ -32,7 +32,7 @@
  Server-side scripts		| LUA (TBD)
  Triggers					| yes, native languages
  Partitioning methods		| none
- Replication methods		| Source-replica replication (TBD)<br>Multi-source replication (TBD)<br>Logical Replication (TBD)
+ Replication methods		| Source-replica replication<br>Multi-source replication<br>Logical Replication (TBD)
  Data Subscription			| yes (TBD)
  MapReduce 					| no
  Consistency concepts		| Immediate Consistency
@@ -139,4 +139,6 @@ https://crossdb.org/get-started/tutorial/
 
 https://crossdb.org/develop/server/
 
-https://crossdb.org/admin/shell/#connect-to-crossdb-server
+### CrossDB Replication
+
+https://crossdb.org/develop/replication/

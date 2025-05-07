@@ -264,16 +264,16 @@ static char *s_xdb_banner_server =
 "   _____                   _____  ____      _          \n"  
 "  / ____|                 |  __ \\|  _ \\   _| |_    CrossDB Server v%s\n"
 " | |     _ __ ___  ___ ___| |  | | |_) | |_   _|   Port: %d\n"
-" | |    | '__/ _ \\/ __/ __| |  | |  _ <    |_|     DataDir: %s\n"
-" | |____| | | (_) \\__ \\__ \\ |__| | |_) |          \n"
+" | |    | '__/ _ \\/ __/ __| |  | |  _ <    |_|     ServerID: %s\n"
+" | |____| | | (_) \\__ \\__ \\ |__| | |_) |           DataDir: %s\n"
 "  \\_____|_|  \\___/|___/___/_____/|____/            https://crossdb.org\n\n";
 
 
 int
-xdb_start_server (const char *host, uint16_t port, const char *datadir, bool bQuite)
+xdb_start_server (const char *host, uint16_t port, const char *svrid, const char *datadir, bool bQuite)
 {
 	if (!bQuite) {
-		xdb_print (s_xdb_banner_server, xdb_version(), port, datadir);
+		xdb_print (s_xdb_banner_server, xdb_version(), port, svrid, datadir);
 	}
 	
 	if (NULL == datadir) {
@@ -286,7 +286,9 @@ xdb_start_server (const char *host, uint16_t port, const char *datadir, bool bQu
 	xdb_pexec (pConn, "OPEN DATADIR '%s'", datadir);
 	
 	xdb_pexec (pConn, "SET DATADIR='%s'", datadir);
-	
+
+	xdb_pexec (pConn, "SET SERVER_ID='%s'", svrid);
+
 	xdb_pexec (pConn, "CREATE SERVER crossdb PORT=%d", port);
 
 	if (!bQuite) {

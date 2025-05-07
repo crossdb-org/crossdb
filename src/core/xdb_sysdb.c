@@ -223,8 +223,8 @@ xdb_sysdb_add_sub (xdb_subscribe_t *pSub)
 		return;
 	}
 
-	xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "INSERT INTO subscriptions (subname, tables) VALUES('%s','%s')", 
-		XDB_OBJ_NAME(pSub), pSub->tables?pSub->tables:"");
+	xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "INSERT INTO subscriptions (client_id, subname, tables) VALUES('%s','%s','%s')", 
+		pSub->client_id, pSub->sub_name, pSub->tables?pSub->tables:"");
 	if (pRes->errcode != XDB_E_NOTFOUND) {
 		XDB_RESCHK(pRes, xdb_errlog("Can't add to system table subscriptions %s\n", XDB_OBJ_NAME(pSub)));
 	}
@@ -275,11 +275,11 @@ xdb_sysdb_init ()
 
 	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS servers (server CHAR(64), port INT)");
 	XDB_RESCHK(pRes, xdb_errlog ("Can't create system table databases\n"));
-
+#if 0
 	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS publications (pubname CHAR(64), database CHAR(64))");
 	XDB_RESCHK(pRes, xdb_errlog ("Can't create system table publications\n"));
-
-	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS subscriptions (subname CHAR(64), tables VARCHAR)");
+#endif
+	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS subscriptions (client_id CHAR(64), subname CHAR(64), tables VARCHAR, PRIMARY KEY (client_id, subname))");
 	XDB_RESCHK(pRes, xdb_errlog ("Can't create system table subscriptions\n"));
 
 	xdb_sysdb_add_db (pConn->pCurDbm);

@@ -28,22 +28,28 @@
 
 - Support RBTREE index for exact match, range match and leftmost match
 
-## 0.13.0 <small>(2025-04-20)</small>
+-->
+
+## 0.13.0 <small>(2025-05-07)</small>
 
 **Features**
 
-- Support REPLACE statement
+- Support `REPLACE` statement
+- Support `Trigger` feature
+- Support `Replication` feature
 
 **Improvements**
-
-**Test**
 
 **Bug Fixes**
 
 - Can't open existing database
 - Crash when there's query error
+- `order by` doesn't work for `VARCHAR`/`VARBINARY`
+- `xdb_bexec` doesn't work for `VARCHAR`/`VARBINARY`
+- `inet` type query doesn't work
+- Python client crash
 
--->
+**Test**
 
 ## 0.12.0 <small>(2025-04-14)</small>
 
