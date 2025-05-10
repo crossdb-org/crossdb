@@ -58,8 +58,8 @@ typedef struct xdb_value_t {
 		xdb_str_t	str;	// str/binary
 		xdb_inet_t	inet;
 		xdb_mac_t	mac;
-		struct xdb_expr_t	*pExpr;
 	};
+	void		*pExpr;
 } xdb_value_t;
 
 typedef struct xdb_expr_t {

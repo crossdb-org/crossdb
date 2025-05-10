@@ -16,7 +16,6 @@
  Secondary database models	| Document store (TBD)<br>Key-value store(TBD)
  Website					| crossdb.org
  Technical documentation	| crossdb.org/intro
- Developer					| JC Wang
  Initial release			| 2023
  License					| Open Source, MPL
  Cloud-based only			| no

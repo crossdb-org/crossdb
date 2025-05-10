@@ -665,6 +665,16 @@ xdb_row_and_match (xdb_tblm_t *pTblm, void *pRow, xdb_filter_t **pFilters, int c
 				if (!xdb_str_like2 (value.str.str, value.str.len, pValue->str.str, pValue->str.len, true)) {
 					return false;
 				}
+			} else if (xdb_unlikely (XDB_TOK_REGEXP == pFilter->cmp_op)) {
+				if (xdb_unlikely (NULL == pValue->pExpr)) {
+					pValue->pExpr = xdb_str_regcomp (pValue->str.str);
+					if (xdb_unlikely (NULL == pValue->pExpr)) {
+						return false;
+					}
+				}
+				if (!xdb_str_regexec (value.str.str, pValue->pExpr)) {
+					return false;
+				}
 			}
 			cmp = value.str.len - pValue->str.len;
 			if (cmp == 0) {

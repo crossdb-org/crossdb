@@ -596,6 +596,7 @@ static xdb_token_type s_XDB_TOK_opposite[] = {
 	[XDB_TOK_LE] = XDB_TOK_GE,
 	[XDB_TOK_GE] = XDB_TOK_LE,
 	[XDB_TOK_LIKE] = XDB_TOK_LIKE,
+	[XDB_TOK_REGEXP] = XDB_TOK_REGEXP,
 };
 
 XDB_STATIC bool
@@ -675,6 +676,9 @@ next_filter:
 					op = XDB_TOK_LIKE;
 				} else if (!strcasecmp (pTkn->token, "BETWEEN")) {
 					op = XDB_TOK_BTWN;
+				} else if (!strcasecmp (pTkn->token, "REGEXP")) {
+					op = XDB_TOK_REGEXP;
+					pStmt->bRegexp = true;
 				}
 			}
 			pTblName = NULL;
@@ -729,6 +733,7 @@ next_filter:
 		}
 		xdb_filter_t *pFilter = &pRefTbl->filters[pRefTbl->filter_count++];
 		pSigFlt->pFilters[pSigFlt->filter_count++] = pFilter;
+		pFilter->val.pExpr = NULL;
 		//pFilter->fld_off	= pField->fld_off;
 		//pFilter->fld_type	= pField->fld_type;
 		pFilter->pField = pField;

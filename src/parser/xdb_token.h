@@ -24,6 +24,7 @@ typedef enum {
 	XDB_TOK_GE, 	// >=
 	XDB_TOK_LIKE,
 	XDB_TOK_BTWN,
+	XDB_TOK_REGEXP,
 	XDB_TOK_IN,
 	XDB_TOK_NE, 	// != <>
 	XDB_TOK_ADD, 	// +

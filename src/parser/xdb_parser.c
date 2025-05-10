@@ -699,6 +699,18 @@ xdb_stmt_free (xdb_stmt_t *pStmt)
 			if ((pStmtSel->meta_size) > 0 && ((void*)pStmtSel->pMeta != (void*)pStmtSel->set_flds)) {
 				xdb_free (pStmtSel->pMeta);
 			}
+			if (xdb_unlikely (pStmtSel->bRegexp)) {
+				for (int i = 0; i < pStmtSel->reftbl_count; ++i) {
+					xdb_reftbl_t *pRefTbl = &pStmtSel->ref_tbl[i];
+					for (int j = 0; j < pRefTbl->filter_count; ++j) {
+						xdb_value_t *pVal = &pRefTbl->filters[j].val;
+						if (pVal->pExpr != NULL) {
+							xdb_str_regfree (pVal->pExpr);
+							pVal->pExpr = NULL;
+						}
+					}
+				}
+			}
 		}
 		break;
 	default:

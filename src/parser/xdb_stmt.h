@@ -430,6 +430,8 @@ typedef struct {
 
 	xdb_row_callback 	callback;
 	void 				*pCbArg;
+
+	bool			bRegexp;
 } xdb_stmt_select_t;
 
 typedef struct {

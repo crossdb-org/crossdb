@@ -9,6 +9,8 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/.
 ******************************************************************************/
 
+#include <regex.h>
+
 typedef struct xdb_str_t {
 	char	*str;
 	int 	len;
@@ -116,5 +118,31 @@ int xdb_str_like2 (const char *string, int strLen, const char *pattern, int patL
 int xdb_str_like (const char *string, const char *pattern, int bNoCase)
 {
 	return xdb_str_like2 (string, strlen(string), pattern, strlen(pattern), bNoCase);
+}
+
+void * xdb_str_regcomp (const char *pattern)
+{
+	regex_t *pRegex = xdb_calloc (sizeof (regex_t));
+	if (NULL == pRegex) {
+		return NULL;
+	}
+	if (0 != regcomp(pRegex, pattern, 0)) {
+		xdb_errlog ("Can parse patter: '%s'\n", pattern);
+		xdb_free (pRegex);
+		pRegex = NULL;
+	}
+	printf ("new paater %s\n", pattern);
+	return pRegex;
+}
+
+void xdb_str_regfree (void *pRegExp)
+{
+	regfree (pRegExp);
+	xdb_free (pRegExp);
+}
+
+int xdb_str_regexec (const char *string, void *pRegExp)
+{
+	return 0 == regexec (pRegExp, string, 0, NULL, 0);
 }
 
