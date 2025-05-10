@@ -24,9 +24,21 @@
 **Test**
 **Bug Fixes**
 - Support simple SQL inner join
+- Support RBTREE index for exact match, range match and leftmost match
+
+## 0.14.0 <small>(2025-05-07)</small>
+
+**Features**
+
+- Support `REGEXP`,`RLIKE` operator
 - Support new statements: `FLUSH` `REPAIR`
 
-- Support RBTREE index for exact match, range match and leftmost match
+**Improvements**
+
+**Bug Fixes**
+
+**Test**
+
 
 -->
 

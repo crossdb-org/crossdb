@@ -676,7 +676,7 @@ next_filter:
 					op = XDB_TOK_LIKE;
 				} else if (!strcasecmp (pTkn->token, "BETWEEN")) {
 					op = XDB_TOK_BTWN;
-				} else if (!strcasecmp (pTkn->token, "REGEXP")) {
+				} else if (!strcasecmp (pTkn->token, "REGEXP") || !strcasecmp (pTkn->token, "RLIKE")) {
 					op = XDB_TOK_REGEXP;
 					pStmt->bRegexp = true;
 				}
