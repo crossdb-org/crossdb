@@ -131,7 +131,6 @@ void * xdb_str_regcomp (const char *pattern)
 		xdb_free (pRegex);
 		pRegex = NULL;
 	}
-	printf ("new paater %s\n", pattern);
 	return pRegex;
 }
 
