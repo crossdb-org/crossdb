@@ -32,10 +32,13 @@
 
 - Support `REGEXP`,`RLIKE` operator
 - Support new statements: `FLUSH` `REPAIR`
+- Support `TTL` feature
 
 **Improvements**
 
 **Bug Fixes**
+
+- Fix `TIMESTAMP` show/update bugs
 
 **Test**
 

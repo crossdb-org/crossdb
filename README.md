@@ -36,7 +36,7 @@
  MapReduce 					| no
  Consistency concepts		| Immediate Consistency
  Foreign keys				| yes (TBD)
- TTL						| yes (TBD)
+ TTL						| yes
  Transaction concepts		| ACID
  Concurrency 				| yes<br>Table-level read-write locks<br>Row-level read-write locks (TBD)<br>Reader-Writer MVCC (write transaction doesn't block read transactions)<br>PostgreSQL-like MVCC (TBD)
  Durability 				| yes, WAL
