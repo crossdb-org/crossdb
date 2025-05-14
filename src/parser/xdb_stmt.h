@@ -441,6 +441,36 @@ typedef struct {
 	const		char *svrid;
 } xdb_stmt_set_t;
 
+typedef enum {
+	XDB_TIME_US,
+	XDB_TIME_MS,
+	XDB_TIME_SEC,
+	XDB_TIME_MIN,
+	XDB_TIME_HOUR,
+	XDB_TIME_DAY,
+	XDB_TIME_WEEK,
+	XDB_TIME_MONTH,
+	XDB_TIME_QUART,
+	XDB_TIME_YEAR,
+} xdb_time_unit;
+
+static uint64_t xdb_timeunit_us (xdb_time_unit type)
+{
+	static uint64_t time_unit [] = {
+		[XDB_TIME_US    ] = 1LL,
+		[XDB_TIME_MS	] = 1000LL,
+		[XDB_TIME_SEC	] = 1000000LL,
+		[XDB_TIME_MIN	] = 60*1000000LL,
+		[XDB_TIME_HOUR	] = 3600*1000000LL,
+		[XDB_TIME_DAY	] = 24*3600*1000000LL,
+		[XDB_TIME_WEEK  ] = 7*24*3600*1000000LL,
+		[XDB_TIME_MONTH ] = 30*24*3600*1000000LL,
+		[XDB_TIME_QUART ] = 120*24*3600*1000000LL,
+		[XDB_TIME_YEAR  ] = 365*24*3600*1000000LL,
+	};
+	return time_unit[type];
+}
+
 typedef struct {
 	XDB_STMT_COMMON;
 	struct xdb_dbm_t		*pDbm;
@@ -452,6 +482,9 @@ typedef struct {
 	int				row_size;
 	int				xoid;
 	bool			bMemory;
+	char			*ttl_col;
+	int				ttl_expire;
+	xdb_time_unit	ttl_unit;
 	struct xdb_tblm_t	*pTblm;
 	xdb_field_t		stmt_flds[XDB_MAX_COLUMN];
 	bool			bIfExistOrNot;

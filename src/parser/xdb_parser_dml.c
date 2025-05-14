@@ -117,15 +117,15 @@ int
 xdb_timestamp_sprintf (uint64_t timestamp, char *buf, int size)
 {
 	struct tm tm_val;
-	int 	millsec = timestamp%1000000;
+	int 	usec = timestamp%1000000;
 	time_t time_val = (time_t)timestamp/1000000;
 	localtime_r(&time_val, &tm_val);
-	int len = strftime (buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", &tm_val);
-	if (millsec) {
-		if (millsec%1000) {
-			len += sprintf (buf+len, ".%06d", millsec);
+	int len = strftime (buf, size, "%Y-%m-%dT%H:%M:%S", &tm_val);
+	if (usec) {
+		if (usec%1000) {
+			len += sprintf (buf+len, ".%06d", usec);
 		} else {
-			len += sprintf (buf+len, ".%03d", millsec/1000);
+			len += sprintf (buf+len, ".%03d", usec/1000);
 		}
 	}
 	return len;
@@ -171,6 +171,25 @@ xdb_timestamp_scanf (const char *time_str)
 
 	return time_val*1000000 + SubSec;
 }
+
+XDB_STATIC const char* 
+xdb_timeunit2str(xdb_time_unit type) 
+{
+	static const char *id2str[] = {
+		[XDB_TIME_US    ] = "MICROSECOND",
+		[XDB_TIME_MS	] = "MILLISECOND",
+		[XDB_TIME_SEC	] = "SECOND",
+		[XDB_TIME_MIN	] = "MINUTE",
+		[XDB_TIME_HOUR	] = "HOUR",
+		[XDB_TIME_DAY	] = "DAY",
+		[XDB_TIME_WEEK  ] = "WEEK",
+		[XDB_TIME_MONTH ] = "MONTH",
+		[XDB_TIME_QUART ] = "QUARTER",
+		[XDB_TIME_YEAR  ] = "YEAR",
+	};
+	return type <= XDB_ARY_LEN(id2str) ? id2str[type] : "Unknown";
+}
+
 
 XDB_STATIC xdb_stmt_t* 
 xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt, bool bReplace)
@@ -534,12 +553,32 @@ xdb_parse_val (xdb_stmt_select_t *pStmt, xdb_field_t *pField, xdb_value_t *pVal,
 		break;
 	case XDB_TOK_STR:
 	case XDB_TOK_HEX:
-		if (NULL != pField) {
-			XDB_EXPECT(pTkn->tk_len <= pField->fld_len, XDB_E_STMT, "Too long string values %d > %d", pTkn->tk_len, pField->fld_len);
-		}
 		pVal->str.len = pTkn->tk_len;
 		pVal->str.str = pTkn->token;
 		pVal->val_type = XDB_TYPE_CHAR;
+		if (pField != NULL) {
+			switch (pField->fld_type) {
+			case XDB_TYPE_TIMESTAMP:
+				pVal->ival = xdb_timestamp_scanf(pTkn->token);
+				pVal->val_type = XDB_TYPE_BIGINT;
+				pVal->sup_type = XDB_TYPE_BIGINT;
+				break;
+			case XDB_TYPE_INET:
+				xdb_inet_scanf(&pVal->inet, pTkn->token);
+				pVal->val_type = XDB_TYPE_INET;
+				break;
+			case XDB_TYPE_MAC:
+				xdb_mac_scanf(&pVal->mac, pTkn->token);
+				pVal->val_type = XDB_TYPE_MAC;
+				break;
+			case XDB_TYPE_CHAR:
+			case XDB_TYPE_VCHAR:
+				XDB_EXPECT(pTkn->tk_len <= pField->fld_len, XDB_E_STMT, "Too long string values %d > %d", pTkn->tk_len, pField->fld_len);
+				break;
+			default:
+				break;
+			}
+		}
 		type = xdb_next_token (pTkn);
 		break;
 	case XDB_TOK_ID:

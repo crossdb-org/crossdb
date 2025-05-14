@@ -203,6 +203,16 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 	}
 #endif
 
+	pTblm->pTtlFld = NULL;
+	if (pStmt->ttl_col != NULL) {
+		pTblm->pTtlFld = xdb_find_field (pTblm, pStmt->ttl_col, 0);
+		XDB_EXPECT ((pTblm->pTtlFld != NULL) && (pTblm->pTtlFld->fld_type == XDB_TYPE_TIMESTAMP), XDB_ERROR, 
+					"Failed to create table '%s' TTL '%s'", XDB_OBJ_NAME(pTblm), pStmt->ttl_col);
+		pTblm->ttl_unit = pStmt->ttl_unit;
+		pTblm->ttl_expire = pStmt->ttl_expire * xdb_timeunit_us(pTblm->ttl_unit);
+		pDbm->bTtlTbl = true;
+	}
+
 	for (int i = 0; i < pStmt->idx_count; ++i) {
 		xdb_stmt_idx_t *pStmtIdx = &pStmt->stmt_idx[i];
 		pStmtIdx->pConn = pStmt->pConn;
@@ -375,6 +385,10 @@ xdb_dump_create_table (xdb_tblm_t *pTblm, char buf[], xdb_size size, uint32_t fl
 
 	buf[len-2] = '\n';
 	buf[len-1] = ')';
+	if (pTblm->pTtlFld != NULL) {
+		len += sprintf (buf+len, " TTL=%s + INTERVAL %d %s", XDB_OBJ_NAME(pTblm->pTtlFld), 
+							(int)(pTblm->ttl_expire/xdb_timeunit_us(pTblm->ttl_unit)), xdb_timeunit2str(pTblm->ttl_unit));
+	}
 	if (pTblm->bMemory && !pTblm->pDbm->bMemory) {
 		len += sprintf (buf+len, " ENGINE=MEMORY");
 	}

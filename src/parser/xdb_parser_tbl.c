@@ -387,6 +387,41 @@ xdb_parse_create_table (xdb_conn_t* pConn, xdb_token_t *pTkn)
 		} else if (!strcasecmp (var, "ENGINE")) {
 			XDB_EXPECT ((XDB_TOK_ID == type) && !strcasecmp (pTkn->token, "MEMORY"), XDB_E_STMT, "Expect MEMORY");
 			pStmt->bMemory = true;
+		} else if (!strcasecmp (var, "TTL")) {
+			XDB_EXPECT (XDB_TOK_ID == type, XDB_E_STMT, "Expect column");
+			pStmt->ttl_col = pTkn->token;
+			type = xdb_next_token (pTkn);
+			XDB_EXPECT ((XDB_TOK_ADD == type), XDB_E_STMT, "Expect +");
+			type = xdb_next_token (pTkn);
+			XDB_EXPECT ((XDB_TOK_ID == type) && !strcasecmp (pTkn->token, "INTERVAL"), XDB_E_STMT, "Expect INTERVAL");
+			type = xdb_next_token (pTkn);
+			XDB_EXPECT (XDB_TOK_NUM == type, XDB_E_STMT, "Expect number");
+			pStmt->ttl_expire = atoi (pTkn->token);
+			type = xdb_next_token (pTkn);
+			XDB_EXPECT ((XDB_TOK_ID == type), XDB_E_STMT, "Expect timestamp unit");
+			if (!strcasecmp (pTkn->token, "MICROSECOND")) {
+				pStmt->ttl_unit = XDB_TIME_US;
+			} else if (!strcasecmp (pTkn->token, "MILLISECOND")) {
+				pStmt->ttl_unit = XDB_TIME_MS;
+			} else if (!strcasecmp (pTkn->token, "SECOND")) {
+				pStmt->ttl_unit = XDB_TIME_SEC;
+			} else if (!strcasecmp (pTkn->token, "MINUTE")) {
+				pStmt->ttl_unit = XDB_TIME_MIN;
+			} else if (!strcasecmp (pTkn->token, "HOUR")) {
+				pStmt->ttl_unit = XDB_TIME_HOUR;
+			} else if (!strcasecmp (pTkn->token, "DAY")) {
+				pStmt->ttl_unit = XDB_TIME_DAY;
+			} else if (!strcasecmp (pTkn->token, "WEEK")) {
+				pStmt->ttl_unit = XDB_TIME_WEEK;
+			} else if (!strcasecmp (pTkn->token, "MONTH")) {
+				pStmt->ttl_unit = XDB_TIME_MONTH;
+			} else if (!strcasecmp (pTkn->token, "QUARTER")) {
+				pStmt->ttl_unit = XDB_TIME_QUART;
+			} else if (!strcasecmp (pTkn->token, "YEAR")) {
+				pStmt->ttl_unit = XDB_TIME_YEAR;
+			} else {
+				XDB_EXPECT (0, XDB_E_STMT, "Unknown time unit '%s'", pTkn->token);
+			}
 		}
 		type = xdb_next_token (pTkn);
 	} while (XDB_TOK_COMMA == type);

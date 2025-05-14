@@ -580,7 +580,7 @@ xdb_row_and_match (xdb_tblm_t *pTblm, void *pRow, xdb_filter_t **pFilters, int c
 		xdb_field_t *pField = pFilter->pField;
 		void *pVal = pRow + pField->fld_off;
 		xdb_value_t	value, *pValue = &pFilter->val;
-		int cmp;
+		int64_t cmp;
 
 		switch (pField->fld_type) {
 		case XDB_TYPE_INT:
@@ -2115,6 +2115,13 @@ xdb_sql_filter (xdb_stmt_select_t *pStmt)
 	if (xdb_unlikely (pStmt->reftbl_count > 1)) {
 		xdb_rowset_init (&row_set);
 		pRowSet = &row_set;
+	}
+
+	if (xdb_unlikely (pTblm->pTtlFld != NULL)) {
+		pTblm->cur_ts = xdb_timestamp_us() - pTblm->ttl_expire;
+		if (xdb_unlikely (pStmt->stmt_type == XDB_STMT_DELETE)) {
+			pTblm->cur_ts = 0;
+		}
 	}
 
 	if (xdb_likely ((0 == pStmt->order_count) || (pStmt->reftbl_count > 1))) {

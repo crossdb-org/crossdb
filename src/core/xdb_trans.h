@@ -146,17 +146,25 @@ xdb_begin2 (xdb_conn_t *pConn, bool bAutoCommit);
 static inline bool 
 xdb_row_valid (xdb_conn_t *pConn, xdb_tblm_t *pTblm, void *pRow, xdb_rowid rid)
 {
+	bool valid;
 	uint8_t ctrl = XDB_ROW_CTRL (pTblm->stg_mgr.pStgHdr, pRow) & XDB_ROW_MASK;
 	if (ctrl < XDB_ROW_COMMIT) {
 		return false;
 	}
 	if (XDB_ROW_COMMIT == ctrl) {
 		// not delete by this conn?
-		return ! xdb_trans_getrow (pConn, pTblm, rid, false);
+		valid = ! xdb_trans_getrow (pConn, pTblm, rid, false);
 	} else {
 		// insert by this conn?
-		return   xdb_trans_getrow (pConn, pTblm, rid, true);
+		valid =   xdb_trans_getrow (pConn, pTblm, rid, true);
 	}
+	if (valid) {
+		if (xdb_unlikely (pTblm->pTtlFld != NULL)) {
+			uint64_t ttl_ts = *(uint64_t*)(pRow + pTblm->pTtlFld->fld_off);
+			return pTblm->cur_ts < ttl_ts;
+		}
+	}
+	return valid;
 }
 
 #endif // __XDB_TRANS_H__

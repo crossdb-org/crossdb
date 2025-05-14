@@ -79,7 +79,7 @@ static bool s_xdb_vdat[XDB_TYPE_MAX] = {
 
 const char* xdb_type2str(xdb_type_t tp) 
 {
-	const char *id2str[] = {
+	static const char *id2str[] = {
 		[XDB_TYPE_NULL     ] = "NULL",
 		[XDB_TYPE_BOOL	   ] = "BOOL",
 		[XDB_TYPE_TINYINT  ] = "TINYINT",

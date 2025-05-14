@@ -458,6 +458,9 @@ void* xdb_bg_task (void *data)
 				xdb_flush_db (pDbm, 0);
 				s_xdb_bg_flush++;
 			}
+			if (s_xdb_bInit && (NULL != pDbm) && pDbm->bTtlTbl) {				
+				xdb_ttl_db (pDbm, false, 0);
+			}
 		}
 	}
 

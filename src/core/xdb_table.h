@@ -21,6 +21,7 @@ typedef struct xdb_tblm_t {
 	uint32_t		vtype_off;
 	uint32_t		null_off;
 	uint32_t		blk_size;
+	uint64_t 		cur_ts;
 
 	bool			bLog;
 	bool			bMemory;
@@ -59,6 +60,11 @@ typedef struct xdb_tblm_t {
 	xdb_vec_t		sub_list;
 
 	xdb_bmp_t		*pAuditRows;
+
+	xdb_field_t*	pTtlFld;
+	uint64_t		ttl_expire;
+	uint64_t		ttl_last;
+	xdb_time_unit	ttl_unit;
 } xdb_tblm_t;
 
 typedef struct xdb_tbl_t {

@@ -19,6 +19,7 @@ typedef struct xdb_dbm_t {
 	xdb_stgmgr_t	stg_mgr;
 	bool			bMemory;
 	bool			bSysDb;
+	bool			bTtlTbl;
 	xdb_lockmode_e	lock_mode;
 	xdb_syncmode_e	sync_mode;
 
@@ -57,6 +58,9 @@ xdb_repair_db (xdb_dbm_t *pDbm, int flags);
 
 XDB_STATIC int 
 xdb_flush_db (xdb_dbm_t *pDbm, uint32_t flags);
+
+XDB_STATIC int 
+xdb_ttl_db (xdb_dbm_t *pDbm, bool bNow, uint32_t flags);
 
 XDB_STATIC int 
 xdb_dump_create_db (xdb_dbm_t *pDbm, char buf[], xdb_size size, uint32_t flags);

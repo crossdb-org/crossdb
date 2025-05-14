@@ -437,6 +437,42 @@ xdb_repair_db (xdb_dbm_t *pDbm, int flags)
 }
 
 XDB_STATIC int 
+xdb_ttl_db (xdb_dbm_t *pDbm, bool bNow, uint32_t flags)
+{
+	if (NULL == pDbm || pDbm->bMemory) {
+		return XDB_OK;
+	}
+
+	xdb_wrlock_db (pDbm);
+
+	// flush tables
+	int count = XDB_OBJM_MAX(pDbm->db_objm);
+	for (int i = 0; i < count; ++i) {
+		xdb_tblm_t *pTblm = XDB_OBJM_GET(pDbm->db_objm, i);
+		if ((NULL != pTblm) && (NULL != pTblm->pTtlFld)) {
+			if (!bNow) {
+				uint64_t interval = xdb_timestamp_us() - pTblm->ttl_last;
+				if (xdb_timestamp_us() - pTblm->ttl_last < pTblm->ttl_expire/5) {
+					if (interval < 3600*1000000LL) {
+						continue;
+					}
+				}
+			}
+
+			xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "DELETE FROM %s.%s WHERE %s < %"PRIu64, 
+											XDB_OBJ_NAME(pDbm), XDB_OBJ_NAME(pTblm), XDB_OBJ_NAME(pTblm->pTtlFld), xdb_timestamp_us() - pTblm->ttl_expire);
+			if (pRes->affected_rows > 0) {
+				xdb_dblog ("TTL: delete %d recods from %s.%s\n", pRes->affected_rows, XDB_OBJ_NAME(pDbm), XDB_OBJ_NAME(pTblm));
+			}
+			pTblm->ttl_last = xdb_timestamp_us();
+		}
+	}
+
+	xdb_wrunlock_db (pDbm);
+	return 0;
+}
+
+XDB_STATIC int 
 xdb_dump_create_db (xdb_dbm_t *pDbm, char buf[], xdb_size size, uint32_t flags)
 {
 	xdb_size			len = 0;
