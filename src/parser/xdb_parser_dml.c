@@ -381,6 +381,7 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt, bool bRepla
 						//xdb_dbgprint ("%s %s\n", pField->fld_name, pTkn->token);
 						break;
 					case XDB_TYPE_VCHAR:
+					case XDB_TYPE_JSON:
 						XDB_EXPECT ((XDB_TOK_STR == type) && (pTkn->tk_len <= pField->fld_len), XDB_E_STMT, "Expect string <= %d", pField->fld_len);
 						pStr = &pVStr[pField->fld_vid];
 						pStr->len = pTkn->tk_len;
@@ -573,6 +574,7 @@ xdb_parse_val (xdb_stmt_select_t *pStmt, xdb_field_t *pField, xdb_value_t *pVal,
 				break;
 			case XDB_TYPE_CHAR:
 			case XDB_TYPE_VCHAR:
+			case XDB_TYPE_JSON:
 				XDB_EXPECT(pTkn->tk_len <= pField->fld_len, XDB_E_STMT, "Too long string values %d > %d", pTkn->tk_len, pField->fld_len);
 				break;
 			default:
@@ -694,7 +696,7 @@ xdb_parse_where (xdb_conn_t* pConn, xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 	xdb_token_type	vtype;
 	int				vlen, flen;
 	xdb_token_type		op;
-	char 			*pVal, *pFldName, *pTblName = NULL;
+	char 			*pVal, *pFldName, *pTblName = NULL, *pExtract;
 	xdb_reftbl_t	*pRefTbl = &pStmt->ref_tbl[0];
 
 	pRefTbl->or_count = 1;
@@ -705,11 +707,27 @@ xdb_parse_where (xdb_conn_t* pConn, xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 
 	do {
 next_filter:
+		pExtract = NULL;
 		type = xdb_next_token (pTkn);
 		if (xdb_likely (XDB_TOK_ID == type)) {
 			pFldName = pTkn->token;
 			flen = pTkn->tk_len;
 			op = xdb_next_token (pTkn);
+			pTblName = NULL;
+			if (xdb_unlikely (XDB_TOK_DOT == op)) {
+				pTblName = pFldName;
+				op = xdb_next_token (pTkn);
+				XDB_EXPECT (op == XDB_TOK_ID, XDB_E_STMT, "Expect ID");
+				pFldName = pTkn->token;
+				flen = pTkn->tk_len;
+				op = xdb_next_token (pTkn);
+			}
+			if (xdb_unlikely (op == XDB_TOK_EXTRACT)) {
+				type = xdb_next_token (pTkn);
+				XDB_EXPECT (type <= XDB_TOK_STR, XDB_E_STMT, "Expect json extract string");
+				pExtract = pTkn->token;
+				op = xdb_next_token (pTkn);
+			}
 			if (xdb_unlikely (XDB_TOK_ID == op)) {
 				if (!strcasecmp (pTkn->token, "LIKE")) {
 					op = XDB_TOK_LIKE;
@@ -720,16 +738,7 @@ next_filter:
 					pStmt->bRegexp = true;
 				}
 			}
-			pTblName = NULL;
-			if (xdb_unlikely (XDB_TOK_DOT == op)) {
-				pTblName = pFldName;
-				op = xdb_next_token (pTkn);
-				XDB_EXPECT (op == XDB_TOK_ID, XDB_E_STMT, "Expect ID");
-				pFldName = pTkn->token;
-				flen = pTkn->tk_len;
-				op = xdb_next_token (pTkn);
-			}
-			XDB_EXPECT (op >= XDB_TOK_EQ && op <= XDB_TOK_NE, XDB_E_STMT, "Unsupported operator");
+			XDB_EXPECT (op >= XDB_TOK_EQ && op <= XDB_TOK_NE, XDB_E_STMT, "Unsupported operator %d(%s)", op, xdb_tok2str(op));
 			vtype = xdb_next_token (pTkn);
 			pVal = pTkn->token;
 			vlen  = pTkn->tk_len;
@@ -738,7 +747,7 @@ next_filter:
 			pVal = pTkn->token;
 			vlen  = pTkn->tk_len;
 			op = xdb_next_token (pTkn);
-			XDB_EXPECT (op >= XDB_TOK_EQ && op <= XDB_TOK_NE, XDB_E_STMT, "Unsupported operator");
+			XDB_EXPECT (op >= XDB_TOK_EQ && op <= XDB_TOK_NE, XDB_E_STMT, "Unsupported operator %d(%s)", op, xdb_tok2str(op));
 			op = s_XDB_TOK_opposite[op];
 			type = xdb_next_token (pTkn);
 			XDB_EXPECT (XDB_TOK_ID == type, XDB_E_STMT, "One val must be field");
@@ -772,6 +781,7 @@ next_filter:
 		}
 		xdb_filter_t *pFilter = &pRefTbl->filters[pRefTbl->filter_count++];
 		pSigFlt->pFilters[pSigFlt->filter_count++] = pFilter;
+		pFilter->pExtract = pExtract;
 		pFilter->val.pExpr = NULL;
 		//pFilter->fld_off	= pField->fld_off;
 		//pFilter->fld_type	= pField->fld_type;
@@ -799,7 +809,7 @@ next_filter:
 			case XDB_TYPE_BIGINT:
 			case XDB_TYPE_TINYINT:
 			case XDB_TYPE_SMALLINT:
-				XDB_EXPECT (XDB_TOK_NUM == vtype, XDB_E_STMT, "Expect Value");
+				XDB_EXPECT (XDB_TOK_NUM == vtype, XDB_E_STMT, "Expect INT Value");
 				pFilter->val.ival = atoll (pVal);
 				pFilter->val.val_type = XDB_TYPE_BIGINT;
 				//xdb_dbgprint ("%s = %d\n", pField->fld_name.str, pFilter->val.ival);
@@ -816,11 +826,23 @@ next_filter:
 				break;
 			case XDB_TYPE_CHAR:
 			case XDB_TYPE_VCHAR:
-				XDB_EXPECT (XDB_TOK_STR == vtype, XDB_E_STMT, "Expect Value");
-				pFilter->val.str.len = vlen;
-				pFilter->val.str.str = pVal;
-				pFilter->val.val_type = XDB_TYPE_CHAR;
-				//xdb_dbgprint ("%s = %s\n", pField->fld_name.str, pFilter->val.str.str);
+			case XDB_TYPE_JSON:
+				if (pExtract == NULL) {
+					XDB_EXPECT (XDB_TOK_STR == vtype, XDB_E_STMT, "Expect string Value");
+					pFilter->val.str.len = vlen;
+					pFilter->val.str.str = pVal;
+					pFilter->val.val_type = XDB_TYPE_CHAR;
+					//xdb_dbgprint ("%s = %s\n", pField->fld_name.str, pFilter->val.str.str);
+				} else {
+					if (XDB_TOK_NUM == vtype) {
+						pFilter->val.ival = atoll (pVal);
+						pFilter->val.val_type = XDB_TYPE_BIGINT;
+					} else {
+						pFilter->val.str.len = vlen;
+						pFilter->val.str.str = pVal;
+						pFilter->val.val_type = XDB_TYPE_CHAR;
+					}
+				}
 				break;
 			case XDB_TYPE_BINARY:
 			case XDB_TYPE_VBINARY:

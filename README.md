@@ -13,7 +13,7 @@
  ----                       | ----
  Description    			| Ultra High-performance Lightweight Embedded and Server OLTP RDBMS✨  
  Primary database model  	| Relational DBMS  
- Secondary database models	| Document store (TBD)<br>Key-value store(TBD)
+ Secondary database models	| Document store(TBD)<br>Key-value store(TBD)
  Website					| crossdb.org
  Technical documentation	| crossdb.org/intro
  Initial release			| 2023
@@ -26,24 +26,24 @@
  XML support				| no
  Secondary indexes			| yes<br>HASH, RBTREE
  SQL 						| yes, many extensions from MySQL
- APIs and other access methods		| Proprietary native APIs<br>Multi-statement APIs<br>Prepared statement APIs<br>JDBC (TBD)<br>ODBC (TBD)
- Supported programming languages	| C, C++, Python, GO, Rust<br>More bindings (TBD)
- Server-side scripts		| LUA (TBD)
+ APIs and other access methods		| Proprietary native APIs<br>Multi-statement APIs<br>Prepared statement APIs
+ Supported programming languages	| C, C++, Python, GO, Rust<br>More bindings(TBD)
+ Server-side scripts		| LUA(TBD)
  Triggers					| yes, native languages
  Partitioning methods		| none
- Replication methods		| Source-replica replication<br>Multi-source replication<br>Logical Replication (TBD)
- Data Subscription			| yes (TBD)
+ Replication methods		| Source-replica replication<br>Multi-source replication<br>Logical Replication(TBD)
+ Data Subscription			| yes(TBD)
  MapReduce 					| no
  Consistency concepts		| Immediate Consistency
- Foreign keys				| yes (TBD)
+ Foreign keys				| yes(TBD)
  TTL						| yes
  Transaction concepts		| ACID
- Concurrency 				| yes<br>Table-level read-write locks<br>Row-level read-write locks (TBD)<br>Reader-Writer MVCC (write transaction doesn't block read transactions)<br>PostgreSQL-like MVCC (TBD)
+ Concurrency 				| yes<br>Table-level read-write locks<br>Row-level read-write locks(TBD)<br>Reader-Writer MVCC (write transaction doesn't block read transactions)<br>PostgreSQL-like MVCC(TBD)
  Durability 				| yes, WAL
  In-memory capabilities		| yes
- User concepts				| yes (TBD)
+ User concepts				| yes(TBD)
  Storage Model				| Row-oriented On-Disk, In-Memory, RamDisk<br>Hybrid Storage (on a table-by-table basis, tables can be designated for in-memory or on-disk storage)
- Admin						| Embedded shell<br>xdb-cli tool<br>telnet<br>WEB GUI (TBD)
+ Admin						| Embedded shell<br>xdb-cli tool<br>telnet<br>WEB GUI(TBD)
 
 
 ## Build and Install

@@ -141,6 +141,12 @@ typedef struct {
 		goto error;	\
 	}
 
+#define XDB_EXPECT3(expr, errmsgfmt...)	\
+	if (xdb_unlikely (!(expr))) {	\
+		xdb_errlog(errmsgfmt);	\
+		goto error;	\
+	}
+
 #define XDB_EXPECT_RETE(expr, code, errmsgfmt...)	XDB_EXPECT_RET(expr, -code, code, errmsgfmt)
 
 #define XDB_EXPECT(expr, code, errmsgfmt...)		XDB_EXPECT_GOTO(expr, error, code, errmsgfmt)

@@ -71,7 +71,8 @@ typedef enum {
 	XDB_TYPE_BOOL		= 16, // 1 byte
 	XDB_TYPE_INET		= 17, // 18 bytes
 	XDB_TYPE_MAC		= 18, // 6 bytes
-	XDB_TYPE_ARRAY		= 19, // array(TDB)
+	XDB_TYPE_JSON		= 19, // varied-length binary(at most 65535 byte)
+	XDB_TYPE_ARRAY		= 20, // array(TDB)
 	XDB_TYPE_MAX        = 32
 } xdb_type_t;
 

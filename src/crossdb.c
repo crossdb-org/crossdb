@@ -43,6 +43,7 @@
 #include "core/xdb_wal.h"
 
 #include "parser/xdb_parser.c"
+#include "parser/xdb_json.c"
 #include "core/xdb_expr.c"
 #include "core/xdb_store.c"
 #include "core/xdb_sysdb.c"
@@ -73,8 +74,9 @@
 #include "admin/xdb_shell.c"
 
 static bool s_xdb_vdat[XDB_TYPE_MAX] = {
-	[XDB_TYPE_VBINARY  ] = true,
-	[XDB_TYPE_VCHAR    ] = true
+	[XDB_TYPE_VBINARY	] = true,
+	[XDB_TYPE_VCHAR		] = true,
+	[XDB_TYPE_JSON		] = true
 };
 
 const char* xdb_type2str(xdb_type_t tp) 
@@ -99,6 +101,7 @@ const char* xdb_type2str(xdb_type_t tp)
 		[XDB_TYPE_VBINARY  ] = "VARBINARY",
 		[XDB_TYPE_INET	   ] = "INET",
 		[XDB_TYPE_MAC	   ] = "MAC",
+		[XDB_TYPE_JSON	   ] = "JSON",
 	};
 	return tp <= XDB_ARY_LEN(id2str) ? id2str[tp] : "Unknown";
 }
@@ -118,6 +121,7 @@ static xdb_type_t s_xdb_prompt_type[] = {
 	[XDB_TYPE_TIMESTAMP] 	= XDB_TYPE_BIGINT,
 	[XDB_TYPE_INET]			= XDB_TYPE_INET,
 	[XDB_TYPE_MAC]			= XDB_TYPE_MAC,
+	[XDB_TYPE_JSON ]		= XDB_TYPE_JSON,
 };
 
 static volatile bool s_xdb_bInit = false;

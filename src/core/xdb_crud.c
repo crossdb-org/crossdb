@@ -213,6 +213,7 @@ xdb_row_isequal (xdb_tblm_t *pTblm, void *pRow, xdb_field_t **ppFields, xdb_valu
 			}
 			break;
 		case XDB_TYPE_VCHAR:
+		case XDB_TYPE_JSON:
 			voff = *(int32_t*)pFldVal;
 			if (0 == voff) { return false; }
 			pFldVal = xdb_row_vdata_get (pTblm, pRow) + 4 + voff;
@@ -300,6 +301,7 @@ xdb_row_isequal2 (xdb_tblm_t *pTblm, void *pRowL, void *pRowR, xdb_field_t **ppF
 			break;
 
 		case XDB_TYPE_VCHAR:
+		case XDB_TYPE_JSON:
 			voffL = *(int32_t*)pFldValL;
 			if (0 == voffL) { return false; }
 			voffR = *(int32_t*)pFldValR;
@@ -409,6 +411,7 @@ xdb_row_cmp (xdb_tblm_t *pTblm, void *pRow, xdb_field_t **ppFields, xdb_value_t 
 			}
 			break;
 		case XDB_TYPE_VCHAR:
+		case XDB_TYPE_JSON:
 			voff = *(int32_t*)pFldVal;
 			if (0 == voff) { return -1; }
 			pFldVal = xdb_row_vdata_get (pTblm, pRow) + 4 + voff;
@@ -507,6 +510,7 @@ xdb_row_cmp2 (const void *pRowL, const void *pRowR, xdb_field_t **ppFields, int 
 			}
 			break;
 		case XDB_TYPE_VCHAR:
+		case XDB_TYPE_JSON:
 			pRowValL = xdb_row_vdata_get_off (pField->pTblm, pRowL, *(int32_t*)pRowValL);
 			pRowValR = xdb_row_vdata_get_off (pField->pTblm, pRowR, *(int32_t*)pRowValR);
 			if (xdb_unlikely (NULL == pRowValL)) {
@@ -611,6 +615,7 @@ xdb_row_and_match (xdb_tblm_t *pTblm, void *pRow, xdb_filter_t **pFilters, int c
 			value.val_type = XDB_TYPE_DOUBLE;
 			break;
 		case XDB_TYPE_VCHAR:
+		case XDB_TYPE_JSON:
 			voff = *(int32_t*)pVal;
 			if (0 == voff) { return 0; }
 			pVal = xdb_row_vdata_get (pTblm, pRow) + 4 + voff;
@@ -619,6 +624,9 @@ xdb_row_and_match (xdb_tblm_t *pTblm, void *pRow, xdb_filter_t **pFilters, int c
 			value.str.len = *(uint16_t*)(pVal-2);
 			value.str.str = pVal;
 			value.val_type = XDB_TYPE_CHAR;
+			if (xdb_unlikely (pFilter->pExtract != NULL)) {
+				xdb_json_extract (pVal, pFilter->pExtract, &value);
+			}
 			break;
 		case XDB_TYPE_VBINARY:
 			voff = *(int32_t*)pVal;
@@ -658,6 +666,7 @@ xdb_row_and_match (xdb_tblm_t *pTblm, void *pRow, xdb_filter_t **pFilters, int c
 			break;
 		case XDB_TYPE_CHAR:
 		case XDB_TYPE_VCHAR:
+		case XDB_TYPE_JSON:
 			if (xdb_unlikely (value.val_type != XDB_TYPE_CHAR)) {
 				return 0;
 			}
@@ -672,13 +681,13 @@ xdb_row_and_match (xdb_tblm_t *pTblm, void *pRow, xdb_filter_t **pFilters, int c
 						return false;
 					}
 				}
-				if (!xdb_str_regexec (value.str.str, pValue->pExpr)) {
+				if (!xdb_str_regexec (value.str.str, value.str.len, pValue->pExpr)) {
 					return false;
 				}
 			}
 			cmp = value.str.len - pValue->str.len;
 			if (cmp == 0) {
-				cmp = strcasecmp (value.str.str, pValue->str.str);
+				cmp = strncasecmp (value.str.str, pValue->str.str, value.str.len);
 			}
 			break;
 		case XDB_TYPE_BINARY:
@@ -789,6 +798,7 @@ xdb_row_getVal (void *pRow, xdb_value_t *pVal)
 		break;
 	case XDB_TYPE_VCHAR:
 	case XDB_TYPE_VBINARY:
+	case XDB_TYPE_JSON:
 		pVal->str.str = xdb_fld_vdata_get (pVal->pField, pRow, &pVal->str.len);
 		pVal->sup_type = pVal->pField->fld_type;
 		break;
@@ -955,6 +965,7 @@ xdb_col_set (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pField, xdb_value_t *pV
 		*(uint16_t*)(pColPtr-2) = pVal->str.len;
 		break;
 	case XDB_TYPE_VCHAR:
+	case XDB_TYPE_JSON:
 		pVStr = pRow + pTblm->row_size;
 		pVStr[pField->fld_vid] = pVal->str;
 		break;		
@@ -1034,6 +1045,7 @@ xdb_row_hash (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pFields[], int count)
 			hash = *(int64_t*)ptr;
 			break;
 		case XDB_TYPE_VCHAR:
+		case XDB_TYPE_JSON:
 			voff = *(int32_t*)ptr;
 			if (0 == voff) { 
 				hash = 0;
@@ -1107,6 +1119,7 @@ xdb_row_hash2 (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pFields[], int count)
 			hash = *(int64_t*)ptr;
 			break;
 		case XDB_TYPE_VCHAR:
+		case XDB_TYPE_JSON:
 			pStr = &pVStr[i];
 			if (xdb_unlikely (NULL != pStr->str)) {
 				hash = xdb_strcasehash (pStr->str, pStr->len);
@@ -1163,6 +1176,7 @@ xdb_val_hash (xdb_value_t **ppValues, int count)
 			break;
 		case XDB_TYPE_CHAR:
 		case XDB_TYPE_VCHAR:
+		case XDB_TYPE_JSON:
 			//hash = xdb_wyhash (pValue->str.str, pValue->str.len);
 			hash = xdb_strcasehash (pValue->str.str, pValue->str.len);
 			break;
@@ -1304,6 +1318,7 @@ xdb_fld_setStr (xdb_conn_t *pConn, xdb_field_t * pField, void *pRow, const char 
 		*(char*)(pAddr+len) = '\0';
 		break;
 	case XDB_TYPE_VCHAR:
+	case XDB_TYPE_JSON:
 		if (xdb_unlikely (len > pField->fld_len)) {
 			XDB_SETERR(XDB_E_PARAM, "Field '%s' max len %d < input %d", XDB_OBJ_NAME(pField), pField->fld_len, len);
 			return -XDB_E_PARAM;
@@ -1532,6 +1547,7 @@ xdb_column_str2 (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol, int *pLen)
 		return (const char*)pVal;
 	case XDB_TYPE_VCHAR:
 	case XDB_TYPE_VBINARY:
+	case XDB_TYPE_JSON:
 		voff = *(int*)(pRow + pCol->col_off);
 		if (voff) {
 			xdb_tblm_t* pTblm = (xdb_tblm_t*)pRes->row_data;
@@ -1726,6 +1742,7 @@ int xdb_fprint_row (FILE *pFile, xdb_res_t *pRes, xdb_row_t *pRow, int format)
 			break;
 		case XDB_TYPE_CHAR:
 		case XDB_TYPE_VCHAR:
+		case XDB_TYPE_JSON:
 			fprintf (pFile, "%s='%s' ", pCol[i]->col_name, xdb_column_str (pRes, pRow, i));
 			break;
 		case XDB_TYPE_BINARY:
@@ -1797,6 +1814,7 @@ int xdb_fprint_dbrow (FILE *pFile, xdb_tblm_t *pTblm, void *pDbRow, int format)
 			fprintf (pFile, "%s=%f ", XDB_OBJ_NAME(pField), *(double*)pVal);
 			break;
 		case XDB_TYPE_VCHAR:
+		case XDB_TYPE_JSON:
 			pVal = xdb_fld_vdata_get (pField, pDbRow, &vlen);
 			// fall through
 		case XDB_TYPE_CHAR:
@@ -2553,6 +2571,7 @@ xdb_sprint_field (xdb_field_t *pField, void *pRow, char *buf, uint8_t *pNull)
 		len = sprintf (buf, "%f", *(double*)pVal);
 		break;
 	case XDB_TYPE_VCHAR:
+	case XDB_TYPE_JSON:
 		pVal = xdb_fld_vdata_get (pField, pRow, &vlen);
 		if (NULL == pVal) {
 			return sprintf (buf, "NULL");

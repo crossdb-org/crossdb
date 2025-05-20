@@ -35,6 +35,11 @@ xdb_parse_field (xdb_conn_t* pConn, xdb_token_t *pTkn, xdb_stmt_tbl_t *pStmt)
 		pFld->sup_type = XDB_TYPE_VCHAR;
 		pFld->fld_vid = pStmt->vfld_count++;
 		pFld->fld_len = 65535;
+	} else if (0 == strcasecmp (pTkn->token, "JSON")) {
+		pFld->fld_type = XDB_TYPE_JSON;
+		pFld->sup_type = XDB_TYPE_JSON;
+		pFld->fld_vid = pStmt->vfld_count++;
+		pFld->fld_len = 65535;
 	} else if (0 == strcasecmp (pTkn->token, "BINARY")) {
 		pFld->fld_type = XDB_TYPE_BINARY;
 		pFld->sup_type = XDB_TYPE_BINARY;

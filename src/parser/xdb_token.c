@@ -23,6 +23,7 @@ typedef struct {
 
 static char s_tok_type[256] = {
 	['\0'] = XDB_TOK_EOF,
+	[':'] = XDB_TOK_COLON,
 	[';'] = XDB_TOK_END,
 	['('] = XDB_TOK_LP,
 	[')'] = XDB_TOK_RP,
@@ -97,9 +98,10 @@ static const char* xdb_tok2str(xdb_token_type tp)
 }
 
 XDB_STATIC xdb_token_type 
-xdb_next_token (xdb_token_t *pTkn)
+xdb_next_token_mark (xdb_token_t *pTkn, bool bSplit)
 {
 	char *str, ch;
+	xdb_token_type tp;
 
 	// last is id, check if next is not space
 	if ((XDB_TOK_ID == pTkn->tk_type) || (XDB_TOK_NUM == pTkn->tk_type)) {
@@ -109,6 +111,7 @@ xdb_next_token (xdb_token_t *pTkn)
 			case XDB_TOK_GT:
 			case XDB_TOK_LT:
 			case XDB_TOK_NEG:
+			case XDB_TOK_SUB:
 				pTkn->tk_sql--;
 				goto parse_ch;
 			default:
@@ -144,7 +147,7 @@ parse_ch:
 				return XDB_TOK_INV;
 			}
 			pTkn->tk_len = str - pTkn->token;
-			*str = '\0';
+			if (bSplit) { *str = '\0'; }
 			pTkn->tk_type = XDB_TOK_HEX;
 			pTkn->tk_sql++;
 			return XDB_TOK_HEX;
@@ -158,10 +161,16 @@ parse_ch:
 		}
 		pTkn->tk_len = pTkn->tk_sql - pTkn->token;
 		pTkn->tk_nxt = *pTkn->tk_sql;
-		*pTkn->tk_sql++ = '\0';
+		if (bSplit) { *pTkn->tk_sql = '\0'; }
+		pTkn->tk_sql++;
 		return XDB_TOK_ID;
 	case XDB_TOK_SUB:
-		if (XDB_TOK_NUM != s_tok_type[(uint8_t)*(pTkn->tk_sql+1)]) {
+		tp = s_tok_type[(uint8_t)*(pTkn->tk_sql+1)];
+		if (XDB_TOK_GT == tp) {
+			pTkn->tk_sql += 2;
+			pTkn->tk_type = XDB_TOK_EXTRACT;
+			return XDB_TOK_EXTRACT;
+		} else if (XDB_TOK_NUM != tp) {
 			break;
 		}
 		break;
@@ -178,7 +187,7 @@ parse_ch:
 				return XDB_TOK_INV;
 			}
 			pTkn->tk_len = str - pTkn->token;
-			*str = '\0';
+			if (bSplit) { *str = '\0'; }
 			pTkn->tk_type = XDB_TOK_HEX;
 			return XDB_TOK_HEX;
 		}
@@ -200,7 +209,8 @@ parse_ch:
 		}
 		pTkn->tk_len = pTkn->tk_sql - pTkn->token;
 		pTkn->tk_nxt = *pTkn->tk_sql;
-		*pTkn->tk_sql++ = '\0';
+		if (bSplit) { *pTkn->tk_sql = '\0'; }
+		pTkn->tk_sql++;
 		return XDB_TOK_NUM;
 	case XDB_TOK_STR:
 		pTkn->tk_type = XDB_TOK_STR;
@@ -233,7 +243,7 @@ parse_ch:
 		}
 		pTkn->token++;
 		pTkn->tk_len = str - pTkn->token;
-		*str = '\0';
+		if (bSplit) { *str = '\0'; }
 		pTkn->tk_sql++;
 		return XDB_TOK_STR;
 	case XDB_TOK_GT:
@@ -260,7 +270,6 @@ parse_ch:
 		pTkn->tk_sql++;
 		pTkn->tk_type = XDB_TOK_LT;
 		return XDB_TOK_LT;
-		break;
 	case XDB_TOK_NEG:
 		ch = s_tok_type[(uint8_t)*(pTkn->tk_sql+1)];
 		if (XDB_TOK_EQ == ch) {
@@ -276,6 +285,12 @@ parse_ch:
 	pTkn->token = pTkn->tk_sql;
 	pTkn->tk_type = s_tok_type[(uint8_t)*pTkn->tk_sql++];
 	return pTkn->tk_type;
+}
+
+XDB_STATIC xdb_token_type 
+xdb_next_token (xdb_token_t *pTkn)
+{
+	return xdb_next_token_mark (pTkn, true);
 }
 
 XDB_STATIC xdb_token_type 

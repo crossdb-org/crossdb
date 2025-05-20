@@ -320,6 +320,7 @@ typedef struct xdb_filter_t {
 //	uint16_t		fld_off;
 //	uint16_t		fld_id;
 	xdb_field_t		*pField;
+	char			*pExtract;
 	xdb_value_t		val;
 } xdb_filter_t;
 

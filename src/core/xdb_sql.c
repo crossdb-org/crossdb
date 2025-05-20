@@ -749,7 +749,7 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 {
 	xdb_conn_t	*pConn = pStmt->pConn;
 	char		*str;
-	int 		len;
+	int 		len = 0;
 
 	switch (pStmt->stmt_type) {
 	case XDB_STMT_SELECT:
@@ -776,13 +776,14 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 					break;
 				case XDB_TYPE_CHAR:
 				case XDB_TYPE_VCHAR:
+				case XDB_TYPE_JSON:
 					pVal->str.str = va_arg (ap, char *);
 					pVal->str.len = strlen (pVal->str.str);
 					break;
 				case XDB_TYPE_BINARY:
 				case XDB_TYPE_VBINARY:
+					pVal->str.len = va_arg (ap, int);
 					pVal->str.str = va_arg (ap, char *);
-					pVal->str.len = strlen (pVal->str.str);
 					break;
 				case XDB_TYPE_INET:
 					pVal->inet = *(xdb_inet_t*)va_arg (ap, void *);
@@ -849,10 +850,11 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 					len = va_arg (ap, int);
 					// fall through
 				case XDB_TYPE_VCHAR:
+				case XDB_TYPE_JSON:
 					str = va_arg (ap, char *);
 					if (xdb_unlikely (NULL == str)) {
 						len = 0;
-					} else if (XDB_TYPE_VCHAR == pFld->fld_type) {
+					} else if ((XDB_TYPE_VCHAR == pFld->fld_type) || (XDB_TYPE_JSON == pFld->fld_type)) {
 						len = strlen (str);
 					}
 					if (xdb_unlikely (len > pFld->fld_len)) {

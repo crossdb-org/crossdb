@@ -104,6 +104,7 @@ xdb_get_row_len (xdb_res_t *pRes, xdb_row_t *pRow, int *pColLen)
 			break;
 		case XDB_TYPE_CHAR:
 		case XDB_TYPE_VCHAR:
+		case XDB_TYPE_JSON:
 			line = xdb_column_str (pRes, pRow, i);
 			do {
 				ch = strchr (line, '\n');
@@ -152,6 +153,7 @@ xdb_fprint_row_table (FILE *pFile, xdb_res_t *pRes, xdb_row_t *pRow, int *pColLe
 		switch (pCol[i]->col_type) {
 		case XDB_TYPE_CHAR:
 		case XDB_TYPE_VCHAR:
+		case XDB_TYPE_JSON:
 			for (n=1,str=xdb_column_str(pRes, pRow, i); (str=strchr(str, '\n')) != NULL; str++) {
 				n++;
 			}
@@ -201,6 +203,7 @@ xdb_fprint_row_table (FILE *pFile, xdb_res_t *pRes, xdb_row_t *pRow, int *pColLe
 					break;
 				case XDB_TYPE_CHAR:
 				case XDB_TYPE_VCHAR:
+				case XDB_TYPE_JSON:
 					str = xdb_column_str(pRes, pRow, i);
 					for (int k = 0; k < n; ++k) {
 						ch = strchr (str, '\n');

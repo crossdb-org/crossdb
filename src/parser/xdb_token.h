@@ -27,6 +27,7 @@ typedef enum {
 	XDB_TOK_REGEXP,
 	XDB_TOK_IN,
 	XDB_TOK_NE, 	// != <>
+	XDB_TOK_EXTRACT,	// ->
 	XDB_TOK_ADD, 	// +
 	XDB_TOK_SUB, 	// -
 	XDB_TOK_MUL, 	// *

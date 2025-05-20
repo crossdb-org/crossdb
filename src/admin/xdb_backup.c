@@ -47,6 +47,7 @@ xdb_row2sql (xdb_res_t *pRes, xdb_row_t *pRow, const char *tbl_name, char *buf, 
 			break;
 		case XDB_TYPE_CHAR:
 		case XDB_TYPE_VCHAR:
+		case XDB_TYPE_JSON:
 			str = xdb_column_str2 (pRes, pRow, i, &slen);
 			*(buf + len++) = '\'';
 			len += xdb_str_escape (buf+len, str, len);
