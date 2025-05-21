@@ -22,7 +22,7 @@ endif
 	cp include/crossdb.h build/
 
 debug:
-	$(CC) -o build/libcrossdb.so -fPIC -lpthread -shared -g -DXDB_DEBUG2 src/crossdb.c
+	$(CC) -o build/libcrossdb.so -fPIC -lpthread -shared -g -DXDB_DEBUG src/crossdb.c
 	$(CC) -o build/xdb-cli src/xdb-cli.c -lpthread -g
 	cp include/crossdb.h build/
 
@@ -58,6 +58,14 @@ else
 	install -c build/libcrossdb.so /usr/local/lib/
 	ldconfig
 endif
+
+winpack:
+	mkdir -p build/crossdb-win64/include
+	mkdir -p build/crossdb-win64/bin
+	mkdir -p build/crossdb-win64/lib
+	cp build/crossdb.h build/crossdb-win64/include
+	cp build/xdb-cli.exe build/crossdb-win64/bin
+	cp build/libcrossdb.dll build/libcrossdb.lib build/crossdb-win64/lib
 
 uninstall:
 	rm -rf /usr/local/bin/xdb-cli

@@ -26,13 +26,17 @@
 - Support simple SQL inner join
 - Support RBTREE index for exact match, range match and leftmost match
 
-## 0.14.0 <small>(2025-05-07)</small>
+-->
+
+## 0.14.0 <small>(2025-05-21)</small>
 
 **Features**
 
-- Support `REGEXP`,`RLIKE` operator
+- Support regular expression operator: `REGEXP`,`RLIKE`
 - Support new statements: `FLUSH` `REPAIR`
 - Support `TTL` feature
+- Support `UNSIGNED` `TINYINT/SMALLINT/INT/BIGINT` and new APIs `xdb_column_uint`, `xdb_column_uint64`
+- Support basic `JSON` type and query
 
 **Improvements**
 
@@ -41,9 +45,6 @@
 - Fix `TIMESTAMP` show/update bugs
 
 **Test**
-
-
--->
 
 ## 0.13.0 <small>(2025-05-07)</small>
 
