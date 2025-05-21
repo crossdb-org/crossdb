@@ -204,8 +204,14 @@ xdb_column_bool (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol);
 int 
 xdb_column_int (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol);
 
+uint32_t 
+xdb_column_uint (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol);
+
 int64_t 
 xdb_column_int64 (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol);
+
+uint64_t 
+xdb_column_uint64 (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol);
 
 float
 xdb_column_float (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol);

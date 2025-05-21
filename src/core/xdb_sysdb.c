@@ -246,7 +246,7 @@ xdb_sysdb_init ()
 	xdb_res_t *pRes = xdb_exec (pConn, "CREATE DATABASE IF NOT EXISTS system ENGINE=MEMORY");
 	XDB_RESCHK(pRes, xdb_errlog ("Can't create system database\n"));
 
-	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS columns (database CHAR(64), table CHAR(64), column CHAR(64), type CHAR(16), len INT, PRIMARY KEY (database,table,column))");
+	pRes = xdb_exec (pConn, "CREATE TABLE IF NOT EXISTS columns (database CHAR(64), table CHAR(64), column CHAR(64), type CHAR(20), len INT, PRIMARY KEY (database,table,column))");
 	// will update tables which doesn't exist yet
 	if (pRes->errcode != XDB_E_NOTFOUND) {
 		XDB_RESCHK(pRes, xdb_errlog ("Can't create system table columns\n"));

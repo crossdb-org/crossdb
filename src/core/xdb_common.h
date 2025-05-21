@@ -19,7 +19,7 @@
 #define XDB_ROW_COL_CNT		4096
 
 typedef struct xdb_res_t {
-	uint32_t	len_type;		// MSB 4bit are type xdb_restype_t
+	uint32_t	len_type;		// MSB 4bit are type xdb_restype_e
 	uint16_t	errcode;		// 4
 	uint16_t	status;			// 6 xdb_status_t
 
@@ -75,16 +75,17 @@ typedef struct xdb_meta_t {
 } xdb_meta_t;
 
 typedef enum {
-	XDB_RET_ROW = 0,
-	XDB_RET_REPLY,
+	XDB_RET_ROW,
 	XDB_RET_META,
 	XDB_RET_MSG,
-	XDB_RET_COMPRESS,
-	XDB_RET_INSERT,	// (meta + row)
+	XDB_RET_REPLY = 4,	// (meta + rows)
+	XDB_RET_INITIAL, // (meta + row)
+	XDB_RET_INSERT, // (meta + row)
+	XDB_RET_UPDATE, // (msg is bitmap, meta + new row + old row)
 	XDB_RET_DELETE, // (meta + row)
-	XDB_RET_UPDATE, // (old meta, old row, set meta, set row)
+	XDB_RET_COMPRESS,
 	XDB_RET_EOF = 0xF,
-} xdb_restype_t;
+} xdb_restype_e;
 
 typedef enum {
 	XDB_STATUS_MORE_RESULTS 	= (1<<3),

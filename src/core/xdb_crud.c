@@ -181,22 +181,26 @@ xdb_row_isequal (xdb_tblm_t *pTblm, void *pRow, xdb_field_t **ppFields, xdb_valu
 		void *pFldVal = pRow + pField->fld_off;
 		switch (pField->fld_type) {
 		case XDB_TYPE_INT:
+		case XDB_TYPE_UINT:
 			if (pValue->ival != *(int32_t*)pFldVal) {
 				return false;
 			}
 			break;
 		case XDB_TYPE_BOOL:
 		case XDB_TYPE_TINYINT:
+		case XDB_TYPE_UTINYINT:
 			if (pValue->ival != *(int8_t*)pFldVal) {
 				return false;
 			}
 			break;
 		case XDB_TYPE_SMALLINT:
+		case XDB_TYPE_USMALLINT:
 			if (pValue->ival != *(int16_t*)pFldVal) {
 				return false;
 			}
 			break;
 		case XDB_TYPE_BIGINT:
+		case XDB_TYPE_UBIGINT:
 		case XDB_TYPE_TIMESTAMP:
 			if (pValue->ival != *(int64_t*)pFldVal) {
 				return false;
@@ -268,11 +272,13 @@ xdb_row_isequal2 (xdb_tblm_t *pTblm, void *pRowL, void *pRowR, xdb_field_t **ppF
 		void *pFldValR = pRowR + pField->fld_off;
 		switch (pField->fld_type) {
 		case XDB_TYPE_INT:
+		case XDB_TYPE_UINT:
 			if (*(int32_t*)pFldValL != *(int32_t*)pFldValR) {
 				return false;
 			}
 			break;
 		case XDB_TYPE_BIGINT:
+		case XDB_TYPE_UBIGINT:
 		case XDB_TYPE_TIMESTAMP:
 			if (*(int64_t*)pFldValL != *(int64_t*)pFldValR) {
 				return false;
@@ -280,11 +286,13 @@ xdb_row_isequal2 (xdb_tblm_t *pTblm, void *pRowL, void *pRowR, xdb_field_t **ppF
 			break;
 		case XDB_TYPE_BOOL:
 		case XDB_TYPE_TINYINT:
+		case XDB_TYPE_UTINYINT:
 			if (*(int8_t*)pFldValL != *(int8_t*)pFldValR) {
 				return false;
 			}
 			break;
 		case XDB_TYPE_SMALLINT:
+		case XDB_TYPE_USMALLINT:
 			if (*(int16_t*)pFldValL != *(int16_t*)pFldValR) {
 				return false;
 			}
@@ -373,14 +381,18 @@ xdb_row_cmp (xdb_tblm_t *pTblm, void *pRow, xdb_field_t **ppFields, xdb_value_t 
 {
 	for (int i = 0; i < count; ++i) {
 		int len, voff, cmp;
-		double 	cmpf;
 		xdb_field_t *pField = ppFields[i];
 		xdb_value_t	*pValue = ppValues[i];
 		void *pFldVal = pRow + pField->fld_off;
 		switch (pField->fld_type) {
 		case XDB_TYPE_INT:
-			if ((cmp = pValue->ival - *(int32_t*)pFldVal)) {
-				return cmp;
+			if (pValue->ival != *(int32_t*)pFldVal) {
+				return pValue->ival > *(int32_t*)pFldVal ? 1 : -1;
+			}
+			break;
+		case XDB_TYPE_UINT:
+			if (pValue->uval != *(uint32_t*)pFldVal) {
+				return pValue->uval > *(uint32_t*)pFldVal ? 1 : -1;
 			}
 			break;
 		case XDB_TYPE_BOOL:
@@ -389,25 +401,40 @@ xdb_row_cmp (xdb_tblm_t *pTblm, void *pRow, xdb_field_t **ppFields, xdb_value_t 
 				return cmp;
 			}
 			break;
+		case XDB_TYPE_UTINYINT:
+			if ((cmp = pValue->uval - *(uint8_t*)pFldVal)) {
+				return cmp;
+			}
+			break;
 		case XDB_TYPE_SMALLINT:
 			if ((cmp = pValue->ival - *(int16_t*)pFldVal)) {
 				return cmp;
 			}
 			break;
-		case XDB_TYPE_BIGINT:
-		case XDB_TYPE_TIMESTAMP:
-			if ((pValue->ival - *(int64_t*)pFldVal)) {
+		case XDB_TYPE_USMALLINT:
+			if ((cmp = pValue->uval - *(uint16_t*)pFldVal)) {
 				return cmp;
 			}
 			break;
+		case XDB_TYPE_BIGINT:
+		case XDB_TYPE_TIMESTAMP:
+			if (pValue->ival != *(int64_t*)pFldVal) {
+				return pValue->ival > *(int64_t*)pFldVal ? 1 : -1;
+			}
+			break;
+		case XDB_TYPE_UBIGINT:
+			if (pValue->uval != *(uint64_t*)pFldVal) {
+				return pValue->uval > *(uint64_t*)pFldVal ? 1 : -1;
+			}
+			break;
 		case XDB_TYPE_FLOAT:
-			if ((cmpf = pValue->fval - *(float*)pFldVal)) {
-				return cmpf > 0 ? 1 : -1;
+			if (pValue->fval != *(float*)pFldVal) {
+				return pValue->fval > *(float*)pFldVal ? 1 : -1;
 			}
 			break;
 		case XDB_TYPE_DOUBLE:
-			if ((cmpf = pValue->fval - *(double*)pFldVal)) {
-				return cmpf > 0 ? 1 : -1;
+			if (pValue->fval != *(double*)pFldVal) {
+				return pValue->fval > *(double*)pFldVal ? 1 : -1;
 			}
 			break;
 		case XDB_TYPE_VCHAR:
@@ -458,7 +485,6 @@ xdb_row_cmp2 (const void *pRowL, const void *pRowR, xdb_field_t **ppFields, int 
 	int count = *pCount;
 	for (int i = 0; i < count; ++i, ++ppField) {
 		int 	cmp;
-		double 	cmpf;
 		const xdb_field_t *pField = *ppField;
 		const void *pRowValL = pRowL + pField->fld_off;
 		const void *pRowValR = pRowR + pField->fld_off;
@@ -466,23 +492,40 @@ xdb_row_cmp2 (const void *pRowL, const void *pRowR, xdb_field_t **ppFields, int 
 		int	lenL, lenR;
 		switch (pField->fld_type) {
 		case XDB_TYPE_INT:
-			cmp = *(int32_t*)pRowValL - *(int32_t*)pRowValR;
-			if (cmp) {
+			if (*(int32_t*)pRowValL != *(int32_t*)pRowValR) {
 				*pCount = i;
-				return cmp;
+				return *(int32_t*)pRowValL > *(int32_t*)pRowValR ? 1 : -1;
+			}
+			break;
+		case XDB_TYPE_UINT:
+			if (*(uint32_t*)pRowValL != *(uint32_t*)pRowValR) {
+				*pCount = i;
+				return *(uint32_t*)pRowValL > *(uint32_t*)pRowValR ? 1 : -1;
 			}
 			break;
 		case XDB_TYPE_BIGINT:
 		case XDB_TYPE_TIMESTAMP:
-			cmp = *(int64_t*)pRowValL - *(int64_t*)pRowValR;
-			if (cmp) {
+			if (*(int64_t*)pRowValL - *(int64_t*)pRowValR) {
 				*pCount = i;
-				return cmp;
+				return *(int64_t*)pRowValL > *(int64_t*)pRowValR ? 1 : -1;
+			}
+			break;
+		case XDB_TYPE_UBIGINT:
+			if (*(uint64_t*)pRowValL != *(uint64_t*)pRowValR) {
+				*pCount = i;
+				return *(uint64_t*)pRowValL > *(uint64_t*)pRowValR ? 1 : -1;
 			}
 			break;
 		case XDB_TYPE_BOOL:
 		case XDB_TYPE_TINYINT:
 			cmp = *(int8_t*)pRowValL - *(int8_t*)pRowValR;
+			if (cmp) {
+				*pCount = i;
+				return cmp;
+			}
+			break;
+		case XDB_TYPE_UTINYINT:
+			cmp = *(uint8_t*)pRowValL - *(uint8_t*)pRowValR;
 			if (cmp) {
 				*pCount = i;
 				return cmp;
@@ -495,18 +538,23 @@ xdb_row_cmp2 (const void *pRowL, const void *pRowR, xdb_field_t **ppFields, int 
 				return cmp;
 			}
 			break;
-		case XDB_TYPE_FLOAT:
-			cmpf = *(float*)pRowValL - *(float*)pRowValR;
-			if (cmpf) {
+		case XDB_TYPE_USMALLINT:
+			cmp = *(uint16_t*)pRowValL - *(uint16_t*)pRowValR;
+			if (cmp) {
 				*pCount = i;
-				return cmpf > 0 ? 1 : -1;
+				return cmp;
+			}
+			break;
+		case XDB_TYPE_FLOAT:
+			if (*(float*)pRowValL != *(float*)pRowValR) {
+				*pCount = i;
+				return *(float*)pRowValL > *(float*)pRowValR ? 1 : -1;
 			}
 			break;
 		case XDB_TYPE_DOUBLE:
-			cmpf = *(double*)pRowValL - *(double*)pRowValR;
-			if (cmpf) {
+			if (*(double*)pRowValL != *(double*)pRowValR) {
 				*pCount = i;
-				return cmpf > 0 ? 1 : -1;
+				return *(double*)pRowValL > *(double*)pRowValR ? 1 : -1;
 			}
 			break;
 		case XDB_TYPE_VCHAR:
@@ -591,19 +639,35 @@ xdb_row_and_match (xdb_tblm_t *pTblm, void *pRow, xdb_filter_t **pFilters, int c
 			value.ival = *(int32_t*)pVal;
 			value.val_type = XDB_TYPE_BIGINT;
 			break;
+		case XDB_TYPE_UINT:
+			value.uval = *(uint32_t*)pVal;
+			value.val_type = XDB_TYPE_UBIGINT;
+			break;
 		case XDB_TYPE_BIGINT:
 		case XDB_TYPE_TIMESTAMP:
 			value.ival = *(int64_t*)pVal;
 			value.val_type = XDB_TYPE_BIGINT;
+			break;
+		case XDB_TYPE_UBIGINT:
+			value.uval = *(uint64_t*)pVal;
+			value.val_type = XDB_TYPE_UBIGINT;
 			break;
 		case XDB_TYPE_BOOL:
 		case XDB_TYPE_TINYINT:
 			value.ival = *(int8_t*)pVal;
 			value.val_type = XDB_TYPE_BIGINT;
 			break;
+		case XDB_TYPE_UTINYINT:
+			value.uval = *(uint8_t*)pVal;
+			value.val_type = XDB_TYPE_UBIGINT;
+			break;
 		case XDB_TYPE_SMALLINT:
 			value.ival = *(int16_t*)pVal;
 			value.val_type = XDB_TYPE_BIGINT;
+			break;
+		case XDB_TYPE_USMALLINT:
+			value.uval = *(uint16_t*)pVal;
+			value.val_type = XDB_TYPE_UBIGINT;
 			break;
 		case XDB_TYPE_FLOAT:
 			value.fval = *(float*)pVal;
@@ -768,19 +832,35 @@ xdb_row_getVal (void *pRow, xdb_value_t *pVal)
 		pVal->ival = *(int32_t*)pFldPtr;
 		pVal->sup_type = XDB_TYPE_BIGINT;
 		break;
+	case XDB_TYPE_UINT:
+		pVal->uval = *(uint32_t*)pFldPtr;
+		pVal->sup_type = XDB_TYPE_UBIGINT;
+		break;
 	case XDB_TYPE_BOOL:
 	case XDB_TYPE_TINYINT:
 		pVal->ival = *(int8_t*)pFldPtr;
 		pVal->sup_type = XDB_TYPE_BIGINT;
 		break;
+	case XDB_TYPE_UTINYINT:
+		pVal->uval = *(uint8_t*)pFldPtr;
+		pVal->sup_type = XDB_TYPE_UBIGINT;
+		break;
 	case XDB_TYPE_SMALLINT:
 		pVal->ival = *(int16_t*)pFldPtr;
 		pVal->sup_type = XDB_TYPE_BIGINT;
+		break;
+	case XDB_TYPE_USMALLINT:
+		pVal->uval = *(uint16_t*)pFldPtr;
+		pVal->sup_type = XDB_TYPE_UBIGINT;
 		break;
 	case XDB_TYPE_BIGINT:
 	case XDB_TYPE_TIMESTAMP:
 		pVal->ival = *(int64_t*)pFldPtr;
 		pVal->sup_type = XDB_TYPE_BIGINT;
+		break;
+	case XDB_TYPE_UBIGINT:
+		pVal->uval = *(uint64_t*)pFldPtr;
+		pVal->sup_type = XDB_TYPE_UBIGINT;
 		break;
 	case XDB_TYPE_FLOAT:
 		pVal->fval = *(float*)pFldPtr;
@@ -900,17 +980,21 @@ xdb_col_set2 (void *pColPtr, xdb_type_t col_type, xdb_value_t *pVal)
 {
 	switch (col_type) {
 	case XDB_TYPE_INT:
+	case XDB_TYPE_UINT:
 		*(int32_t*)(pColPtr) = pVal->ival;
 		break;
 	case XDB_TYPE_BIGINT:
+	case XDB_TYPE_UBIGINT:
 	case XDB_TYPE_TIMESTAMP:
 		*(int64_t*)(pColPtr) = pVal->ival;
 		break;
 	case XDB_TYPE_BOOL:
 	case XDB_TYPE_TINYINT:
+	case XDB_TYPE_UTINYINT:
 		*(int8_t*)(pColPtr) = pVal->ival;
 		break;
 	case XDB_TYPE_SMALLINT:
+	case XDB_TYPE_USMALLINT:
 		*(int16_t*)(pColPtr) = pVal->ival;
 		break;
 	case XDB_TYPE_FLOAT:
@@ -941,17 +1025,21 @@ xdb_col_set (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pField, xdb_value_t *pV
 	void *pColPtr = pRow + pField->fld_off;
 	switch (pField->fld_type) {
 	case XDB_TYPE_INT:
+	case XDB_TYPE_UINT:
 		*(int32_t*)(pColPtr) = pVal->ival;
 		break;
 	case XDB_TYPE_BIGINT:
+	case XDB_TYPE_UBIGINT:
 	case XDB_TYPE_TIMESTAMP:
 		*(int64_t*)(pColPtr) = pVal->ival;
 		break;
 	case XDB_TYPE_BOOL:
 	case XDB_TYPE_TINYINT:
+	case XDB_TYPE_UTINYINT:
 		*(int8_t*)(pColPtr) = pVal->ival;
 		break;
 	case XDB_TYPE_SMALLINT:
+	case XDB_TYPE_USMALLINT:
 		*(int16_t*)(pColPtr) = pVal->ival;
 		break;
 	case XDB_TYPE_FLOAT:
@@ -1025,24 +1113,28 @@ xdb_row_hash (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pFields[], int count)
 		void *ptr = pRow+pField->fld_off;
 		switch (pField->fld_type) {
 		case XDB_TYPE_INT:
-			hash = *(int32_t*)ptr;
+		case XDB_TYPE_UINT:
+			hash = *(uint32_t*)ptr;
 			break;
 		case XDB_TYPE_BIGINT:
+		case XDB_TYPE_UBIGINT:
 		case XDB_TYPE_TIMESTAMP:
-			hash = *(int64_t*)ptr;
+			hash = *(uint64_t*)ptr;
 			break;
 		case XDB_TYPE_BOOL:
 		case XDB_TYPE_TINYINT:
-			hash = *(int8_t*)ptr;
+		case XDB_TYPE_UTINYINT:
+			hash = *(uint8_t*)ptr;
 			break;
 		case XDB_TYPE_SMALLINT:
-			hash = *(int16_t*)ptr;
+		case XDB_TYPE_USMALLINT:
+			hash = *(uint16_t*)ptr;
 			break;
 		case XDB_TYPE_FLOAT:
-			hash = *(int32_t*)ptr;
+			hash = *(uint32_t*)ptr;
 			break;
 		case XDB_TYPE_DOUBLE:
-			hash = *(int64_t*)ptr;
+			hash = *(uint64_t*)ptr;
 			break;
 		case XDB_TYPE_VCHAR:
 		case XDB_TYPE_JSON:
@@ -1099,24 +1191,28 @@ xdb_row_hash2 (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pFields[], int count)
 		void *ptr = pRow+pField->fld_off;
 		switch (pField->fld_type) {
 		case XDB_TYPE_INT:
-			hash = *(int32_t*)ptr;
+		case XDB_TYPE_UINT:
+			hash = *(uint32_t*)ptr;
 			break;
 		case XDB_TYPE_BIGINT:
+		case XDB_TYPE_UBIGINT:
 		case XDB_TYPE_TIMESTAMP:
-			hash = *(int64_t*)ptr;
+			hash = *(uint64_t*)ptr;
 			break;
 		case XDB_TYPE_BOOL:
 		case XDB_TYPE_TINYINT:
-			hash = *(int8_t*)ptr;
+		case XDB_TYPE_UTINYINT:
+			hash = *(uint8_t*)ptr;
 			break;
 		case XDB_TYPE_SMALLINT:
-			hash = *(int16_t*)ptr;
+		case XDB_TYPE_USMALLINT:
+			hash = *(uint16_t*)ptr;
 			break;
 		case XDB_TYPE_FLOAT:
-			hash = *(int32_t*)ptr;
+			hash = *(uint32_t*)ptr;
 			break;
 		case XDB_TYPE_DOUBLE:
-			hash = *(int64_t*)ptr;
+			hash = *(uint64_t*)ptr;
 			break;
 		case XDB_TYPE_VCHAR:
 		case XDB_TYPE_JSON:
@@ -1249,14 +1345,21 @@ xdb_row_getInt (uint64_t meta, void *pRow, uint16_t iCol)
 	switch (pCol->col_type) {
 	case XDB_TYPE_INT:
 		return *(int32_t*)pVal;
+	case XDB_TYPE_UINT:
+		return *(uint32_t*)pVal;
 	case XDB_TYPE_BIGINT:
+	case XDB_TYPE_UBIGINT:
 	case XDB_TYPE_TIMESTAMP:
 		return *(int64_t*)pVal;
 	case XDB_TYPE_BOOL:
 	case XDB_TYPE_TINYINT:
 		return *(int8_t*)pVal;
+	case XDB_TYPE_UTINYINT:
+		return *(uint8_t*)pVal;
 	case XDB_TYPE_SMALLINT:
 		return *(int16_t*)pVal;
+	case XDB_TYPE_USMALLINT:
+		return *(uint16_t*)pVal;
 	}
 
 	return 0;
@@ -1269,7 +1372,11 @@ xdb_fld_setInt (void *pAddr, xdb_type_t type, int64_t val)
 	case XDB_TYPE_INT:
 		*(int32_t*)pAddr = val;
 		break;
+	case XDB_TYPE_UINT:
+		*(uint32_t*)pAddr = val;
+		break;
 	case XDB_TYPE_BIGINT:
+	case XDB_TYPE_UBIGINT:
 	case XDB_TYPE_TIMESTAMP:
 		*(int64_t*)pAddr = val;
 		break;
@@ -1277,8 +1384,14 @@ xdb_fld_setInt (void *pAddr, xdb_type_t type, int64_t val)
 	case XDB_TYPE_TINYINT:
 		*(int8_t*)pAddr = val;
 		break;
+	case XDB_TYPE_UTINYINT:
+		*(uint8_t*)pAddr = val;
+		break;
 	case XDB_TYPE_SMALLINT:
 		*(int16_t*)pAddr = val;
+		break;
+	case XDB_TYPE_USMALLINT:
+		*(uint16_t*)pAddr = val;
 		break;
 	default:
 		break;
@@ -1498,16 +1611,29 @@ xdb_column_int64 (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol)
 	switch (pCol->col_type) {
 	case XDB_TYPE_INT:
 		return *(int32_t*)pVal;
+	case XDB_TYPE_UINT:
+		return *(uint32_t*)pVal;
 	case XDB_TYPE_BIGINT:
+	case XDB_TYPE_UBIGINT:
 	case XDB_TYPE_TIMESTAMP:
 		return *(int64_t*)pVal;
 	case XDB_TYPE_BOOL:
 	case XDB_TYPE_TINYINT:
 		return *(int8_t*)pVal;
+	case XDB_TYPE_UTINYINT:
+		return *(uint8_t*)pVal;
 	case XDB_TYPE_SMALLINT:
 		return *(int16_t*)pVal;
+	case XDB_TYPE_USMALLINT:
+		return *(uint16_t*)pVal;
 	}
 	return 0;
+}
+
+uint64_t 
+xdb_column_uint64 (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol)
+{
+	return (uint64_t)xdb_column_int64 (pRes, pRow, iCol);
 }
 
 double
@@ -1625,6 +1751,12 @@ int xdb_column_int (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol)
 	return (int)xdb_column_int64 (pRes, pRow, iCol);
 }
 
+uint32_t 
+xdb_column_uint (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol)
+{
+	return (uint32_t)xdb_column_int64 (pRes, pRow, iCol);
+}
+
 float
 xdb_column_float (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol)
 {
@@ -1733,8 +1865,16 @@ int xdb_fprint_row (FILE *pFile, xdb_res_t *pRes, xdb_row_t *pRow, int format)
 		case XDB_TYPE_TINYINT:
 			fprintf (pFile, "%s=%d ", pCol[i]->col_name, xdb_column_int (pRes, pRow, i));
 			break;
+		case XDB_TYPE_UINT:
+		case XDB_TYPE_USMALLINT:
+		case XDB_TYPE_UTINYINT:
+			fprintf (pFile, "%s=%u ", pCol[i]->col_name, xdb_column_int (pRes, pRow, i));
+			break;
 		case XDB_TYPE_BIGINT:
 			fprintf (pFile, "%s=%"PRIi64" ", pCol[i]->col_name, xdb_column_int64 (pRes, pRow, i));
+			break;
+		case XDB_TYPE_UBIGINT:
+			fprintf (pFile, "%s=%"PRIu64" ", pCol[i]->col_name, xdb_column_int64 (pRes, pRow, i));
 			break;
 		case XDB_TYPE_FLOAT:
 		case XDB_TYPE_DOUBLE:
@@ -1794,14 +1934,26 @@ int xdb_fprint_dbrow (FILE *pFile, xdb_tblm_t *pTblm, void *pDbRow, int format)
 		case XDB_TYPE_INT:
 			fprintf (pFile, "%s=%d ", XDB_OBJ_NAME(pField), *(int32_t*)pVal);
 			break;
+		case XDB_TYPE_UINT:
+			fprintf (pFile, "%s=%u ", XDB_OBJ_NAME(pField), *(uint32_t*)pVal);
+			break;
 		case XDB_TYPE_TINYINT:
 			fprintf (pFile, "%s=%d ", XDB_OBJ_NAME(pField), *(int8_t*)pVal);
+			break;
+		case XDB_TYPE_UTINYINT:
+			fprintf (pFile, "%s=%u ", XDB_OBJ_NAME(pField), *(uint8_t*)pVal);
 			break;
 		case XDB_TYPE_SMALLINT:
 			fprintf (pFile, "%s=%d ", XDB_OBJ_NAME(pField), *(int16_t*)pVal);
 			break;
+		case XDB_TYPE_USMALLINT:
+			fprintf (pFile, "%s=%u ", XDB_OBJ_NAME(pField), *(uint16_t*)pVal);
+			break;
 		case XDB_TYPE_BIGINT:
 			fprintf (pFile, "%s=%"PRIi64" ", XDB_OBJ_NAME(pField), *(int64_t*)pVal);
+			break;
+		case XDB_TYPE_UBIGINT:
+			fprintf (pFile, "%s=%"PRIu64" ", XDB_OBJ_NAME(pField), *(uint64_t*)pVal);
 			break;
 		case XDB_TYPE_TIMESTAMP:
 			xdb_timestamp_sprintf (*(int64_t*)pVal, buf, sizeof(buf));
@@ -2552,17 +2704,29 @@ xdb_sprint_field (xdb_field_t *pField, void *pRow, char *buf, uint8_t *pNull)
 	case XDB_TYPE_INT:
 		len = sprintf (buf, "%d", *(int32_t*)pVal);
 		break;
+	case XDB_TYPE_UINT:
+		len = sprintf (buf, "%u", *(uint32_t*)pVal);
+		break;
 	case XDB_TYPE_BOOL:
 		len = sprintf (buf, "%s", *(int8_t*)pVal?"true":"false");
 		break;
 	case XDB_TYPE_TINYINT:
 		len = sprintf (buf, "%d", *(int8_t*)pVal);
 		break;
+	case XDB_TYPE_UTINYINT:
+		len = sprintf (buf, "%u", *(uint8_t*)pVal);
+		break;
 	case XDB_TYPE_SMALLINT:
 		len = sprintf (buf, "%d", *(int16_t*)pVal);
 		break;
+	case XDB_TYPE_USMALLINT:
+		len = sprintf (buf, "%u", *(uint16_t*)pVal);
+		break;
 	case XDB_TYPE_BIGINT:
 		len = sprintf (buf, "%"PRIi64"", *(int64_t*)pVal);
+		break;
+	case XDB_TYPE_UBIGINT:
+		len = sprintf (buf, "%"PRIu64"", *(uint64_t*)pVal);
 		break;
 	case XDB_TYPE_FLOAT:
 		len = sprintf (buf, "%f", *(float*)pVal);

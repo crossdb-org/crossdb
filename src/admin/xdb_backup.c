@@ -29,11 +29,19 @@ xdb_row2sql (xdb_res_t *pRes, xdb_row_t *pRow, const char *tbl_name, char *buf, 
 		case XDB_TYPE_TINYINT:
 			len += sprintf (buf+len, "%d,", xdb_column_int (pRes, pRow, i));
 			break;
+		case XDB_TYPE_UINT:
+		case XDB_TYPE_USMALLINT:
+		case XDB_TYPE_UTINYINT:
+			len += sprintf (buf+len, "%u,", xdb_column_int (pRes, pRow, i));
+			break;
 		case XDB_TYPE_BOOL:
 			len += sprintf (buf+len, "%s,", xdb_column_bool(pRes, pRow, i) ? "true" : "false");
 			break;
 		case XDB_TYPE_BIGINT:
 			len += sprintf (buf+len, "%"PRIi64",", xdb_column_int64 (pRes, pRow, i));
+			break;
+		case XDB_TYPE_UBIGINT:
+			len += sprintf (buf+len, "%"PRIu64",", xdb_column_int64 (pRes, pRow, i));
 			break;
 		case XDB_TYPE_TIMESTAMP:
 			*(buf + len++) = '\'';

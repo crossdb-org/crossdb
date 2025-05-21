@@ -130,11 +130,11 @@ xdb_create_table (xdb_stmt_tbl_t *pStmt)
 	pTblm->row_size = pStmt->row_size;
 	if (pStmt->row_size < 1) {
 		pTblm->row_size = 0;
-		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_BIGINT) | (1LL<<XDB_TYPE_DOUBLE)| (1LL<<XDB_TYPE_TIMESTAMP), 8);
-		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_INT) | (1LL<<XDB_TYPE_FLOAT), 4);
+		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_BIGINT) | (1LL<<XDB_TYPE_UBIGINT) | (1LL<<XDB_TYPE_DOUBLE)| (1LL<<XDB_TYPE_TIMESTAMP), 8);
+		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_INT) | (1LL<<XDB_TYPE_UINT) | (1LL<<XDB_TYPE_FLOAT), 4);
 		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_VCHAR) | (1LL<<XDB_TYPE_VBINARY) | (1LL<<XDB_TYPE_JSON), 4);
-		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_CHAR) | (1LL<<XDB_TYPE_BINARY) | (1LL<<XDB_TYPE_SMALLINT), 2);
-		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_TINYINT) | (1LL<<XDB_TYPE_BOOL) | (1LL<<XDB_TYPE_INET) | (1LL<<XDB_TYPE_MAC), 1);
+		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_CHAR) | (1LL<<XDB_TYPE_BINARY) | (1LL<<XDB_TYPE_SMALLINT) | (1LL<<XDB_TYPE_USMALLINT), 2);
+		xdb_alloc_offset (pTblm, (1LL<<XDB_TYPE_TINYINT) | (1LL<<XDB_TYPE_UTINYINT) | (1LL<<XDB_TYPE_BOOL) | (1LL<<XDB_TYPE_INET) | (1LL<<XDB_TYPE_MAC), 1);
 		pTblm->row_size +=pTblm->null_bytes + 1 + 1; // add null bits + vtype + ctrl
 		pTblm->row_size  = XDB_ALIGN4 (pTblm->row_size);
 		// null = ptr+row_size-2-null_bytes		ctrl = ptr+row_size-2	vtype = ptr+row_size-1

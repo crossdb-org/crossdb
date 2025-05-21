@@ -766,9 +766,17 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 				case XDB_TYPE_BOOL:
 					pVal->ival = va_arg (ap, int);
 					break;
+				case XDB_TYPE_UINT:
+				case XDB_TYPE_USMALLINT:
+				case XDB_TYPE_UTINYINT:
+					pVal->uval = va_arg (ap, uint32_t);
+					break;
 				case XDB_TYPE_BIGINT:
 				case XDB_TYPE_TIMESTAMP:
 					pVal->ival = va_arg (ap, int64_t);
+					break;
+				case XDB_TYPE_UBIGINT:
+					pVal->uval = va_arg (ap, uint64_t);
 					break;
 				case XDB_TYPE_FLOAT:
 				case XDB_TYPE_DOUBLE:
@@ -809,16 +817,24 @@ xdb_stmt_vbexec2 (xdb_stmt_t *pStmt, va_list ap)
 				case XDB_TYPE_INT:
 					*(int32_t*)pAddr = va_arg (ap, int);
 					break;
+				case XDB_TYPE_UINT:
+					*(uint32_t*)pAddr = va_arg (ap, uint32_t);
+					break;
 				case XDB_TYPE_SMALLINT:
+				case XDB_TYPE_USMALLINT:
 					*(int16_t*)pAddr = va_arg (ap, int);
 					break;
 				case XDB_TYPE_TINYINT:
+				case XDB_TYPE_UTINYINT:
 				case XDB_TYPE_BOOL:
 					*(int8_t*)pAddr = va_arg (ap, int);
 					break;
 				case XDB_TYPE_BIGINT:
 				case XDB_TYPE_TIMESTAMP:
 					*(int64_t*)pAddr = va_arg (ap, int64_t);
+					break;
+				case XDB_TYPE_UBIGINT:
+					*(uint64_t*)pAddr = va_arg (ap, uint64_t);
 					break;
 				case XDB_TYPE_FLOAT:
 					*(float*)pAddr = va_arg (ap, double);

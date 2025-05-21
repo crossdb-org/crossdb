@@ -92,11 +92,19 @@ xdb_get_row_len (xdb_res_t *pRes, xdb_row_t *pRow, int *pColLen)
 		case XDB_TYPE_TINYINT:
 			len = snprintf (buf, sizeof(buf), "%d", xdb_column_int (pRes, pRow, i));
 			break;
+		case XDB_TYPE_UINT:
+		case XDB_TYPE_USMALLINT:
+		case XDB_TYPE_UTINYINT:
+			len = snprintf (buf, sizeof(buf), "%u", xdb_column_int (pRes, pRow, i));
+			break;
 		case XDB_TYPE_BOOL:
 			len = snprintf (buf, sizeof(buf), "%s", xdb_column_bool(pRes, pRow, i) ? "true" : "false");
 			break;
 		case XDB_TYPE_BIGINT:
 			len = snprintf (buf, sizeof(buf), "%"PRIi64, xdb_column_int64 (pRes, pRow, i));
+			break;
+		case XDB_TYPE_UBIGINT:
+			len = snprintf (buf, sizeof(buf), "%"PRIu64, xdb_column_int64 (pRes, pRow, i));
 			break;
 		case XDB_TYPE_FLOAT:
 		case XDB_TYPE_DOUBLE:
@@ -185,6 +193,13 @@ xdb_fprint_row_table (FILE *pFile, xdb_res_t *pRes, xdb_row_t *pRow, int *pColLe
 						plen = xdb_fprintf (pFile, "%d", xdb_column_int (pRes, pRow, i));
 					}
 					break;
+				case XDB_TYPE_UINT:
+				case XDB_TYPE_USMALLINT:
+				case XDB_TYPE_UTINYINT:
+					if (0 == n) {
+						plen = xdb_fprintf (pFile, "%u", xdb_column_int (pRes, pRow, i));
+					}
+					break;
 				case XDB_TYPE_BOOL:
 					if (0 == n) {
 						plen = xdb_fprintf (pFile, "%s", xdb_column_bool(pRes, pRow, i) ? "true" : "false");
@@ -193,6 +208,11 @@ xdb_fprint_row_table (FILE *pFile, xdb_res_t *pRes, xdb_row_t *pRow, int *pColLe
 				case XDB_TYPE_BIGINT:
 					if (0 == n) {
 						plen = xdb_fprintf (pFile, "%"PRIi64, xdb_column_int64 (pRes, pRow, i));
+					}
+					break;
+				case XDB_TYPE_UBIGINT:
+					if (0 == n) {
+						plen = xdb_fprintf (pFile, "%"PRIu64, xdb_column_int64 (pRes, pRow, i));
 					}
 					break;
 				case XDB_TYPE_FLOAT:

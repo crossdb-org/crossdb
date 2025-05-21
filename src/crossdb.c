@@ -88,10 +88,10 @@ const char* xdb_type2str(xdb_type_t tp)
 		[XDB_TYPE_SMALLINT ] = "SMALLINT",
 		[XDB_TYPE_INT      ] = "INT",
 		[XDB_TYPE_BIGINT   ] = "BIGINT",
-		[XDB_TYPE_UTINYINT ] = "UTINYINT",
-		[XDB_TYPE_USMALLINT] = "USMALLINT",
-		[XDB_TYPE_UINT     ] = "UINT",
-		[XDB_TYPE_UBIGINT  ] = "UBIGINT",
+		[XDB_TYPE_UTINYINT ] = "TINYINT UNSIGNED",
+		[XDB_TYPE_USMALLINT] = "SMALLINT UNSIGNED",
+		[XDB_TYPE_UINT     ] = "INT UNSIGNED",
+		[XDB_TYPE_UBIGINT  ] = "BIGINT UNSIGNED",
 		[XDB_TYPE_FLOAT    ] = "FLOAT",
 		[XDB_TYPE_DOUBLE   ] = "DOUBLE",
 		[XDB_TYPE_TIMESTAMP] = "TIMESTAMP",
@@ -112,6 +112,10 @@ static xdb_type_t s_xdb_prompt_type[] = {
 	[XDB_TYPE_SMALLINT  ] 	= XDB_TYPE_BIGINT,
 	[XDB_TYPE_INT	] 		= XDB_TYPE_BIGINT,
 	[XDB_TYPE_BIGINT	]	= XDB_TYPE_BIGINT,
+	[XDB_TYPE_UTINYINT  ]	= XDB_TYPE_UBIGINT,
+	[XDB_TYPE_USMALLINT	]	= XDB_TYPE_UBIGINT,
+	[XDB_TYPE_UINT	]		= XDB_TYPE_UBIGINT,
+	[XDB_TYPE_UBIGINT	]	= XDB_TYPE_UBIGINT,
 	[XDB_TYPE_FLOAT	]		= XDB_TYPE_DOUBLE,
 	[XDB_TYPE_DOUBLE	]	= XDB_TYPE_DOUBLE,
 	[XDB_TYPE_CHAR	]		= XDB_TYPE_CHAR,
@@ -169,6 +173,15 @@ const char* xdb_errmsg (xdb_res_t *pRes)
 		return "";
 	}
 	return pRes->row_data ? (const char*)pRes->row_data : "OK";
+}
+
+xdb_restype_e
+xdb_result_type (xdb_res_t *pRes)
+{
+	if (xdb_unlikely (NULL != pRes)) {
+		return pRes->len_type >= 28;
+	}
+	return 0;
 }
 
 const char* xdb_version ()

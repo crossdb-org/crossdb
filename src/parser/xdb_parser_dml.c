@@ -333,6 +333,11 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt, bool bRepla
 						*(int32_t*)(pRow+pField->fld_off) = atoi (pTkn->token);
 						//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
 						break;
+					case XDB_TYPE_UINT:
+						XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
+						*(uint32_t*)(pRow+pField->fld_off) = atoll (pTkn->token);
+						//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
+						break;
 					case XDB_TYPE_TIMESTAMP:
 						if (XDB_TOK_STR == type) {
 							*(int64_t*)(pRow+pField->fld_off) = xdb_timestamp_scanf (pTkn->token);
@@ -340,11 +345,13 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt, bool bRepla
 						}
 						// fall through
 					case XDB_TYPE_BIGINT:
+					case XDB_TYPE_UBIGINT:
 						XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
 						*(int64_t*)(pRow+pField->fld_off) = atoll (pTkn->token);
 						//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
 						break;
 					case XDB_TYPE_TINYINT:
+					case XDB_TYPE_UTINYINT:
 						XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
 						*(int8_t*)(pRow+pField->fld_off) = atoi (pTkn->token);
 						//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
@@ -360,6 +367,7 @@ xdb_parse_insert (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt, bool bRepla
 						//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
 						break;
 					case XDB_TYPE_SMALLINT:
+					case XDB_TYPE_USMALLINT:
 						XDB_EXPECT ((XDB_TOK_NUM == type), XDB_E_STMT, "Expect number");
 						*(int16_t*)(pRow+pField->fld_off) = atoi (pTkn->token);
 						//xdb_dbgprint ("%s %d\n", pField->fld_name, vi32);
@@ -812,6 +820,15 @@ next_filter:
 				XDB_EXPECT (XDB_TOK_NUM == vtype, XDB_E_STMT, "Expect INT Value");
 				pFilter->val.ival = atoll (pVal);
 				pFilter->val.val_type = XDB_TYPE_BIGINT;
+				//xdb_dbgprint ("%s = %d\n", pField->fld_name.str, pFilter->val.ival);
+				break;
+			case XDB_TYPE_UINT:
+			case XDB_TYPE_UBIGINT:
+			case XDB_TYPE_UTINYINT:
+			case XDB_TYPE_USMALLINT:
+				XDB_EXPECT (XDB_TOK_NUM == vtype, XDB_E_STMT, "Expect INT Value");
+				pFilter->val.uval = atoll (pVal);
+				pFilter->val.val_type = XDB_TYPE_UBIGINT;
 				//xdb_dbgprint ("%s = %d\n", pField->fld_name.str, pFilter->val.ival);
 				break;
 			case XDB_TYPE_BOOL:
