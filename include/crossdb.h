@@ -246,6 +246,12 @@ xdb_col_int (xdb_res_t *pRes, xdb_row_t *pRow, const char *name);
 int64_t 
 xdb_col_int64 (xdb_res_t *pRes, xdb_row_t *pRow, const char *name);
 
+uint32_t 
+xdb_col_uint (xdb_res_t *pRes, xdb_row_t *pRow, const char *name);
+
+uint64_t 
+xdb_col_uint64 (xdb_res_t *pRes, xdb_row_t *pRow, const char *name);
+
 float
 xdb_col_float (xdb_res_t *pRes, xdb_row_t *pRow, const char *name);
 
@@ -280,6 +286,12 @@ xdb_bind_int (xdb_stmt_t *pStmt, uint16_t para_id, int val);
 
 xdb_ret
 xdb_bind_int64 (xdb_stmt_t *pStmt, uint16_t para_id, int64_t val);
+
+xdb_ret
+xdb_bind_uint (xdb_stmt_t *pStmt, uint16_t para_id, uint32_t val);
+
+xdb_ret
+xdb_bind_uint64 (xdb_stmt_t *pStmt, uint16_t para_id, uint64_t val);
 
 xdb_ret
 xdb_bind_float (xdb_stmt_t *pStmt, uint16_t para_id, float val);

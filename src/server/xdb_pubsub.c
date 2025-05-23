@@ -672,7 +672,9 @@ const void * xdb_poll (xdb_conn_t *pConn, int *pLen, uint32_t timeout)
 	sql[len] = '\0';
 	xdb_pubsublog ("%d recv %d: %s\n", pConn->sockfd, len, sql);
 
-	*pLen = len;
+	if (NULL != pLen) {
+		*pLen = len;
+	}
 	return sql;
 }
 

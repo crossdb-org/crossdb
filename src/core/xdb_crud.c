@@ -1801,6 +1801,18 @@ xdb_col_int64 (xdb_res_t *pRes, xdb_row_t *pRow, const char *name)
 	return xdb_column_int64 (pRes, pRow, xdb_column_id(pRes, name));
 }
 
+uint32_t 
+xdb_col_uint (xdb_res_t *pRes, xdb_row_t *pRow, const char *name)
+{
+	return xdb_column_uint (pRes, pRow, xdb_column_id(pRes, name));
+}
+
+uint64_t 
+xdb_col_uint64 (xdb_res_t *pRes, xdb_row_t *pRow, const char *name)
+{
+	return xdb_column_uint64 (pRes, pRow, xdb_column_id(pRes, name));
+}
+
 float
 xdb_col_float (xdb_res_t *pRes, xdb_row_t *pRow, const char *name)
 {

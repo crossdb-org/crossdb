@@ -661,6 +661,18 @@ xdb_bind_int (xdb_stmt_t *pStmt, uint16_t para_id, int val)
 }
 
 xdb_ret
+xdb_bind_uint (xdb_stmt_t *pStmt, uint16_t para_id, uint32_t val)
+{
+	return xdb_bind_int64 (pStmt, para_id, (int)val);
+}
+
+xdb_ret
+xdb_bind_uint64 (xdb_stmt_t *pStmt, uint16_t para_id, uint64_t val)
+{
+	return xdb_bind_int64 (pStmt, para_id, (int64_t)val);
+}
+
+xdb_ret
 xdb_bind_double (xdb_stmt_t *pStmt, uint16_t para_id, double val)
 {
 	switch (pStmt->stmt_type) {
