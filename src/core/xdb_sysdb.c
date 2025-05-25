@@ -57,11 +57,16 @@ xdb_sysdb_add_col (xdb_tblm_t *pTblm)
 }
 
 XDB_STATIC char*
-xdb_fld2str (char buf[], int len, xdb_field_t *pFields[], int cnt)
+xdb_fld2str (char buf[], int len, xdb_field_t *pFields[], char *pExtract[], int cnt)
 {
 	char *p = buf;
 	for (int i = 0; i < cnt; ++i) {
-		int n = sprintf (p, "%s,", XDB_OBJ_NAME(pFields[i]));
+		int n;
+		if (NULL == pExtract[i]) {
+			n = sprintf (p, "%s,", XDB_OBJ_NAME(pFields[i]));
+		} else {
+			n = sprintf (p, "%s->'%s',", XDB_OBJ_NAME(pFields[i]), pExtract[i]);
+		}
 		p += n;
 	}
 	if (p > buf) {
@@ -78,7 +83,7 @@ xdb_sysdb_upd_tbl_schema (xdb_tblm_t *pTblm)
 	}
 	char buf[65536];
 	xdb_dump_create_table (pTblm, buf, sizeof(buf), 0);
-	xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "UPDATE tables SET schema='%s' WHERE database='%s' AND table='%s'", 
+	xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "UPDATE tables SET schema=`%s` WHERE database='%s' AND table='%s'", 
 		buf, XDB_OBJ_NAME(pTblm->pDbm), XDB_OBJ_NAME(pTblm));
 	if (pRes->errcode != XDB_E_NOTFOUND) {
 		XDB_RESCHK(pRes, xdb_errlog("Can't update system table table schema %s\n", XDB_OBJ_NAME(pTblm->pDbm)));
@@ -93,8 +98,8 @@ xdb_sysdb_add_idx (xdb_idxm_t *pIdxm)
 	}
 	char collist[255];
 	xdb_tblm_t *pTblm = pIdxm->pTblm;
-	xdb_fld2str (collist, sizeof(collist), pIdxm->pFields, pIdxm->fld_count);
-	xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "INSERT INTO indexes (database,table,idx_key,type,col_list) VALUES('%s','%s','%s','%s','%s')",
+	xdb_fld2str (collist, sizeof(collist), pIdxm->pFields, pIdxm->pExtract, pIdxm->fld_count);
+	xdb_res_t *pRes = xdb_pexec (s_xdb_sysdb_pConn, "INSERT INTO indexes (database,table,idx_key,type,col_list) VALUES('%s','%s','%s','%s',`%s`)",
 			XDB_OBJ_NAME(pTblm->pDbm), XDB_OBJ_NAME(pTblm), XDB_OBJ_NAME(pIdxm), xdb_idx2str(pIdxm->idx_type), collist);
 	if (pRes->errcode != XDB_E_NOTFOUND) {
 		XDB_RESCHK (pRes, xdb_errlog("Can't add system table index '%s','%s','%s','%s','%s')\n", XDB_OBJ_NAME(pTblm->pDbm), XDB_OBJ_NAME(pTblm), XDB_OBJ_NAME(pIdxm), "HASH", collist));

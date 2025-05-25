@@ -118,7 +118,7 @@ error:
 	return false;
 }
 
-static bool xdb_json_extract (const char* json, const char *path, xdb_value_t	*pVal)
+static bool xdb_json_extract (const char* json, const char *path, xdb_value_t *pVal)
 {
 	xdb_token_type type;
 	int len = strlen(path);
@@ -126,6 +126,7 @@ static bool xdb_json_extract (const char* json, const char *path, xdb_value_t	*p
 	xdb_token_t token = XDB_TOK_INIT((char*)json);
 
 	type = xdb_next_token_mark (&token, false);
+	
 	XDB_EXPECT3 (type == XDB_TOK_LB, "Expect {\n");
 
 	bool bFound = xdb_json_match_obj (&token, path, len, pVal);

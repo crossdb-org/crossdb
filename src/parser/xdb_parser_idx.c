@@ -31,11 +31,19 @@ xdb_parse_create_idx_def (xdb_conn_t* pConn, xdb_token_t *pTkn, xdb_stmt_idx_t *
 	do {
 		type = xdb_next_token (pTkn);
 		if (XDB_TOK_ID == type) {
-			pStmt->idx_col[pStmt->fld_count++] = pTkn->token;
+			pStmt->idx_col[pStmt->fld_count] = pTkn->token;			
 		} else {
 			break;
 		}
 		type = xdb_next_token (pTkn);
+		pStmt->idx_extract[pStmt->fld_count] = NULL;
+		if (XDB_TOK_EXTRACT == type) {
+			type = xdb_next_token (pTkn);
+			XDB_EXPECT (XDB_TOK_STR>=type, XDB_E_STMT, "Index field");
+			pStmt->idx_extract[pStmt->fld_count] = pTkn->token;
+			type = xdb_next_token (pTkn);
+		}
+		pStmt->fld_count++;
 	} while (XDB_TOK_COMMA == type);
 	
 	XDB_EXPECT (XDB_TOK_RP==type, XDB_E_STMT, "Index Miss )");

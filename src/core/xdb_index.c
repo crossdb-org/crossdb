@@ -136,6 +136,10 @@ xdb_create_index (xdb_stmt_idx_t *pStmt, bool bCreateTbl)
 		pIdxm->pFields[i] = xdb_find_field (pStmt->pTblm, pStmt->idx_col[i], 0);
 		XDB_EXPECT (pIdxm->pFields[i] != NULL, XDB_E_STMT, "Can't find field '%s'", pStmt->idx_col[i]);
 		pIdxm->pFields[i]->idx_fid[XDB_OBJ_ID(pIdxm)] = i;
+		pIdxm->pExtract[i] = NULL;
+		if (pStmt->idx_extract[i] != NULL) {
+			pIdxm->pExtract[i] = xdb_strdup (pStmt->idx_extract[i], 0);
+		}
 		pIdxm->pFields[i]->idx_bmp |= (1<<XDB_OBJ_ID(pIdxm));
 		if (pIdxm->bPrimary) {
 			pIdxm->pFields[i]->fld_flags |= (XDB_FLD_NOTNULL | XDB_FLD_PRIKEY);
@@ -190,6 +194,7 @@ xdb_close_index (xdb_idxm_t *pIdxm)
 
 	for (int i = 0; i < pIdxm->fld_count; ++i) {
 		pIdxm->pFields[i]->idx_fid[XDB_OBJ_ID(pIdxm)] = -1;
+		xdb_free (pIdxm->pExtract[i]);
 	}
 
 	xdb_objm_del (&pTblm->idx_objm, pIdxm);

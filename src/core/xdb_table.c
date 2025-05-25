@@ -372,7 +372,11 @@ xdb_dump_create_table (xdb_tblm_t *pTblm, char buf[], xdb_size size, uint32_t fl
 				len += sprintf (buf+len, "  KEY         %s USING %s (", XDB_OBJ_NAME(pIdxm), xdb_idx2str(pIdxm->idx_type));
 			}
 			for (int j = 0; j < pIdxm->fld_count; ++j) {
-				len += sprintf (buf+len, "%s,", XDB_OBJ_NAME(pIdxm->pFields[j]));
+				if (NULL == pIdxm->pExtract[j]) {
+					len += sprintf (buf+len, "%s,", XDB_OBJ_NAME(pIdxm->pFields[j]));
+				} else {
+					len += sprintf (buf+len, "%s->'%s',", XDB_OBJ_NAME(pIdxm->pFields[j]), pIdxm->pExtract[j]);
+				}
 			}
 			len --;
 			if (0 == flags) {

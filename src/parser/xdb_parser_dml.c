@@ -662,7 +662,26 @@ xdb_find_idx (xdb_tblm_t	*pTblm, xdb_singfilter_t *pSigFlt, uint8_t 	bmp[])
 			if (!(bmp[fld_id>>3] & (1<<(fld_id&7)))) {
 				break;
 			}
+			if (pIdxm->pFields[fid]->fld_type != XDB_TYPE_JSON) {
+				continue;
+			}
+			char *pIdxExt = pIdxm->pExtract[fid];
+			int j;
+			for (j = 0; j < pSigFlt->filter_count; ++j) {
+				if ((pSigFlt->pFilters[j]->pField->fld_id == fld_id)) {
+					char *pExtract = pSigFlt->pFilters[j]->pExtract;
+					if ((NULL == pIdxExt) && (NULL == pExtract)) {
+						break;
+					} else if (pIdxExt && pExtract && !strcmp (pIdxExt, pExtract)) {
+						break;
+					}
+				}
+			}
+			if (j >= pSigFlt->filter_count) {
+				break;
+			}
 		}
+
 		if (fid == pIdxm->fld_count) {
 			xdb_dbglog ("use index %s\n", XDB_OBJ_NAME(pIdxm));
 			xdb_idxfilter_t *pIdxFilter = &pSigFlt->idx_filter;

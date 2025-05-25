@@ -172,7 +172,7 @@ static inline void* xdb_get_vdat ()
 }
 
 XDB_STATIC bool 
-xdb_row_isequal (xdb_tblm_t *pTblm, void *pRow, xdb_field_t **ppFields, xdb_value_t *ppValues[], int count)
+xdb_row_isequal (xdb_tblm_t *pTblm, void *pRow, xdb_field_t **ppFields, char **ppExtract, xdb_value_t *ppValues[], int count)
 {
 	for (int i = 0; i < count; ++i) {
 		int len, voff;
@@ -223,6 +223,23 @@ xdb_row_isequal (xdb_tblm_t *pTblm, void *pRow, xdb_field_t **ppFields, xdb_valu
 			pFldVal = xdb_row_vdata_get (pTblm, pRow) + 4 + voff;
 			// fall through
 		case XDB_TYPE_CHAR:
+			if (xdb_unlikely (ppExtract[i] != NULL)) {
+				xdb_value_t value;
+				bool bOk = xdb_json_extract (pFldVal, ppExtract[i], &value);
+				if (!bOk) { return false; }
+				if (XDB_TYPE_BIGINT == value.val_type) {
+					if (pValue->ival != value.ival) {
+						return false;
+					}
+				} else if (XDB_TYPE_CHAR == value.val_type) {
+					if (! xdb_streq (&pValue->str, &value.str)) {
+						return false;
+					}
+				} else {
+					return false;
+				}
+				break;
+			}
 			len = *(uint16_t*)(pFldVal-2);
 			if (len != pValue->str.len) {
 				return false;
@@ -262,7 +279,7 @@ xdb_row_isequal (xdb_tblm_t *pTblm, void *pRow, xdb_field_t **ppFields, xdb_valu
 }
 
 XDB_STATIC bool 
-xdb_row_isequal2 (xdb_tblm_t *pTblm, void *pRowL, void *pRowR, xdb_field_t **ppFields, int count)
+xdb_row_isequal2 (xdb_tblm_t *pTblm, void *pRowL, void *pRowR, xdb_field_t **ppFields, char **ppExtract, int count)
 {
 	xdb_field_t **ppField = ppFields;
 	for (int i = 0; i < count; ++i, ++ppField) {
@@ -318,6 +335,25 @@ xdb_row_isequal2 (xdb_tblm_t *pTblm, void *pRowL, void *pRowR, xdb_field_t **ppF
 			pFldValR = xdb_row_vdata_get (pTblm, pRowR) + 4 + voffR;
 			// fall through
 		case XDB_TYPE_CHAR:
+			if (ppExtract[i] != NULL) {
+				xdb_value_t valueL, valueR;
+				bool bOk = xdb_json_extract (pFldValL, ppExtract[i], &valueL);
+				if (!bOk) { return false; }
+				bOk = xdb_json_extract (pFldValR, ppExtract[i], &valueR);
+				if (!bOk) { return false; }
+				if (XDB_TYPE_BIGINT == valueL.val_type) {
+					if (valueL.ival != valueR.ival) {
+						return false;
+					}
+				} else if (XDB_TYPE_CHAR == valueL.val_type) {
+					if (! xdb_streq (&valueL.str, &valueR.str)) {
+						return false;
+					}
+				} else {
+					return false;
+				}
+				break;
+			}
 			lenL = *(uint16_t*)(pFldValL-2);
 			lenR = *(uint16_t*)(pFldValR-2);
 			if (lenL != lenR) {
@@ -442,6 +478,7 @@ xdb_row_cmp (xdb_tblm_t *pTblm, void *pRow, xdb_field_t **ppFields, xdb_value_t 
 			voff = *(int32_t*)pFldVal;
 			if (0 == voff) { return -1; }
 			pFldVal = xdb_row_vdata_get (pTblm, pRow) + 4 + voff;
+			// TDB JSON
 			// fall through
 		case XDB_TYPE_CHAR:
 			//if (memcmp (pFldVal, pValue->str.str, len)) {
@@ -561,6 +598,7 @@ xdb_row_cmp2 (const void *pRowL, const void *pRowR, xdb_field_t **ppFields, int 
 		case XDB_TYPE_JSON:
 			pRowValL = xdb_row_vdata_get_off (pField->pTblm, pRowL, *(int32_t*)pRowValL);
 			pRowValR = xdb_row_vdata_get_off (pField->pTblm, pRowR, *(int32_t*)pRowValR);
+			// TDB JSON
 			if (xdb_unlikely (NULL == pRowValL)) {
 				pRowValL = "";
 			}
@@ -1103,7 +1141,7 @@ xdb_row_set (xdb_tblm_t *pTblm, void *pRow, xdb_setfld_t set_flds[], int count)
 }
 
 XDB_STATIC uint64_t 
-xdb_row_hash (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pFields[], int count)
+xdb_row_hash (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pFields[], char *pExtract[], int count)
 {
 	uint64_t hashsum = 0, hash;
 	xdb_field_t **ppField = pFields;
@@ -1144,10 +1182,26 @@ xdb_row_hash (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pFields[], int count)
 				break; 
 			}
 			ptr = xdb_row_vdata_get (pTblm, pRow) + 4 + voff;
+			if (pExtract[i] != NULL) {
+				xdb_value_t	value;
+				bool bOk = xdb_json_extract (ptr, pExtract[i], &value);
+				if (bOk) {
+					if (XDB_TYPE_BIGINT == value.val_type) {
+						hash = value.ival;
+					} else if (XDB_TYPE_CHAR == value.val_type) {
+						hash = xdb_wyhash (value.str.str, value.str.len);
+					} else {
+						hash = 0;
+					}
+				} else {
+					hash = 0;
+				}
+				break;
+			}
 			// fall through
 		case XDB_TYPE_CHAR:
-			//hash = xdb_wyhash (ptr, *(uint16_t*)(ptr-2));
-			hash = xdb_strcasehash (ptr, *(uint16_t*)(ptr-2));
+			hash = xdb_wyhash (ptr, *(uint16_t*)(ptr-2));
+			//hash = xdb_strcasehash (ptr, *(uint16_t*)(ptr-2));
 			break;
 		case XDB_TYPE_VBINARY:
 			voff = *(int32_t*)ptr;
@@ -1180,7 +1234,7 @@ xdb_row_hash (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pFields[], int count)
 }
 
 XDB_STATIC uint64_t 
-xdb_row_hash2 (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pFields[], int count)
+xdb_row_hash2 (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pFields[], char *pExtract[], int count)
 {
 	uint64_t hashsum = 0, hash;
 	xdb_str_t *pVStr = pRow + pTblm->row_size, *pStr;
@@ -1214,18 +1268,36 @@ xdb_row_hash2 (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pFields[], int count)
 		case XDB_TYPE_DOUBLE:
 			hash = *(uint64_t*)ptr;
 			break;
+
 		case XDB_TYPE_VCHAR:
 		case XDB_TYPE_JSON:
 			pStr = &pVStr[i];
+			if (pStr != NULL) {
+				xdb_value_t value;
+				bool bOk = xdb_json_extract (pVStr[i].str, pExtract[i], &value);
+				if (bOk) {
+					if (XDB_TYPE_BIGINT == value.val_type) {
+						hash = value.ival;
+					} else if (XDB_TYPE_CHAR == value.val_type) {
+						hash = xdb_wyhash (value.str.str, value.str.len);
+					} else {
+						hash = 0;
+					}
+				} else {
+					hash = 0;
+				}
+				break;
+			}
 			if (xdb_unlikely (NULL != pStr->str)) {
-				hash = xdb_strcasehash (pStr->str, pStr->len);
+				hash = xdb_wyhash (pStr->str, pStr->len);
+				//hash = xdb_strcasehash (pStr->str, pStr->len);
 			} else {
 				hash = 0;
 			}
 			break;
 		case XDB_TYPE_CHAR:
-			//hash = xdb_wyhash (ptr, *(uint16_t*)(ptr-2));
-			hash = xdb_strcasehash (ptr, *(uint16_t*)(ptr-2));
+			hash = xdb_wyhash (ptr, *(uint16_t*)(ptr-2));
+			//hash = xdb_strcasehash (ptr, *(uint16_t*)(ptr-2));
 			break;
 		case XDB_TYPE_VBINARY:
 			pStr = &pVStr[i];
@@ -1273,8 +1345,8 @@ xdb_val_hash (xdb_value_t **ppValues, int count)
 		case XDB_TYPE_CHAR:
 		case XDB_TYPE_VCHAR:
 		case XDB_TYPE_JSON:
-			//hash = xdb_wyhash (pValue->str.str, pValue->str.len);
-			hash = xdb_strcasehash (pValue->str.str, pValue->str.len);
+			hash = xdb_wyhash (pValue->str.str, pValue->str.len);
+			//hash = xdb_strcasehash (pValue->str.str, pValue->str.len);
 			break;
 		case XDB_TYPE_BINARY:
 		case XDB_TYPE_VBINARY:

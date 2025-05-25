@@ -16,6 +16,23 @@ typedef struct xdb_str_t {
 	int 	len;
 } xdb_str_t;
 
+static inline int xdb_strcmp (xdb_str_t *pStr1, xdb_str_t *pStr2)
+{
+	int cmp = memcmp (pStr1->str, pStr2->str, pStr1->len<=pStr2->len ? pStr1->len : pStr2->len);
+	if (!cmp) {
+		return pStr1->len - pStr2->len;
+	}
+}
+
+static inline bool xdb_streq (xdb_str_t *pStr1, xdb_str_t *pStr2)
+{
+	if (pStr1->len != pStr2->len) {
+		return false;
+	}
+	return 0 == memcmp (pStr1->str, pStr2->str, pStr1->len);
+}
+
+
 #define xdb_strcpy(dst,src)			xdb_strncpy(dst, src, sizeof(dst))
 
 #define xdb_sprintf(dst, ...)	do { snprintf(dst, sizeof(dst), __VA_ARGS__); (dst)[sizeof(dst)-1] = '\0'; } while (0)

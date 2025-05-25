@@ -269,7 +269,8 @@ typedef struct {
 	struct xdb_idxm_t	*pIdxm;
 	int					fld_count;
 	//xdb_field_t			*pFields[XDB_MAX_MATCH_COL];
-	const char 			*idx_col[XDB_MAX_MATCH_COL];
+	char 				*idx_col[XDB_MAX_MATCH_COL];
+	char 				*idx_extract[XDB_MAX_MATCH_COL];
 } xdb_stmt_idx_t;
 
 typedef enum {

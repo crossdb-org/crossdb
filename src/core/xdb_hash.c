@@ -65,7 +65,7 @@ xdb_hash_rehash (xdb_idxm_t *pIdxm, xdb_rowid old_max)
 	uint32_t			hash_mask = pIdxm->slot_mask;
 	xdb_hashNode_t 		*pCurNode, *pNxtNode, *pPreNode;
 
-	xdb_hashlog ("Rehash %s old_max %d new_max %d node %d rid %d Begin\n", XDB_OBJ_NAME(pIdxm), old_max, new_max, pIdxm->node_cap, pHashHdr->row_count);
+	xdb_hashlog ("Rehash %s old_max %d new_max %d node %d rid %d Begin\n", XDB_OBJ_NAME(pIdxm), old_max, hash_mask, pIdxm->node_cap, pHashHdr->row_count);
 
 	for (slot = 0; slot < old_max; ++slot) {
 		rid = pHashSlot[slot];
@@ -118,7 +118,7 @@ xdb_hash_rehash (xdb_idxm_t *pIdxm, xdb_rowid old_max)
 		}
 	}
 
-	xdb_hashlog ("Rehash %s old_max %d new_max %d node %d rid %d End\n", XDB_OBJ_NAME(pIdxm), old_max, new_max, pIdxm->node_cap, pHashHdr->row_count);
+	xdb_hashlog ("Rehash %s old_max %d new_max %d node %d rid %d End\n", XDB_OBJ_NAME(pIdxm), old_max, hash_mask, pIdxm->node_cap, pHashHdr->row_count);
 
 	return 0;
 }
@@ -148,7 +148,7 @@ xdb_hash_add (xdb_conn_t *pConn, xdb_idxm_t* pIdxm, xdb_rowid new_rid, void *pRo
 #endif
 	}
 
-	uint32_t hash_val = xdb_row_hash (pIdxm->pTblm, pRow, pIdxm->pFields, pIdxm->fld_count);
+	uint32_t hash_val = xdb_row_hash (pIdxm->pTblm, pRow, pIdxm->pFields, pIdxm->pExtract, pIdxm->fld_count);
 	uint32_t slot_id = hash_val & pIdxm->slot_mask;
 
 	xdb_hashlog ("add rid %d hash %x slot %d\n", new_rid, hash_val, slot_id);
@@ -178,7 +178,7 @@ xdb_hash_add (xdb_conn_t *pConn, xdb_idxm_t* pIdxm, xdb_rowid new_rid, void *pRo
 				continue;
 			}
 			void *pRowDb = XDB_IDPTR(pStgMgr, rid);
-			bool eq = xdb_row_isequal2 (pIdxm->pTblm, pRow, pRowDb, pIdxm->pFields, pIdxm->fld_count);
+			bool eq = xdb_row_isequal2 (pIdxm->pTblm, pRow, pRowDb, pIdxm->pFields, pIdxm->pExtract, pIdxm->fld_count);
 			if (eq) {
 				if (pIdxm->bUnique && pConn && xdb_row_valid (pConn, pIdxm->pTblm, pRowDb, rid)) {
 					goto error;
@@ -363,7 +363,7 @@ xdb_hash_query (xdb_conn_t *pConn, xdb_idxfilter_t *pIdxFilter, xdb_rowset_t *pR
 		if (xdb_unlikely (pCurNode->hash_val != hash_val)) {
 			continue;
 		}
-		if (xdb_unlikely (! xdb_row_isequal (pIdxm->pTblm, pRow, pIdxm->pFields, pIdxFilter->pIdxVals, pIdxm->fld_count))) {
+		if (xdb_unlikely (! xdb_row_isequal (pIdxm->pTblm, pRow, pIdxm->pFields, pIdxm->pExtract, pIdxFilter->pIdxVals, pIdxm->fld_count))) {
 			continue;
 		}
 		if (xdb_likely (xdb_row_valid (pConn, pIdxm->pTblm, pRow, rid))) {
@@ -397,7 +397,7 @@ xdb_hash_query (xdb_conn_t *pConn, xdb_idxfilter_t *pIdxFilter, xdb_rowset_t *pR
 XDB_STATIC xdb_rowid 
 xdb_hash_query2 (xdb_conn_t *pConn, struct xdb_idxm_t* pIdxm, void *pRow2)
 {
-	uint32_t hash_val = xdb_row_hash2 (pIdxm->pTblm, pRow2, pIdxm->pFields, pIdxm->fld_count);
+	uint32_t hash_val = xdb_row_hash2 (pIdxm->pTblm, pRow2, pIdxm->pFields, pIdxm->pExtract, pIdxm->fld_count);
 	uint32_t slot_id = hash_val & pIdxm->slot_mask;
 
 	xdb_hashHdr_t	*pHashHdr  = pIdxm->pHashHdr;	
@@ -412,7 +412,7 @@ xdb_hash_query2 (xdb_conn_t *pConn, struct xdb_idxm_t* pIdxm, void *pRow2)
 
 	xdb_rowid rid = pHashSlot[slot_id];
 
-	xdb_hashlog ("hash_get_slot hash 0x%x mod 0x%x slot %d 1st row %d\n", hash_val, pIdxm->slot_mask, slot_id, rid);
+	xdb_hashlog ("hash_get_slot2 hash 0x%x mod 0x%x slot %d 1st row %d\n", hash_val, pIdxm->slot_mask, slot_id, rid);
 
 	xdb_hashNode_t	*pCurNode;
 	for (; rid > 0; rid = pCurNode->next) {
@@ -423,7 +423,7 @@ xdb_hash_query2 (xdb_conn_t *pConn, struct xdb_idxm_t* pIdxm, void *pRow2)
 		if (xdb_unlikely (pCurNode->hash_val != hash_val)) {
 			continue;
 		}
-		if (xdb_row_isequal2 (pIdxm->pTblm, pRow, pRow2, pIdxm->pFields, pIdxm->fld_count) && 
+		if (xdb_row_isequal2 (pIdxm->pTblm, pRow, pRow2, pIdxm->pFields, pIdxm->pExtract, pIdxm->fld_count) && 
 			xdb_row_valid (pConn, pIdxm->pTblm, pRow, rid)) {
 			return rid;
 		}

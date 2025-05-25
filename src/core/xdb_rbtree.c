@@ -880,7 +880,7 @@ xdb_rbtree_query (xdb_conn_t *pConn, xdb_idxfilter_t *pIdxFilter, xdb_rowset_t *
 		// X is first
 		if (xdb_unlikely (pIdxFilter->match_opt != XDB_TOK_EQ)) {
 			// check if exceed boundary
-			bool eq = xdb_row_isequal (pTblm, pRow, pIdxm->pFields, pIdxFilter->pIdxVals, pIdxFilter->match_cnt-1);
+			bool eq = xdb_row_isequal (pTblm, pRow, pIdxm->pFields, pIdxm->pExtract, pIdxFilter->pIdxVals, pIdxFilter->match_cnt-1);
 			if (!eq) {
 				// doesn't satfiy match condition, stop
 				break;

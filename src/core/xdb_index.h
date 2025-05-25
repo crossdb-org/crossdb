@@ -32,6 +32,7 @@ typedef struct xdb_idxm_t {
 	bool			bUnique;
 	int				fld_count;
 	xdb_field_t		*pFields[XDB_MAX_MATCH_COL];
+	char			*pExtract[XDB_MAX_MATCH_COL];
 	uint32_t		slot_mask;
 	xdb_hashHdr_t	*pHashHdr;	
 	xdb_rbtree_t	*pRbtrHdr;
