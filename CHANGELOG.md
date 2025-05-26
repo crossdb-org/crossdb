@@ -26,6 +26,18 @@
 - Support simple SQL inner join
 - Support RBTREE index for exact match, range match and leftmost match
 
+## 0.14.0 <small>(2025-05-21)</small>
+
+**Features**
+
+- Support create index on `JSON` field.
+
+**Improvements**
+
+**Bug Fixes**
+
+- Fix `create` invalid objec doesn't report error
+
 -->
 
 ## 0.14.0 <small>(2025-05-21)</small>

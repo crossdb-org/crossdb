@@ -141,3 +141,7 @@ https://crossdb.org/develop/server/
 ### CrossDB Replication
 
 https://crossdb.org/develop/replication/
+
+### CrossDB JSON
+
+https://crossdb.org/sql/json/

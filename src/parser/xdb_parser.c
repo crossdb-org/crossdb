@@ -135,10 +135,13 @@ xdb_parse_create (xdb_conn_t* pConn, xdb_token_t *pTkn)
 			}
 			#endif
 			break;
+		default:
+			break;
 		}
 	}
 
 error:
+	XDB_SETERR (XDB_E_STMT, "Unknown create object '%s'", pTkn->token); 		
 	return NULL;
 }
 
