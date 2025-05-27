@@ -47,6 +47,7 @@ typedef struct {
 	uint8_t		rowdat[];
 } xdb_rowdat_t;
 
+// array: type, dimension, component type
 typedef struct {
 	uint8_t		col_len;		// colum total len
 	uint8_t		col_type;		// 1 xdb_type_t
@@ -220,6 +221,7 @@ typedef enum {
 	XDB_FLD_BINARY 	= 1<<7,
 } xdb_fld_flag_e;
 
+// array, fld_type=ARRAY, dimension,[limit][limit][limit], component_type
 typedef struct xdb_field_t {
 	xdb_obj_t		obj;
 	struct xdb_tblm_t	*pTblm;

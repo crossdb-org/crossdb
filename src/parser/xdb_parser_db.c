@@ -69,7 +69,7 @@ xdb_parse_create_db (xdb_conn_t* pConn, xdb_token_t *pTkn)
 					pStmt->sync_mode = XDB_SYNC_ASYNC;
 				} else if (!strcasecmp (pTkn->token, "SYNC")) {
 					pStmt->sync_mode = XDB_SYNC_SYNC;
-				} else if (!strcasecmp (pTkn->token, "NOLOCK")) {
+				} else if (!strcasecmp (pTkn->token, "NOSYNC")) {
 					pStmt->sync_mode = XDB_SYNC_NOSYNC;
 				} else {
 					XDB_EXPECT (0, XDB_E_STMT, "Unknown syncmode '%s'", pTkn->token);
@@ -83,6 +83,8 @@ xdb_parse_create_db (xdb_conn_t* pConn, xdb_token_t *pTkn)
 		}
 		type = xdb_next_token (pTkn);
 	} while (XDB_TOK_COMMA == type);
+
+	XDB_EXPECT (type >= XDB_TOK_END, XDB_E_STMT, "Unknown token '%s'", pTkn->token);
 
 	if (pStmt->bMemory && (XDB_LOCK_PROCESS == pStmt->lock_mode)) {
 		pStmt->lock_mode = XDB_LOCK_THREAD;
