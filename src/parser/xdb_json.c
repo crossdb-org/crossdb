@@ -44,6 +44,8 @@ static bool xdb_json_match_obj (xdb_token_t *pTkn, const char *path, int len, xd
 				char buf[128];
 				XDB_EXPECT3 (pTkn->tk_len < sizeof(buf), "too big num");
 				memcpy (buf, pTkn->token, pTkn->tk_len);
+				pVal->val_str.str = pTkn->token;
+				pVal->val_str.len = pTkn->tk_len;
 				buf[pTkn->tk_len] = '\0';
 				if (!pTkn->bFloat) {
 					pVal->ival = atoll (pTkn->token);

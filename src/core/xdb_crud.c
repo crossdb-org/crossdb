@@ -919,6 +919,16 @@ xdb_row_getVal (void *pRow, xdb_value_t *pVal)
 	case XDB_TYPE_JSON:
 		pVal->str.str = xdb_fld_vdata_get (pVal->pField, pRow, &pVal->str.len);
 		pVal->sup_type = pVal->pField->fld_type;
+		if (pVal->pExtract != NULL) {
+			xdb_value_t value;
+			xdb_json_extract (pVal->str.str, pVal->pExtract, &value);
+			pVal->sup_type = XDB_TYPE_CHAR;
+			if (value.val_type != XDB_TYPE_CHAR) {
+				pVal->str = value.val_str;
+			} else {
+				pVal->str = value.str;
+			}
+		}
 		break;
 	case XDB_TYPE_INET:
 		pVal->inet = *(xdb_inet_t*)pFldPtr;
@@ -2718,6 +2728,7 @@ xdb_sql_select (xdb_stmt_select_t *pStmt)
 			void *pRow = pRowSet->pRowList[id].ptr;
 			int voff = 0, vlen;
 			uint8_t *pNull = (void*)pCurDat->rowdat + pStmt->pMeta->null_off;
+			*((uint8_t*)pCurDat->rowdat + row_size - 1) = XDB_VTYPE_DATA;
 			// set notnull first
 			XDB_BMP_INIT1 (pNull, pStmt->pMeta->col_count);
 			for (int i = 0 ; i < pStmt->pMeta->col_count; ++i) {
@@ -2734,7 +2745,6 @@ xdb_sql_select (xdb_stmt_select_t *pStmt)
 				if (xdb_unlikely (sup_type != pVal->sup_type)) {
 					xdb_convert_val (pVal, sup_type);
 				}
-				*((uint8_t*)pCurDat->rowdat + row_size - 1) = XDB_VTYPE_DATA;
 				if (xdb_unlikely (s_xdb_vdat[pCol->col_type])) {
 					*(int*)((void*)pCurDat->rowdat + pCol->col_off) = voff + 2;
 					vlen = XDB_ALIGN4 (pVal->str.len + 3);
@@ -2742,7 +2752,8 @@ xdb_sql_select (xdb_stmt_select_t *pStmt)
 					XDB_RES_ALLOC2();
 					void *pVdat = (void*)pCurDat->rowdat + row_size + voff;
 					*(uint16_t*)pVdat = pVal->str.len;
-					memcpy (pVdat + 2, pVal->str.str, pVal->str.len + 1);
+					memcpy (pVdat + 2, pVal->str.str, pVal->str.len);
+					*((char*)pVdat + 2 + pVal->str.len) = '\0';
 					voff += vlen;
 				} else {
 					xdb_col_set2 ((void*)pCurDat->rowdat + pCol->col_off, pCol->col_type, pVal);

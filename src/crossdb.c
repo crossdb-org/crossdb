@@ -42,36 +42,6 @@
 #include "admin/xdb_backup.h"
 #include "core/xdb_wal.h"
 
-#include "parser/xdb_parser.c"
-#include "parser/xdb_json.c"
-#include "core/xdb_expr.c"
-#include "core/xdb_store.c"
-#include "core/xdb_sysdb.c"
-#include "core/xdb_db.c"
-#include "core/xdb_crud.c"
-#include "core/xdb_fkey.c"
-#include "core/xdb_index.c"
-#include "core/xdb_hash.c"
-#include "core/xdb_rbtree.c"
-#include "core/xdb_vdata.c"
-#include "core/xdb_table.c"
-#include "core/xdb_trans.c"
-#include "core/xdb_trigger.c"
-#include "core/xdb_conn.c"
-#if (XDB_ENABLE_SERVER == 1)
-#include "server/xdb_client.c"
-#include "server/xdb_server.c"
-#endif
-#include "admin/xdb_backup.c"
-#if (XDB_ENABLE_PUBSUB == 1)
-#include "server/xdb_pubsub.c"
-#endif
-#include "core/xdb_sql.c"
-#include "core/xdb_wal.c"
-#if (XDB_ENABLE_JNI == 1)
-#include "jni/xdb_jni.c"
-#endif
-#include "admin/xdb_shell.c"
 
 static bool s_xdb_vdat[XDB_TYPE_MAX] = {
 	[XDB_TYPE_VBINARY	] = true,
@@ -127,6 +97,61 @@ static xdb_type_t s_xdb_prompt_type[] = {
 	[XDB_TYPE_MAC]			= XDB_TYPE_MAC,
 	[XDB_TYPE_JSON ]		= XDB_TYPE_JSON,
 };
+
+static uint8_t s_xdb_type_len[] = {
+	[XDB_TYPE_BOOL	  ] 	= 1,
+	[XDB_TYPE_TINYINT  ] 	= 1,
+	[XDB_TYPE_SMALLINT  ] 	= 2,
+	[XDB_TYPE_INT	] 		= 4,
+	[XDB_TYPE_BIGINT	]	= 8,
+	[XDB_TYPE_UTINYINT  ]	= 1,
+	[XDB_TYPE_USMALLINT	]	= 2,
+	[XDB_TYPE_UINT	]		= 4,
+	[XDB_TYPE_UBIGINT	]	= 8,
+	[XDB_TYPE_FLOAT	]		= 4,
+	[XDB_TYPE_DOUBLE	]	= 8,
+	[XDB_TYPE_CHAR	]		= 2,
+	[XDB_TYPE_VCHAR	]		= 4,
+	[XDB_TYPE_BINARY ]		= 2,
+	[XDB_TYPE_VBINARY ]		= 4,
+	[XDB_TYPE_TIMESTAMP] 	= 8,
+	[XDB_TYPE_INET]			= sizeof (xdb_inet_t),
+	[XDB_TYPE_MAC]			= sizeof (xdb_mac_t),
+	[XDB_TYPE_JSON ]		= 4,
+};
+
+
+#include "parser/xdb_parser.c"
+#include "parser/xdb_json.c"
+#include "core/xdb_expr.c"
+#include "core/xdb_store.c"
+#include "core/xdb_sysdb.c"
+#include "core/xdb_db.c"
+#include "core/xdb_crud.c"
+#include "core/xdb_fkey.c"
+#include "core/xdb_index.c"
+#include "core/xdb_hash.c"
+#include "core/xdb_rbtree.c"
+#include "core/xdb_vdata.c"
+#include "core/xdb_table.c"
+#include "core/xdb_trans.c"
+#include "core/xdb_trigger.c"
+#include "core/xdb_conn.c"
+#if (XDB_ENABLE_SERVER == 1)
+#include "server/xdb_client.c"
+#include "server/xdb_server.c"
+#endif
+#include "admin/xdb_backup.c"
+#if (XDB_ENABLE_PUBSUB == 1)
+#include "server/xdb_pubsub.c"
+#endif
+#include "core/xdb_sql.c"
+#include "core/xdb_wal.c"
+#if (XDB_ENABLE_JNI == 1)
+#include "jni/xdb_jni.c"
+#endif
+#include "admin/xdb_shell.c"
+
 
 static volatile bool s_xdb_bInit = false;
 static bool s_xdb_cli = false;

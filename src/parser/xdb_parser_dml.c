@@ -615,15 +615,21 @@ xdb_parse_val (xdb_stmt_select_t *pStmt, xdb_field_t *pField, xdb_value_t *pVal,
 		}
 		pVal->val_type = XDB_TYPE_FIELD;
 		type = xdb_next_token (pTkn);
-		if (XDB_TOK_DOT != type) {
-			pVal->val_str2.str = NULL;
-		} else {
+
+		if (XDB_TOK_DOT == type) {
 			type = xdb_next_token (pTkn);
 			XDB_EXPECT(XDB_TOK_ID == type, XDB_E_STMT, "Expect ID");
 			pVal->val_str2 = pVal->val_str;
 			pVal->val_str.str = pTkn->token;
 			pVal->val_str.len = pTkn->tk_len;
-			type = xdb_next_token (pTkn);			
+			type = xdb_next_token (pTkn);
+		} else if (XDB_TOK_EXTRACT == type) {
+			type = xdb_next_token (pTkn);
+			XDB_EXPECT (type <= XDB_TOK_STR, XDB_E_STMT, "Expect json extract string");
+			pVal->pExtract = pTkn->token;
+			type = xdb_next_token (pTkn);
+		} else {
+			pVal->val_str2.str = NULL;
 		}
 		break;
 	default:
@@ -1012,17 +1018,59 @@ xdb_parse_select_cols (xdb_conn_t *pConn, xdb_stmt_select_t *pStmt, int meta_siz
 					pVal->pField = xdb_find_field (pTblm, pVal->val_str.str, pVal->val_str.len);
 					XDB_EXPECT (pVal->pField != NULL, XDB_E_STMT, "field '%s' doesn't exist", pVal->val_str.str);
 					pCol->col_type	= pVal->pField->fld_type;
-					offset			= XDB_ALIGN4 (offset + pVal->pField->fld_len);
-					if (xdb_unlikely ((XDB_TYPE_CHAR == pCol->col_type) || (XDB_TYPE_BINARY == pCol->col_type))) {
-						pCol->col_off	+= 2;
-						offset			= XDB_ALIGN4 (offset + pVal->str.len + 3);
+					if ((pVal->pExtract != NULL) && (NULL == pName->str)) {
+						pCol->col_type	= XDB_TYPE_VCHAR;
+						pCol->col_name[pCol->col_nmlen++] = '-';
+						pCol->col_name[pCol->col_nmlen++] = '>';
+						pCol->col_name[pCol->col_nmlen++] = '\'';
+						int len = strlen (pVal->pExtract);
+						memcpy (&pCol->col_name[pCol->col_nmlen], pVal->pExtract, len);
+						pCol->col_nmlen += len;
+						pCol->col_name[pCol->col_nmlen++] = '\'';
+						pCol->col_name[pCol->col_nmlen] = '\0';
+					}
+					switch (pCol->col_type) {
+					case XDB_TYPE_USMALLINT:
+					case XDB_TYPE_SMALLINT:
+						pCol->col_off	= XDB_ALIGN2(offset);
+						offset = pCol->col_off + s_xdb_type_len[pCol->col_type];
+						break;
+					case XDB_TYPE_CHAR:
+					case XDB_TYPE_BINARY:	
+						pCol->col_off	= XDB_ALIGN2(offset) + 2;
+						offset = pCol->col_off + pVal->pField->fld_len + 1;
+						break;
+					case XDB_TYPE_VBINARY:	
+					case XDB_TYPE_VCHAR:
+					case XDB_TYPE_JSON:
+					case XDB_TYPE_INT:
+					case XDB_TYPE_UINT:
+					case XDB_TYPE_FLOAT:
+					case XDB_TYPE_BIGINT:	
+					case XDB_TYPE_UBIGINT:	
+					case XDB_TYPE_DOUBLE:	
+					case XDB_TYPE_TIMESTAMP:
+						pCol->col_off			= XDB_ALIGN4(offset);
+						offset = pCol->col_off + s_xdb_type_len[pCol->col_type];
+						break;
+					case XDB_TYPE_BOOL:
+					case XDB_TYPE_INET:
+					case XDB_TYPE_MAC:
+					case XDB_TYPE_UTINYINT: 
+					case XDB_TYPE_TINYINT:
+						offset = pCol->col_off + s_xdb_type_len[pCol->col_type];
+						break;
+					default:
+						break;
 					}
 				} else {
 					pVal->pField	= NULL;
 					pCol->col_type	= pVal->val_type;
-					offset			= offset + 8;
+					pCol->col_off		= XDB_ALIGN4(offset);
+					offset = pCol->col_off + 8;
 				}
 			} else if (pSelCol->exp.exp_op < XDB_TOK_COUNT) {
+				pCol->col_off		= XDB_ALIGN4(offset);
 				// exp
 				pVal1 = &pSelCol->exp.op_val[1];
 				if (NULL == pName->str) {
@@ -1049,12 +1097,13 @@ xdb_parse_select_cols (xdb_conn_t *pConn, xdb_stmt_select_t *pStmt, int meta_siz
 
 				if (XDB_TOK_DIV != pSelCol->exp.exp_op) {
 					pCol->col_type	= vtype >= vtype1 ? vtype : vtype1;
-					offset			= XDB_ALIGN4 (offset + 8);
+					offset = pCol->col_off + 8;
 				} else {
 					pCol->col_type	= XDB_TYPE_DOUBLE;
-					offset			= XDB_ALIGN4 (offset + 8);
+					offset = pCol->col_off + 8;
 				}
 			} else {
+				pCol->col_off		= XDB_ALIGN4(offset);
 				// agg
 				pVal1 = &pSelCol->exp.op_val[1];
 				if (xdb_likely (pVal1->val_str.str != NULL)) {
@@ -1072,20 +1121,20 @@ xdb_parse_select_cols (xdb_conn_t *pConn, xdb_stmt_select_t *pStmt, int meta_siz
 				switch (pSelCol->exp.exp_op) {
 				case XDB_TOK_COUNT:
 					pCol->col_type	= XDB_TYPE_BIGINT;
-					offset			= XDB_ALIGN4 (offset + 8);
+					offset = pCol->col_off + 8;
 					break;
 				case XDB_TOK_SUM:
 					pCol->col_type = pVal1->pField->sup_type;
-					offset			= XDB_ALIGN4 (offset + 8);
+					offset = pCol->col_off + 8;
 					break;
 				case XDB_TOK_AVG:
 					pCol->col_type	= XDB_TYPE_DOUBLE;
-					offset			= XDB_ALIGN4 (offset + 8);
+					offset = pCol->col_off + 8;
 					break;
 				case XDB_TOK_MIN:
 				case XDB_TOK_MAX:
 					pCol->col_type	= pVal1->pField->fld_type;
-					offset			= XDB_ALIGN4 (offset + pVal1->pField->fld_len);
+					offset	= pCol->col_off + s_xdb_type_len[pCol->col_type];
 					break;
 				default:
 					break;
@@ -1181,8 +1230,13 @@ xdb_parse_select (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 		pSelCol->as_name.str = NULL;
 
 		pVal = &pSelCol->exp.op_val[0];
+		pVal->pExtract = NULL;
 		type = xdb_parse_val (pStmt, NULL, pVal, pTkn);
 		XDB_EXPECT2 (type >= 0);
+		if (pVal->pExtract != NULL) {
+			pStmt->exp_count++;
+			meta_size += strlen (pVal->pExtract) + 5; // ->''\0
+		}
 
 		pSelCol->exp.exp_op = XDB_TOK_NONE;
 		nmlen = XDB_ALIGN4 (pTkn->tk_len + 1);
@@ -1190,7 +1244,9 @@ xdb_parse_select (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 		if (xdb_likely (XDB_TOK_COMMA == type)) {
 			// fast hit
 			if (pVal->val_type != XDB_TYPE_FIELD) {
-				pStmt->exp_count++;
+				if (pVal->pExtract == NULL) {
+					pStmt->exp_count++;
+				}
 			}
 		} else if (type >= XDB_TOK_ADD && type <= XDB_TOK_DIV) {
 			// exp
@@ -1200,7 +1256,9 @@ xdb_parse_select (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 			type = xdb_parse_val (pStmt, NULL, pVal1, pTkn);
 			XDB_EXPECT2 (type >= 0);
 			nmlen = XDB_ALIGN4 (pVal->val_str.len + pVal1->val_str.len + 1 + 1);
-			pStmt->exp_count++;
+			if (pVal->pExtract == NULL) {
+				pStmt->exp_count++;
+			}
 		} else if (XDB_TOK_LP == type) {
 			// agg func
 			xdb_str_t *pFunc = &pVal->val_str;
@@ -1241,10 +1299,16 @@ xdb_parse_select (xdb_conn_t* pConn, xdb_token_t *pTkn, bool bPStmt)
 				pSelCol->as_name.str = pTkn->token;
 				pSelCol->as_name.len = pTkn->tk_len;
 				nmlen = XDB_ALIGN4 (pTkn->tk_len + 1);
+				if (pVal->pExtract != NULL) {
+					meta_size -= strlen (pVal->pExtract) + 5;
+				}
+				
 				type = xdb_next_token (pTkn);
 			} else {
 				if (pVal->val_type != XDB_TYPE_FIELD) {
-					pStmt->exp_count++;
+					if (pVal->pExtract == NULL) {
+						pStmt->exp_count++;
+					}
 				}
 				meta_size += nmlen;
 				break;

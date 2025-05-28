@@ -56,6 +56,7 @@ typedef unsigned int in_addr_t;
 #define XDB_ARY_LEN(a)			(sizeof(a)/sizeof(a[0]))
 #define XDB_OFFSET(st,fld)		offsetof(st,fld)
 
+#define XDB_ALIGN2(len)			((len + 2) & ~1)
 #define XDB_ALIGN4(len)			((len + 3) & ~3)
 #define XDB_ALIGN8(len)			((len + 7) & ~7)
 #define XDB_ALIGN4K(len)		((len + 4093) & ~4093)

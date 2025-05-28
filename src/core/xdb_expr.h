@@ -48,6 +48,7 @@ typedef struct xdb_value_t {
 	uint8_t			fld_type;
 	uint8_t			sup_type;
 	xdb_field_t 	*pField;
+	char			*pExtract;
 	uint8_t			reftbl_id;
 	xdb_str_t		val_str;	// raw text value field
 	xdb_str_t		val_str2;	// raw text value	table
