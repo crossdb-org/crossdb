@@ -494,6 +494,12 @@ xdb_parse_orderby (xdb_conn_t* pConn, xdb_stmt_select_t *pStmt, xdb_token_t *pTk
 			break;
 		}
 		type = xdb_next_token (pTkn);
+		if (XDB_TOK_EXTRACT == type) {
+			type = xdb_next_token (pTkn);
+			XDB_EXPECT (type <= XDB_TOK_STR, XDB_E_STMT, "Expect json extract string");
+			pStmt->pOrderExtr[pStmt->order_count] = pTkn->token;
+			type = xdb_next_token (pTkn);
+		}
 		pStmt->order_count++;
 		if (XDB_TOK_ID == type) {
 			if (!strcasecmp (pTkn->token, "DESC")) {

@@ -22,6 +22,7 @@ static inline int xdb_strcmp (xdb_str_t *pStr1, xdb_str_t *pStr2)
 	if (!cmp) {
 		return pStr1->len - pStr2->len;
 	}
+	return cmp;
 }
 
 static inline bool xdb_streq (xdb_str_t *pStr1, xdb_str_t *pStr2)

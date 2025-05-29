@@ -419,6 +419,7 @@ typedef struct {
 
 	// orderby
 	xdb_field_t		*pOrderFlds[XDB_MAX_MATCH_COL];
+	char			*pOrderExtr[XDB_MAX_MATCH_COL];
 	bool			bOrderDesc[XDB_MAX_MATCH_COL];
 
 	// limit

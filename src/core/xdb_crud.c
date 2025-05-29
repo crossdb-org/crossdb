@@ -245,7 +245,8 @@ xdb_row_isequal (xdb_tblm_t *pTblm, void *pRow, xdb_field_t **ppFields, char **p
 				return false;
 			}
 			//if (memcmp (pFldVal, pValue->str.str, len)) {
-			if (strcasecmp (pFldVal, pValue->str.str)) {
+			//if (strcasecmp (pFldVal, pValue->str.str)) {
+			if (strcmp (pFldVal, pValue->str.str)) {
 				return false;
 			}
 			break;
@@ -360,7 +361,8 @@ xdb_row_isequal2 (xdb_tblm_t *pTblm, void *pRowL, void *pRowR, xdb_field_t **ppF
 				return false;
 			}
 			//if (memcmp (pFldValL, pFldValR, lenL)) {
-			if (strcasecmp (pFldValL, pFldValR)) {
+			//if (strcasecmp (pFldValL, pFldValR)) {
+			if (strcmp (pFldValL, pFldValR)) {
 				return false;
 			}
 			break;
@@ -482,7 +484,8 @@ xdb_row_cmp (xdb_tblm_t *pTblm, void *pRow, xdb_field_t **ppFields, xdb_value_t 
 			// fall through
 		case XDB_TYPE_CHAR:
 			//if (memcmp (pFldVal, pValue->str.str, len)) {
-			if ((cmp = strcasecmp (pFldVal, pValue->str.str))) {
+			//if ((cmp = strcasecmp (pFldVal, pValue->str.str))) {
+			if ((cmp = strcmp (pFldVal, pValue->str.str))) {
 				return cmp;
 			}
 			break;
@@ -516,7 +519,7 @@ xdb_row_cmp (xdb_tblm_t *pTblm, void *pRow, xdb_field_t **ppFields, xdb_value_t 
 }
 
 XDB_STATIC int 
-xdb_row_cmp2 (const void *pRowL, const void *pRowR, xdb_field_t **ppFields, int *pCount)
+xdb_row_cmp2 (const void *pRowL, const void *pRowR, xdb_field_t **ppFields, char **ppExtract, int *pCount)
 {
 	xdb_field_t **ppField = ppFields;
 	int count = *pCount;
@@ -542,7 +545,7 @@ xdb_row_cmp2 (const void *pRowL, const void *pRowR, xdb_field_t **ppFields, int 
 			break;
 		case XDB_TYPE_BIGINT:
 		case XDB_TYPE_TIMESTAMP:
-			if (*(int64_t*)pRowValL - *(int64_t*)pRowValR) {
+			if (*(int64_t*)pRowValL != *(int64_t*)pRowValR) {
 				*pCount = i;
 				return *(int64_t*)pRowValL > *(int64_t*)pRowValR ? 1 : -1;
 			}
@@ -605,9 +608,38 @@ xdb_row_cmp2 (const void *pRowL, const void *pRowR, xdb_field_t **ppFields, int 
 			if (xdb_unlikely (NULL == pRowValR)) {
 				pRowValR = "";
 			}
+
 			// fall through
 		case XDB_TYPE_CHAR:
-			cmp = strcasecmp (pRowValL, pRowValR);
+			if (ppExtract[i] != NULL) {
+				xdb_value_t valueL, valueR;
+				bool bOk = xdb_json_extract (pRowValL, ppExtract[i], &valueL);
+				if (!bOk) { return false; }
+				bOk = xdb_json_extract (pRowValR, ppExtract[i], &valueR);
+				if (!bOk) { return false; }
+				if (XDB_TYPE_BIGINT == valueL.val_type) {
+					if (valueL.ival != valueR.ival) {
+						*pCount = i;
+						return valueL.ival > valueR.ival ? 1 : -1;
+					} else {
+						break;
+					}
+				} else if (XDB_TYPE_CHAR == valueL.val_type) {
+					cmp = xdb_strcmp (&valueL.str, &valueR.str);
+					if (cmp) {
+						*pCount = i;
+						return cmp;
+					} else {
+						break;
+					}
+				} else {
+					*pCount = i;
+					return -1;
+				}
+			}
+
+			//cmp = strcasecmp (pRowValL, pRowValR);
+			cmp = strcmp (pRowValL, pRowValR);
 			if (cmp) {
 				*pCount = i;
 				return cmp;
@@ -656,9 +688,9 @@ xdb_row_cmp2 (const void *pRowL, const void *pRowR, xdb_field_t **ppFields, int 
 }
 
 static inline int 
-xdb_row_cmp3 (const void *pRowL, const void *pRowR, xdb_field_t **ppFields, int count)
+xdb_row_cmp3 (const void *pRowL, const void *pRowR, xdb_field_t **ppFields, char **ppExtract, int count)
 {
-	return xdb_row_cmp2 (pRowL, pRowR, ppFields, &count);
+	return xdb_row_cmp2 (pRowL, pRowR, ppFields, ppExtract, &count);
 }
 
 XDB_STATIC bool 
@@ -2218,7 +2250,7 @@ xdb_sort_cmp (const void *pLeft, const void *pRight, void *pArg)
 	const xdb_rowptr_t	*pRowL = pLeft, *pRowR = pRight;
 
 	int count = pStmt->order_count;
-	cmp = xdb_row_cmp2 (pRowL->ptr, pRowR->ptr, pStmt->pOrderFlds, &count);
+	cmp = xdb_row_cmp2 (pRowL->ptr, pRowR->ptr, pStmt->pOrderFlds, pStmt->pOrderExtr, &count);
 
 	return (pStmt->bOrderDesc[count]) ? -cmp : cmp;
 }

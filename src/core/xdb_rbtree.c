@@ -267,7 +267,7 @@ xdb_rbtree_add (xdb_conn_t *pConn, xdb_idxm_t* pIdxm, xdb_rowid Z, void *pZRow)
 		Y = X;
 
 		pXRow = XDB_IDPTR(pStgMgr, X);
-		cmp = xdb_row_cmp3 (pZRow, pXRow, pIdxm->pFields, pIdxm->fld_count);
+		cmp = xdb_row_cmp3 (pZRow, pXRow, pIdxm->pFields, pIdxm->pExtract, pIdxm->fld_count);
 		if (0 == cmp) {
 			if (pIdxm->bUnique && pConn && xdb_row_valid (pConn, pIdxm->pTblm, pXRow, X)) {
 				xdb_rbtlog ("  Duplicate insert %d to unique index %s\n", Z, XDB_OBJ_NAME(pIdxm));
