@@ -1137,7 +1137,6 @@ xdb_col_set (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pField, char *pExtract,
 	case XDB_TYPE_JSON:
 		pVStr = pRow + pTblm->row_size;
 		if (pExtract != NULL) {
-			printf ("Set %s\n", pExtract);
 			xdb_str_t *pStr = &pVStr[pField->fld_vid];
 			pVAlloc = (uint32_t*)&pVStr[pTblm->vfld_count];
 			char *pDst = pStr->str;
