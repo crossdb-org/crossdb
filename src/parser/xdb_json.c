@@ -62,6 +62,8 @@ static bool xdb_json_match_obj (xdb_token_t *pTkn, const char *path, int len, xd
 				pVal->val_type = XDB_TYPE_CHAR;
 				pVal->str.str = pTkn->token;
 				pVal->str.len = pTkn->tk_len;
+				pVal->val_str.str = pTkn->token;
+				pVal->val_str.len = pTkn->tk_len;
 				return true;
 			}
 			break;
@@ -136,56 +138,30 @@ static bool xdb_json_extract (const char* json, const char *path, xdb_value_t *p
 		return true;
 	}
 
-#if 0
-	while (1) {
-		type = xdb_next_token_mark (&token, false);
-		XDB_EXPECT3 (type == XDB_TOK_STR, "Expect ID %d\n", type);
-
-		//printf ("json %.*s\n", token.tk_len, token.token);
-
-		if ((token.tk_len == len) && !memcmp (token.token, path, len)) {
-			type = xdb_next_token_mark (&token, false);
-			XDB_EXPECT3 (type == XDB_TOK_COLON, "expect :\n");
-			type = xdb_next_token_mark (&token, false);
-			//printf ("found tken %s value %.*s\n", path, token.tk_len, token.token);
-			if (XDB_TOK_STR == type) {
-				pVal->val_type = XDB_TYPE_CHAR;
-				pVal->str.str = token.token;
-				pVal->str.len = token.tk_len;
-			} else if (XDB_TOK_NUM == type) {
-				char buf[128];
-				XDB_EXPECT3 (token.tk_len < sizeof(buf), "too big num");
-				memcpy (buf, token.token, token.tk_len);
-				buf[token.tk_len] = '\0';
-				if (!token.bFloat) {
-					pVal->ival = atoll (token.token);
-					pVal->val_type = XDB_TYPE_BIGINT;
-				} else {
-					pVal->fval = atof (token.token);
-					pVal->val_type = XDB_TYPE_DOUBLE;
-				}
-			} else {
-				xdb_errlog ("expect str or num for json but got %d\n", type);
-				goto error;
-			}
-			return true;
-		}
-		type = xdb_next_token_mark (&token, false);
-		XDB_EXPECT3 (type == XDB_TOK_COLON, "expect :\n");
-		// skip value
-		type = xdb_next_token_mark (&token, false);
-		
-		type = xdb_next_token_mark (&token, false);
-		if (type == XDB_TOK_COMMA) {
-			continue;
-		} else if (type == XDB_TOK_RB) {
-			goto error;
-		}
-	}
-#endif
-
 error:
 	pVal->val_type = XDB_TYPE_NULL;
 	return false;
+}
+
+static int xdb_json_replace (char* dst, xdb_str_t *pJson, const char *path, xdb_value_t *pVal)
+{
+	xdb_value_t val;
+	int len = pJson->len;
+	bool bOk = xdb_json_extract (pJson->str, path, &val);
+	if (bOk) {
+		int offset = val.val_str.str - pJson->str;
+		if (dst != pJson->str) {
+			memcpy (dst, pJson->str, offset);
+			memcpy (dst + offset, pVal->val_str.str, pVal->val_str.len);
+			memcpy (dst + offset + pVal->val_str.len, val.val_str.str + val.val_str.len, pJson->len - offset - val.val_str.len);
+		} else {
+			memmove (dst + offset + pVal->val_str.len, val.val_str.str + val.val_str.len, pJson->len - offset - val.val_str.len);
+			memcpy (dst + offset, pVal->val_str.str, pVal->val_str.len);			
+		}
+		
+		len += pVal->val_str.len - val.val_str.len;
+		dst[len] = '\0';
+	}
+	return len;
 }
 

@@ -1472,8 +1472,15 @@ xdb_parse_setcol (xdb_stmt_select_t *pStmt, xdb_token_t *pTkn)
 		XDB_EXPECT(pField != NULL, XDB_E_STMT, "Can't find field '%s'", pTkn->token);
 		xdb_setfld_t *pSet = &pStmt->set_flds[pStmt->set_count++];
 		pSet->pField = pField;
-		
+
+		pSet->exp.op_val[0].pExtract = NULL;
 		type = xdb_next_token (pTkn);
+		if (XDB_TOK_EXTRACT == type) {
+			type = xdb_next_token (pTkn);
+			XDB_EXPECT (type <= XDB_TOK_STR, XDB_E_STMT, "Expect json extract string");
+			pSet->exp.op_val[0].pExtract = pTkn->token;
+			type = xdb_next_token (pTkn);
+		}
 		XDB_EXPECT(type==XDB_TOK_EQ, XDB_E_STMT, "Miss =");
 
 		type = xdb_next_token (pTkn);

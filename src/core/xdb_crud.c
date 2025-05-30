@@ -1099,8 +1099,9 @@ xdb_col_set2 (void *pColPtr, xdb_type_t col_type, xdb_value_t *pVal)
 }
 
 XDB_STATIC void 
-xdb_col_set (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pField, xdb_value_t *pVal)
+xdb_col_set (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pField, char *pExtract, xdb_value_t *pVal)
 {
+	uint32_t *pVAlloc;
 	xdb_str_t *pVStr;
 	void *pColPtr = pRow + pField->fld_off;
 	switch (pField->fld_type) {
@@ -1135,8 +1136,30 @@ xdb_col_set (xdb_tblm_t *pTblm, void *pRow, xdb_field_t *pField, xdb_value_t *pV
 	case XDB_TYPE_VCHAR:
 	case XDB_TYPE_JSON:
 		pVStr = pRow + pTblm->row_size;
+		if (pExtract != NULL) {
+			printf ("Set %s\n", pExtract);
+			xdb_str_t *pStr = &pVStr[pField->fld_vid];
+			pVAlloc = (uint32_t*)&pVStr[pTblm->vfld_count];
+			char *pDst = pStr->str;
+			int buf_len = 0;
+			if (pVAlloc[pField->fld_vid] == 0) {
+				buf_len = pVStr[pField->fld_vid].len + 64*1024;
+				pDst = xdb_malloc (buf_len);
+				if (pDst == NULL) {
+					xdb_errlog ("Failed to alloc memory\n");
+					return;
+				}
+				pVAlloc[pTblm->vfld_count]++;
+			}
+			pStr->len = xdb_json_replace (pDst, pStr, pExtract, pVal);
+			if (pDst != pStr->str) {
+				pVAlloc[pField->fld_vid] = buf_len;
+				pStr->str = pDst;
+			}
+			break;
+		}
 		pVStr[pField->fld_vid] = pVal->str;
-		break;		
+		break;
 	case XDB_TYPE_BINARY:
 		memcpy (pColPtr, pVal->str.str, pVal->str.len+1);
 		*(uint16_t*)(pColPtr-2) = pVal->str.len;
@@ -1177,9 +1200,10 @@ xdb_row_set (xdb_tblm_t *pTblm, void *pRow, xdb_setfld_t set_flds[], int count)
 		if (xdb_unlikely (pField->sup_type != pVal->sup_type)) {
 			xdb_convert_val (pVal, pField->sup_type);
 		}
-		xdb_col_set (pTblm, pRow, pField, pVal);
+		xdb_col_set (pTblm, pRow, pField, pSetFld->exp.op_val[0].pExtract, pVal);
 		XDB_SET_NOTNULL (pNull, pField->fld_id);
 	}
+
 }
 
 XDB_STATIC uint64_t 
@@ -3010,7 +3034,7 @@ xdb_dbrow_log (xdb_tblm_t *pTblm, uint32_t type, void *pNewRow, void *pOldRow, x
 }
 
 XDB_STATIC xdb_rowid 
-xdb_row_insert (xdb_conn_t *pConn, xdb_tblm_t *pTblm, void *pRow, int bUpdOrRol)
+xdb_row_insert (xdb_conn_t *pConn, xdb_tblm_t *pTblm, void *pRow, bool bUpdOrRol)
 {
 	xdb_stgmgr_t	*pStgMgr = &pTblm->stg_mgr;
 
@@ -3194,7 +3218,7 @@ xdb_row_update (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow,
 	int 		row_vlen = 0;
 	
 	if ((pTblm->vfld_count > 0) || (trig_cnt > 0)) {
-		row_vlen = pTblm->vfld_count * sizeof(xdb_str_t);
+		row_vlen = pTblm->vfld_count * (sizeof(xdb_str_t) + 4) + 4;
 		XDB_BUF_ALLOC (pUpdRow, pTblm->pMeta->row_size + row_vlen);
 		XDB_EXPECT (pUpdRow != NULL, XDB_E_MEMORY, "Can't alloc memory");
 		memcpy (pUpdRow, pRow, pTblm->pMeta->row_size);
@@ -3277,10 +3301,23 @@ xdb_row_update (xdb_conn_t *pConn, xdb_tblm_t *pTblm, xdb_rowid rid, void *pRow,
 			}
 		}
 		bDel = xdb_row_updDel (pConn, pTblm, rid, pRow);
-		xdb_rowid newid = xdb_row_insert (pConn, pTblm, pUpdRow, 1);
+		xdb_rowid newid = xdb_row_insert (pConn, pTblm, pUpdRow, true);
 		pRowNew = XDB_IDPTR(&pTblm->stg_mgr, newid);
 		// may remap
 		pRow = XDB_IDPTR(&pTblm->stg_mgr, rid);
+
+		if (pTblm->vfld_count > 0) {
+			xdb_str_t *pStr = (void*)pUpdRow + pTblm->row_size;
+			uint32_t *pAlloc = (uint32_t*)&pStr[pTblm->vfld_count];
+			// free allocated var field
+			if (xdb_unlikely (pAlloc[pTblm->vfld_count] > 0)) {
+				for (int i = 0; i < pTblm->vfld_count; ++i) {
+					if (pAlloc[i] > 0) {
+						xdb_free (pStr[i].str);
+					}
+				}
+			}
+		}
 	}
 
 	if (xdb_unlikely (aft_trig_cnt)) {
@@ -3342,7 +3379,7 @@ xdb_sql_insert (xdb_stmt_insert_t *pStmt)
 	if (XDB_STMT_INSERT == pStmt->stmt_type) {
 		for (int i = 0 ; i < pStmt->row_count; ++i) {
 			void *pRow = pStmt->pRowsBuf + pStmt->row_offset[i];
-			xdb_rowid rid = xdb_row_insert (pConn, pTblm, pRow, 0);
+			xdb_rowid rid = xdb_row_insert (pConn, pTblm, pRow, false);
 			if (rid > 0) {
 				count ++;
 			}
@@ -3371,7 +3408,7 @@ xdb_sql_insert (xdb_stmt_insert_t *pStmt)
 			void *pRow = pStmt->pRowsBuf + pStmt->row_offset[i];
 			xdb_rowid rid2 = pIdxm->pIdxOps->idx_query2 (pConn, pIdxm, pRow);
 			if (rid2 <= 0) {
-				xdb_rowid rid = xdb_row_insert (pConn, pTblm, pRow, 0);
+				xdb_rowid rid = xdb_row_insert (pConn, pTblm, pRow, false);
 				if (rid > 0) {
 					count ++;
 				}
