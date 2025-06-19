@@ -50,4 +50,7 @@ XDB_STATIC int
 xdb_initial_sync (xdb_subscribe_t *pSubscribe);
 #endif
 
+XDB_STATIC const void * 
+xdb_poll_sql (xdb_conn_t *pConn, int *pLen, uint32_t timeout);
+
 #endif // __XDB_PUBSUB_H__

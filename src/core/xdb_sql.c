@@ -753,7 +753,7 @@ xdb_bind_str (xdb_stmt_t *pStmt, uint16_t para_id, const char *str)
 xdb_ret
 xdb_bind_blob (xdb_stmt_t *pStmt, uint16_t para_id, const void *blob, int len)
 {
-	return xdb_bind_str2 (pStmt, para_id, blob, 0);
+	return xdb_bind_str2 (pStmt, para_id, blob, len);
 }
 
 XDB_STATIC xdb_res_t*

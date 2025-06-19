@@ -26,17 +26,18 @@
 - Support simple SQL inner join
 - Support RBTREE index for exact match, range match and leftmost match
 
-## 0.14.0 <small>(2025-05-21)</small>
+## 0.15.0 <small>(2025-05-21)</small>
 
 **Features**
 
 - Support create index on `JSON` field.
+- `xdb_bind_blob`
 
 **Improvements**
 
 **Bug Fixes**
 
-- Fix `create` invalid objec doesn't report error
+- Fix `create` invalid object doesn't report error
 
 -->
 

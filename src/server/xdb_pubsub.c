@@ -98,7 +98,7 @@ xdb_run_replica (void *pArg)
 		XDB_RESCHK(pRes);
 		while (1) {
 			int len;
-			const char * sql = xdb_poll (pPubConn, &len, 0);
+			const char * sql = xdb_poll_sql (pPubConn, &len, 0);
 			if (sql != NULL) {
 				xdb_pubsublog ("=== Recv %d: %s\n", len, sql);
 				pRes = xdb_exec (pConn, sql);
@@ -184,6 +184,10 @@ error:
 XDB_STATIC int 
 xdb_subscribe_send2 (xdb_subscribe_t *pSub, const char *sql, int len)
 {
+	if (!pSub->bReplica) {
+		return 0;
+	}
+
 	XDB_OBJ_WRLOCK (pSub);
 	if (!pSub->bSync) {
 		xdb_vec_addStr (&pSub->cud_cache, sql, len);
@@ -618,7 +622,8 @@ xdb_drop_server (xdb_stmt_svr_t *pStmt)
 
 #define XDB_POLL_BUF	(1024*1024)
 
-const void * xdb_poll (xdb_conn_t *pConn, int *pLen, uint32_t timeout)
+XDB_STATIC const void * 
+xdb_poll_sql (xdb_conn_t *pConn, int *pLen, uint32_t timeout)
 {
 	int	len, rlen;
 
@@ -678,10 +683,12 @@ const void * xdb_poll (xdb_conn_t *pConn, int *pLen, uint32_t timeout)
 	return sql;
 }
 
-#if 0
-XDB_STATIC int 
-xdb_ddl_sync (xdb_dbm_t *pDbm, xdb_dbm_t pTblm, const char *sql)
+xdb_res_t*
+xdb_poll (xdb_conn_t *pConn, int *pLen, uint32_t timeout)
 {
-	xdb_send
+	xdb_res_t *pRes = xdb_fetch_res_sock (pConn);
+	if ((XDB_STMT_USE_DB == pRes->stmt_type) && (0 == pRes->errcode) && pRes->row_data) {
+		xdb_strcpy (pConn->cur_db, (char*)pRes->row_data);
+	}
+	return pRes;
 }
-#endif

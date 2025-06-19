@@ -1744,6 +1744,7 @@ xdb_column_int64 (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol)
 	}
 	xdb_col_t	*pCol = ((xdb_col_t**)pMeta->col_list)[iCol];
 	void 		*pVal = pRow + pCol->col_off;
+	const char 	*pStr;
 
 	switch (pCol->col_type) {
 	case XDB_TYPE_INT:
@@ -1763,6 +1764,16 @@ xdb_column_int64 (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol)
 		return *(int16_t*)pVal;
 	case XDB_TYPE_USMALLINT:
 		return *(uint16_t*)pVal;
+	case XDB_TYPE_CHAR:
+	case XDB_TYPE_BINARY:
+	case XDB_TYPE_VCHAR:
+	case XDB_TYPE_VBINARY:
+	case XDB_TYPE_JSON:
+		pStr = xdb_column_str(pRes, pRow, iCol);
+		if (NULL != pStr) {
+			return atoll (pStr);
+		}
+		break;
 	}
 	return 0;
 }
@@ -2952,6 +2963,23 @@ xdb_dbrow_log (xdb_tblm_t *pTblm, uint32_t type, void *pNewRow, void *pOldRow, x
 	if (0 == pTblm->sub_list.count) {
 		if (!pTblm->bLog || pTblm->pDbm->bSysDb) {
 			return XDB_OK;
+		}
+	}
+
+	for (int i = 0; i < pTblm->sub_list.count; ++i) {
+		xdb_subscribe_t *pSub = pTblm->sub_list.pEle[i];
+		if (!pSub->bReplica) {
+			//xdb_pubsublog ("### sent to data subscriber\n");
+			// send meta
+
+			// send chg
+
+			// send row
+
+			// send oldrow ()
+			
+			//case XDB_TRIG_AFT_INS:
+			//	break;
 		}
 	}
 

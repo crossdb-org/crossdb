@@ -200,8 +200,8 @@ const char* xdb_errmsg (xdb_res_t *pRes)
 	return pRes->row_data ? (const char*)pRes->row_data : "OK";
 }
 
-xdb_restype_e
-xdb_result_type (xdb_res_t *pRes)
+xdb_msg_e
+xdb_msg_type (xdb_res_t *pRes)
 {
 	if (xdb_unlikely (NULL != pRes)) {
 		return pRes->len_type >= 28;

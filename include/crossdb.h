@@ -76,6 +76,14 @@ typedef enum {
 	XDB_TYPE_MAX        = 32
 } xdb_type_t;
 
+typedef enum {
+	XDB_MSG_REPLY,
+	XDB_MSG_INITIAL,
+	XDB_MSG_INSERT,
+	XDB_MSG_UPDATE,
+	XDB_MSG_DELETE
+} xdb_msg_e;
+
 typedef struct {
 	uint8_t		family;	// 4=ipv4, 6=ipv6 
 	uint8_t		mask;
@@ -157,7 +165,7 @@ xdb_res_t*
 xdb_vbexec_cb (xdb_conn_t *pConn, xdb_row_callback callback, void *pArg, const char *sql, va_list ap);
 #endif
 
-const void * 
+xdb_res_t * 
 xdb_poll (xdb_conn_t *pConn, int *pLen, uint32_t timeout);
 
 
@@ -304,6 +312,9 @@ xdb_bind_str (xdb_stmt_t *pStmt, uint16_t para_id, const char *str);
 
 xdb_ret
 xdb_bind_str2 (xdb_stmt_t *pStmt, uint16_t para_id, const char *str, int len);
+
+xdb_ret
+xdb_bind_blob (xdb_stmt_t *pStmt, uint16_t para_id, const void *blob, int len);
 
 xdb_ret
 xdb_clear_bindings (xdb_stmt_t *pStmt);
