@@ -242,6 +242,14 @@ xdb_column_mac (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol);
 const xdb_inet_t*
 xdb_column_inet (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol);
 
+#if 0
+const void*
+xdb_column_array (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol);
+
+const int
+xdb_column_aryint (xdb_res_t *pRes, xdb_row_t *pRow, uint16_t iCol, uint16_t idx);
+#endif
+
 bool 
 xdb_col_null (xdb_res_t *pRes, xdb_row_t *pRow, const char *name);
 

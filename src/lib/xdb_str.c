@@ -144,7 +144,7 @@ void * xdb_str_regcomp (const char *pattern)
 	if (NULL == pRegex) {
 		return NULL;
 	}
-	if (0 != regcomp(pRegex, pattern, 0)) {
+	if (0 != regcomp(pRegex, pattern, REG_EXTENDED|REG_NOSUB)) {
 		xdb_errlog ("Can parse patter: '%s'\n", pattern);
 		xdb_free (pRegex);
 		pRegex = NULL;
@@ -160,7 +160,8 @@ void xdb_str_regfree (void *pRegExp)
 
 int xdb_str_regexec (const char *string, int len, void *pRegExp)
 {
-	regmatch_t match = {.rm_so = 0, .rm_eo = len};
-	return 0 == regexec (pRegExp, string, 0, &match, REG_STARTEND);
+	//regmatch_t match = {.rm_so = 0, .rm_eo = len};
+	//return 0 == regexec (pRegExp, string, 0, &match, REG_STARTEND);
+	return 0 == regexec (pRegExp, string, 0, NULL, 0);
 }
 
